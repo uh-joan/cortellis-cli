@@ -1,0 +1,1860 @@
+"""Cortellis CLI — Click command hierarchy with REPL entry point.
+
+Entry point: cortellis
+Root group: cortellis (with --json flag)
+
+11 command groups:
+  drugs, companies, deals, trials, regulations,
+  conferences, literature, press-releases, ontology, analytics, ner
+"""
+
+import sys
+from typing import Optional
+
+import click
+from dotenv import load_dotenv
+
+from cli_anything.cortellis.core.client import CortellisClient
+from cli_anything.cortellis.utils.output import print_output, print_error
+
+__version__ = "0.1.0"
+
+_BANNER = """
+  ╔═════════════════════════════════════════════════════════════════════════════╗
+  ║                                                                             ║
+  ║    ██████╗ ██████╗ ██████╗ ████████╗███████╗██╗     ██╗     ██╗███████╗     ║
+  ║   ██╔════╝██╔═══██╗██╔══██╗╚══██╔══╝██╔════╝██║     ██║     ██║██╔════╝     ║
+  ║   ██║     ██║   ██║██████╔╝   ██║   █████╗  ██║     ██║     ██║███████╗     ║
+  ║   ██║     ██║   ██║██╔══██╗   ██║   ██╔══╝  ██║     ██║     ██║╚════██║     ║
+  ║   ╚██████╗╚██████╔╝██║  ██║   ██║   ███████╗███████╗███████╗██║███████║     ║
+  ║    ╚═════╝ ╚═════╝ ╚═╝  ╚═╝   ╚═╝   ╚══════╝╚══════╝╚══════╝╚═╝╚══════╝     ║
+  ║                                                                             ║
+  ║            P h a r m a c e u t i c a l   I n t e l l i g e n c e            ║
+  ║                              CLI  v{version:<6s}                            ║
+  ╚═════════════════════════════════════════════════════════════════════════════╝
+""".format(version=__version__)
+
+# Domain imports — populated by parallel workers
+from cli_anything.cortellis.core import (
+    drugs as _drugs,
+    companies as _companies,
+    deals as _deals,
+    trials as _trials,
+    regulatory as _regulatory,
+    ontology as _ontology,
+    analytics as _analytics,
+    literature as _literature,
+    conferences as _conferences,
+    press_releases as _press_releases,
+    ner as _ner,
+    company_analytics as _company_analytics,
+    deals_intelligence as _deals_intelligence,
+    drug_design as _drug_design,
+    targets as _targets,
+)
+
+load_dotenv()
+
+
+# ---------------------------------------------------------------------------
+# Root group
+# ---------------------------------------------------------------------------
+
+@click.group(invoke_without_command=True)
+@click.option("--json", "json_mode", is_flag=True, default=False,
+              help="Output raw JSON instead of formatted tables.")
+@click.version_option(__version__, prog_name="cortellis")
+@click.pass_context
+def cli(ctx: click.Context, json_mode: bool) -> None:
+    """Cortellis pharmaceutical intelligence CLI."""
+    ctx.ensure_object(dict)
+    ctx.obj["json"] = json_mode
+    ctx.obj["client"] = CortellisClient()
+
+    if ctx.invoked_subcommand is None:
+        # No subcommand — launch AI chat mode
+        ctx.invoke(chat_cmd, debug=False)
+
+
+def _client(ctx: click.Context) -> CortellisClient:
+    return ctx.obj["client"]
+
+
+# ---------------------------------------------------------------------------
+# config — interactive credential setup
+# ---------------------------------------------------------------------------
+
+# ---------------------------------------------------------------------------
+# drugs
+# ---------------------------------------------------------------------------
+
+@cli.group()
+@click.pass_context
+def drugs(ctx: click.Context) -> None:
+    """Drug intelligence commands."""
+
+
+@drugs.command("search")
+@click.option("--query", default=None, help="Raw Cortellis query string.")
+@click.option("--company", default=None)
+@click.option("--indication", default=None)
+@click.option("--action", default=None)
+@click.option("--phase", default=None, help="Development phase (e.g. L, 1, 2, 3).")
+@click.option("--technology", default=None)
+@click.option("--drug-name", default=None)
+@click.option("--country", default=None)
+@click.option("--offset", default=0, show_default=True)
+@click.option("--hits", default=10, show_default=True)
+@click.option("--sort-by", default=None)
+@click.option("--historic", is_flag=True, default=False,
+              help="Use historic development status fields.")
+@click.option("--status-date", default=None, help="Filter by status date (YYYY-MM-DD).")
+@click.option("--phase-terminated", default=None, help="Filter by terminated phase.")
+@click.option("--return-filter-count", is_flag=True, default=False, help="Return filter counts in the response.")
+@click.pass_context
+def drugs_search(ctx, query, company, indication, action, phase, technology,
+                 drug_name, country, offset, hits, sort_by, historic, status_date,
+                 phase_terminated, return_filter_count):
+    """Search the drug database."""
+    data = _drugs.search(
+        _client(ctx),
+        query=query,
+        company=company,
+        indication=indication,
+        action=action,
+        phase=phase,
+        technology=technology,
+        drug_name=drug_name,
+        country=country,
+        offset=offset,
+        hits=hits,
+        sort_by=sort_by,
+        historic=historic,
+        status_date=status_date,
+        phase_terminated=phase_terminated,
+        return_filter_count=return_filter_count if return_filter_count else None,
+    )
+    print_output(ctx, data)
+
+
+@drugs.command("get")
+@click.argument("drug_id")
+@click.option("--category", default=None,
+              type=click.Choice(["report", "swot", "financial"]),
+              help="Report category to fetch.")
+@click.option("--include-sources", is_flag=True, default=False, help="Include source documents.")
+@click.pass_context
+def drugs_get(ctx, drug_id, category, include_sources):
+    """Get a drug record by ID."""
+    data = _drugs.get(_client(ctx), drug_id, category=category, include_sources=include_sources)
+    print_output(ctx, data)
+
+
+@drugs.command("records")
+@click.argument("ids", nargs=-1, required=True)
+@click.pass_context
+def drugs_records(ctx, ids):
+    """Batch get multiple drug records by ID."""
+    data = _drugs.records(_client(ctx), list(ids))
+    print_output(ctx, data)
+
+
+@drugs.command("history")
+@click.argument("drug_id")
+@click.pass_context
+def drugs_history(ctx, drug_id):
+    """Get development status change history for a drug."""
+    data = _drugs.change_history(_client(ctx), drug_id)
+    print_output(ctx, data)
+
+
+@drugs.command("autocomplete")
+@click.argument("query")
+@click.option("--hits", default=10, show_default=True,
+              help="Number of suggestions to return.")
+@click.pass_context
+def drugs_autocomplete(ctx, query, hits):
+    """Typeahead autocomplete suggestions for drug names."""
+    data = _drugs.autocomplete(_client(ctx), query, hits=hits)
+    print_output(ctx, data)
+
+
+@drugs.command("ci-matrix")
+@click.option("--query", required=True, help="Query for CI matrix.")
+@click.option("--offset", default=0, show_default=True)
+@click.option("--hits", default=20, show_default=True)
+@click.pass_context
+def drugs_ci_matrix(ctx, query, offset, hits):
+    """Fetch competitive intelligence matrix for drugs."""
+    data = _drugs.ci_matrix(_client(ctx), query, offset=offset, hits=hits)
+    print_output(ctx, data)
+
+
+@drugs.command("molfile")
+@click.argument("drug_id")
+@click.pass_context
+def drugs_molfile(ctx, drug_id):
+    """Get MOL file (chemical structure) for a drug."""
+    text = _drugs.get_molfile(_client(ctx), drug_id)
+    click.echo(text)
+
+
+@drugs.command("structure-image")
+@click.argument("drug_id")
+@click.option("--format", "fmt", default="png", type=click.Choice(["png", "svg"]), show_default=True)
+@click.option("--width", default=300, show_default=True)
+@click.option("--height", default=300, show_default=True)
+@click.option("--output", "output_file", default=None, help="Output file path (default: <drug_id>.<format>).")
+@click.pass_context
+def drugs_structure_image(ctx, drug_id, fmt, width, height, output_file):
+    """Download structure image for a drug."""
+    data = _drugs.get_structure_image(_client(ctx), drug_id, fmt=fmt, width=width, height=height)
+    if not output_file:
+        output_file = f"{drug_id}.{fmt}"
+    with open(output_file, "wb") as f:
+        f.write(data)
+    click.echo(f"Saved to {output_file} ({len(data)} bytes)")
+
+
+@drugs.command("structure-search")
+@click.option("--smiles", required=True, help="SMILES string for structure search.")
+@click.option("--type", "search_type", default="substructure", type=click.Choice(["substructure", "similarity", "exact"]), show_default=True)
+@click.option("--offset", default=0, show_default=True)
+@click.option("--hits", default=20, show_default=True)
+@click.pass_context
+def drugs_structure_search(ctx, smiles, search_type, offset, hits):
+    """Search drugs by chemical structure (SMILES)."""
+    data = _drugs.structure_search(_client(ctx), smiles=smiles, search_type=search_type, offset=offset, hits=hits)
+    print_output(ctx, data)
+
+
+@drugs.command("sources")
+@click.argument("drug_id")
+@click.pass_context
+def drugs_sources(ctx, drug_id):
+    """Get source documents for a drug."""
+    data = _drugs.sources(_client(ctx), drug_id)
+    print_output(ctx, data)
+
+
+@drugs.command("batch-sources")
+@click.argument("ids", nargs=-1, required=True)
+@click.pass_context
+def drugs_batch_sources(ctx, ids):
+    """Batch get source documents for multiple drugs."""
+    data = _drugs.batch_sources(_client(ctx), list(ids))
+    print_output(ctx, data)
+
+
+@drugs.command("financials")
+@click.argument("drug_id")
+@click.option("--csv", "as_csv", is_flag=True, default=False, help="Output as CSV instead of JSON.")
+@click.pass_context
+def drugs_financials(ctx, drug_id, as_csv):
+    """Get financial data (sales & forecasts) for a drug."""
+    if as_csv:
+        text = _drugs.financials_csv(_client(ctx), drug_id)
+        click.echo(text)
+    else:
+        data = _drugs.financials(_client(ctx), drug_id)
+        print_output(ctx, data)
+
+
+@drugs.command("swots")
+@click.argument("drug_id")
+@click.pass_context
+def drugs_swots(ctx, drug_id):
+    """Get SWOT analysis for a drug."""
+    data = _drugs.swots(_client(ctx), drug_id)
+    print_output(ctx, data)
+
+
+@drugs.command("companies-by-taxonomy")
+@click.option("--type", "taxonomy_type", required=True,
+              type=click.Choice(["indication", "action", "technology", "all_action"]))
+@click.option("--tree-code", required=True, help="Taxonomy tree code (e.g. CAR- for cardiovascular).")
+@click.pass_context
+def drugs_companies_by_taxonomy(ctx, taxonomy_type, tree_code):
+    """Get companies linked to a taxonomy term."""
+    data = _drugs.companies_linked_to_taxonomy(_client(ctx), taxonomy_type, tree_code)
+    print_output(ctx, data)
+
+
+# ---------------------------------------------------------------------------
+# companies
+# ---------------------------------------------------------------------------
+
+@cli.group()
+@click.pass_context
+def companies(ctx: click.Context) -> None:
+    """Company intelligence commands."""
+
+
+@companies.command("search")
+@click.option("--query", default=None)
+@click.option("--name", default=None)
+@click.option("--country", default=None)
+@click.option("--size", default=None)
+@click.option("--deals-count", default=None)
+@click.option("--indications", default=None)
+@click.option("--actions", default=None)
+@click.option("--technologies", default=None)
+@click.option("--status", default=None)
+@click.option("--offset", default=0, show_default=True)
+@click.option("--hits", default=10, show_default=True)
+@click.option("--sort-by", default=None)
+@click.pass_context
+def companies_search(ctx, query, name, country, size, deals_count, indications,
+                     actions, technologies, status, offset, hits, sort_by):
+    """Search companies."""
+    data = _companies.search(
+        _client(ctx),
+        query=query,
+        name=name,
+        country=country,
+        size=size,
+        deals_count=deals_count,
+        indications=indications,
+        actions=actions,
+        technologies=technologies,
+        status=status,
+        offset=offset,
+        hits=hits,
+        sort_by=sort_by,
+    )
+    print_output(ctx, data)
+
+
+@companies.command("get")
+@click.argument("company_id")
+@click.pass_context
+def companies_get(ctx, company_id):
+    """Get a company record by ID."""
+    data = _companies.get(_client(ctx), company_id)
+    print_output(ctx, data)
+
+
+@companies.command("records")
+@click.argument("ids", nargs=-1, required=True)
+@click.pass_context
+def companies_records(ctx, ids):
+    """Batch get multiple company records by ID."""
+    data = _companies.records(_client(ctx), list(ids))
+    print_output(ctx, data)
+
+
+@companies.command("sources")
+@click.argument("company_id")
+@click.pass_context
+def companies_sources(ctx, company_id):
+    """Get source documents for a company."""
+    data = _companies.sources(_client(ctx), company_id)
+    print_output(ctx, data)
+
+
+# ---------------------------------------------------------------------------
+# deals
+# ---------------------------------------------------------------------------
+
+@cli.group()
+@click.pass_context
+def deals(ctx: click.Context) -> None:
+    """Deal intelligence commands."""
+
+
+@deals.command("search")
+@click.option("--query", default=None)
+@click.option("--drug", default=None)
+@click.option("--indication", default=None)
+@click.option("--type", "--deal-type", "deal_type", default=None)
+@click.option("--status", default=None)
+@click.option("--principal", default=None)
+@click.option("--partner", default=None)
+@click.option("--action", default=None)
+@click.option("--date-start", default=None, help="Deal date range start (YYYY-MM-DD).")
+@click.option("--date-end", default=None, help="Deal date range end (YYYY-MM-DD).")
+@click.option("--offset", default=0, show_default=True)
+@click.option("--hits", default=10, show_default=True)
+@click.option("--sort-by", default=None)
+@click.option("--indication-partner-company", default=None)
+@click.option("--phase-start", default=None)
+@click.option("--phase-now", default=None)
+@click.option("--deal-status", default=None)
+@click.option("--summary", default=None)
+@click.option("--title-summary", default=None)
+@click.option("--technology", default=None)
+@click.option("--title", default=None)
+@click.option("--actions-primary", default=None)
+@click.option("--principal-hq", default=None)
+@click.option("--territories-included", default=None)
+@click.option("--territories-excluded", default=None)
+@click.option("--date-most-recent", default=None)
+@click.option("--max-value-paid-to-partner", default=None)
+@click.option("--total-projected-current-amount", default=None)
+@click.option("--min-value-paid-to-partner", default=None)
+@click.option("--total-paid-amount", default=None)
+@click.option("--disclosure-status", default=None)
+@click.pass_context
+def deals_search(ctx, query, drug, indication, deal_type, status, principal,
+                 partner, action, date_start, date_end, offset, hits, sort_by,
+                 indication_partner_company, phase_start, phase_now, deal_status,
+                 summary, title_summary, technology, title, actions_primary,
+                 principal_hq, territories_included, territories_excluded,
+                 date_most_recent, max_value_paid_to_partner,
+                 total_projected_current_amount, min_value_paid_to_partner,
+                 total_paid_amount, disclosure_status):
+    """Search deals."""
+    data = _deals.search(
+        _client(ctx),
+        query=query,
+        drug=drug,
+        indication=indication,
+        deal_type=deal_type,
+        status=status,
+        principal=principal,
+        partner=partner,
+        action=action,
+        date_start=date_start,
+        date_end=date_end,
+        offset=offset,
+        hits=hits,
+        sort_by=sort_by,
+        indication_partner_company=indication_partner_company,
+        phase_start=phase_start,
+        phase_now=phase_now,
+        deal_status=deal_status,
+        summary=summary,
+        title_summary=title_summary,
+        technology=technology,
+        title=title,
+        actions_primary=actions_primary,
+        principal_hq=principal_hq,
+        territories_included=territories_included,
+        territories_excluded=territories_excluded,
+        date_most_recent=date_most_recent,
+        max_value_paid_to_partner=max_value_paid_to_partner,
+        total_projected_current_amount=total_projected_current_amount,
+        min_value_paid_to_partner=min_value_paid_to_partner,
+        total_paid_amount=total_paid_amount,
+        disclosure_status=disclosure_status,
+    )
+    print_output(ctx, data)
+
+
+@deals.command("get")
+@click.argument("deal_id")
+@click.option("--category", default=None,
+              type=click.Choice(["basic", "expanded"]))
+@click.pass_context
+def deals_get(ctx, deal_id, category):
+    """Get a deal record by ID."""
+    data = _deals.get(_client(ctx), deal_id, category=category)
+    print_output(ctx, data)
+
+
+@deals.command("records")
+@click.argument("ids", nargs=-1, required=True)
+@click.pass_context
+def deals_records(ctx, ids):
+    """Batch get multiple deal records by ID."""
+    data = _deals.records(_client(ctx), list(ids))
+    print_output(ctx, data)
+
+
+@deals.command("sources")
+@click.argument("deal_id")
+@click.pass_context
+def deals_sources(ctx, deal_id):
+    """Get source documents for a deal."""
+    data = _deals.sources(_client(ctx), deal_id)
+    print_output(ctx, data)
+
+
+# ---------------------------------------------------------------------------
+# trials
+# ---------------------------------------------------------------------------
+
+@cli.group()
+@click.pass_context
+def trials(ctx: click.Context) -> None:
+    """Clinical trial commands."""
+
+
+@trials.command("search")
+@click.option("--query", default=None)
+@click.option("--indication", default=None)
+@click.option("--phase", default=None)
+@click.option("--recruitment-status", default=None, help="Recruitment status filter.")
+@click.option("--status", default=None, help="Alias for --recruitment-status (backward compat).")
+@click.option("--sponsor", default=None)
+@click.option("--funder-type", default=None)
+@click.option("--enrollment", default=None)
+@click.option("--date-start", default=None)
+@click.option("--date-end", default=None)
+@click.option("--identifier", default=None)
+@click.option("--title", default=None, help="Trial title filter.")
+@click.option("--offset", default=0, show_default=True)
+@click.option("--hits", default=10, show_default=True)
+@click.option("--sort-by", default=None)
+@click.pass_context
+def trials_search(ctx, query, indication, phase, recruitment_status, status,
+                  sponsor, funder_type, enrollment, date_start, date_end,
+                  identifier, title, offset, hits, sort_by):
+    """Search clinical trials."""
+    data = _trials.search(
+        _client(ctx),
+        query=query,
+        indication=indication,
+        phase=phase,
+        recruitment_status=recruitment_status,
+        status=status,
+        sponsor=sponsor,
+        funder_type=funder_type,
+        enrollment=enrollment,
+        date_start=date_start,
+        date_end=date_end,
+        identifier=identifier,
+        title=title,
+        offset=offset,
+        hits=hits,
+        sort_by=sort_by,
+    )
+    print_output(ctx, data)
+
+
+@trials.command("get")
+@click.argument("trial_id")
+@click.option("--category", default=None,
+              type=click.Choice(["report", "sites"]))
+@click.pass_context
+def trials_get(ctx, trial_id, category):
+    """Get a clinical trial by ID."""
+    data = _trials.get(_client(ctx), trial_id, category=category)
+    print_output(ctx, data)
+
+
+@trials.command("records")
+@click.argument("ids", nargs=-1, required=True)
+@click.pass_context
+def trials_records(ctx, ids):
+    """Batch get multiple trial records by ID."""
+    data = _trials.records(_client(ctx), list(ids))
+    print_output(ctx, data)
+
+
+@trials.command("sources")
+@click.argument("trial_id")
+@click.pass_context
+def trials_sources(ctx, trial_id):
+    """Get source documents for a clinical trial."""
+    data = _trials.sources(_client(ctx), trial_id)
+    print_output(ctx, data)
+
+
+@trials.command("id-mappings")
+@click.option("--entity-type", required=True, help="Entity type (e.g. Disease, Drug).")
+@click.option("--id-type", required=True, help="Source ID type (e.g. ICD9, ICD10, MeSH).")
+@click.option("--ids", required=True, help="Comma-separated IDs to map.")
+@click.pass_context
+def trials_id_mappings(ctx, entity_type, id_type, ids):
+    """Fetch ID mappings for a trial entity type."""
+    data = _trials.id_mappings(_client(ctx), entity_type=entity_type, id_type=id_type, ids=ids)
+    print_output(ctx, data)
+
+
+# ---------------------------------------------------------------------------
+# regulations
+# ---------------------------------------------------------------------------
+
+@cli.group()
+@click.pass_context
+def regulations(ctx: click.Context) -> None:
+    """Regulatory document commands."""
+
+
+@regulations.command("search")
+@click.option("--query", default=None)
+@click.option("--region", default=None)
+@click.option("--doc-category", default=None)
+@click.option("--doc-type", default=None)
+@click.option("--language", default=None)
+@click.option("--product-category", default=None, help="Product category filter.")
+@click.option("--include-outdated", is_flag=True, default=False,
+              help="Include outdated/superseded documents.")
+@click.option("--filters-enabled", is_flag=True, default=False,
+              help="Enable facet filters in response.")
+@click.option("--filter-count", is_flag=True, default=False,
+              help="Return filter counts in response.")
+@click.option("--offset", default=0, show_default=True)
+@click.option("--hits", default=10, show_default=True)
+@click.option("--sort-by", default=None)
+@click.pass_context
+def regulations_search(ctx, query, region, doc_category, doc_type, language,
+                       product_category, include_outdated, filters_enabled,
+                       filter_count, offset, hits, sort_by):
+    """Search regulatory documents."""
+    data = _regulatory.search(
+        _client(ctx),
+        query=query,
+        region=region,
+        doc_category=doc_category,
+        doc_type=doc_type,
+        language=language,
+        prod_category=product_category,
+        include_outdated=include_outdated,
+        filters_enabled=filters_enabled,
+        filter_count=filter_count,
+        offset=offset,
+        hits=hits,
+        sort_by=sort_by,
+    )
+    print_output(ctx, data)
+
+
+@regulations.command("get")
+@click.argument("regulation_id")
+@click.option("--category", default=None,
+              type=click.Choice(["metadata", "source"]))
+@click.pass_context
+def regulations_get(ctx, regulation_id, category):
+    """Get a regulatory document by ID."""
+    data = _regulatory.get(_client(ctx), regulation_id, category=category)
+    print_output(ctx, data)
+
+
+@regulations.command("snapshot")
+@click.argument("regulation_id")
+@click.pass_context
+def regulations_snapshot(ctx, regulation_id):
+    """Get a snapshot of a regulatory document."""
+    data = _regulatory.snapshot(_client(ctx), regulation_id)
+    print_output(ctx, data)
+
+
+@regulations.command("cited-documents")
+@click.argument("regulation_id")
+@click.pass_context
+def regulations_cited_documents(ctx, regulation_id):
+    """Get documents cited by a regulatory document."""
+    data = _regulatory.cited_documents(_client(ctx), regulation_id)
+    print_output(ctx, data)
+
+
+@regulations.command("cited-by")
+@click.argument("regulation_id")
+@click.pass_context
+def regulations_cited_by(ctx, regulation_id):
+    """Get documents that cite a regulatory document."""
+    data = _regulatory.cited_by(_client(ctx), regulation_id)
+    print_output(ctx, data)
+
+
+@regulations.command("grc-reports")
+@click.pass_context
+def regulations_grc_reports(ctx):
+    """List available Global Regulatory Comparison reports."""
+    data = _regulatory.grc_reports(_client(ctx))
+    print_output(ctx, data)
+
+
+@regulations.command("grc")
+@click.argument("report_id")
+@click.option("--fmt", default="json", type=click.Choice(["json", "csv"]), show_default=True)
+@click.pass_context
+def regulations_grc(ctx, report_id, fmt):
+    """Get a specific Global Regulatory Comparison report."""
+    data = _regulatory.grc(_client(ctx), report_id, fmt=fmt)
+    print_output(ctx, data)
+
+
+@regulations.command("grc-list")
+@click.argument("report_id")
+@click.pass_context
+def regulations_grc_list(ctx, report_id):
+    """Get list of items in a GRC report."""
+    data = _regulatory.grc_list(_client(ctx), report_id)
+    print_output(ctx, data)
+
+
+@regulations.command("regions-entitled")
+@click.pass_context
+def regulations_regions_entitled(ctx):
+    """Get regions the user is entitled to access."""
+    data = _regulatory.regions_entitled(_client(ctx))
+    print_output(ctx, data)
+
+
+@regulations.command("db-rir")
+@click.pass_context
+def regulations_db_rir(ctx):
+    """List Regulatory Intelligence Reports hierarchy (Drugs & Biologics)."""
+    data = _regulatory.db_rir(_client(ctx))
+    print_output(ctx, data)
+
+
+@regulations.command("db-rs")
+@click.pass_context
+def regulations_db_rs(ctx):
+    """List Regulatory Summaries hierarchy (Drugs & Biologics)."""
+    data = _regulatory.db_rs(_client(ctx))
+    print_output(ctx, data)
+
+
+# ---------------------------------------------------------------------------
+# conferences
+# ---------------------------------------------------------------------------
+
+@cli.group()
+@click.pass_context
+def conferences(ctx: click.Context) -> None:
+    """Conference commands."""
+
+
+@conferences.command("search")
+@click.option("--query", default=None)
+@click.option("--offset", default=0, show_default=True)
+@click.option("--hits", default=10, show_default=True)
+@click.option("--sort-by", default=None)
+@click.option("--filters-enabled", is_flag=True, default=False,
+              help="Enable facet filters in response.")
+@click.option("--filter-count", is_flag=True, default=False,
+              help="Return filter counts in response.")
+@click.pass_context
+def conferences_search(ctx, query, offset, hits, sort_by, filters_enabled, filter_count):
+    """Search conferences."""
+    data = _conferences.search(
+        _client(ctx), query=query, offset=offset, hits=hits, sort_by=sort_by,
+        filters_enabled=filters_enabled, filter_count=filter_count,
+    )
+    print_output(ctx, data)
+
+
+@conferences.command("get")
+@click.argument("conference_id")
+@click.pass_context
+def conferences_get(ctx, conference_id):
+    """Get a conference by ID."""
+    data = _conferences.get(_client(ctx), conference_id)
+    print_output(ctx, data)
+
+
+# ---------------------------------------------------------------------------
+# literature
+# ---------------------------------------------------------------------------
+
+@cli.group()
+@click.pass_context
+def literature(ctx: click.Context) -> None:
+    """Literature commands."""
+
+
+@literature.command("search")
+@click.option("--query", default=None)
+@click.option("--offset", default=0, show_default=True)
+@click.option("--hits", default=10, show_default=True)
+@click.option("--sort-by", default=None)
+@click.option("--filters-enabled", is_flag=True, default=False,
+              help="Enable facet filters in response.")
+@click.option("--filter-count", is_flag=True, default=False,
+              help="Return filter counts in response.")
+@click.pass_context
+def literature_search(ctx, query, offset, hits, sort_by, filters_enabled, filter_count):
+    """Search literature."""
+    data = _literature.search(
+        _client(ctx), query=query, offset=offset, hits=hits, sort_by=sort_by,
+        filters_enabled=filters_enabled, filter_count=filter_count,
+    )
+    print_output(ctx, data)
+
+
+@literature.command("get")
+@click.argument("literature_id")
+@click.pass_context
+def literature_get(ctx, literature_id):
+    """Get a literature record by ID."""
+    data = _literature.get(_client(ctx), literature_id)
+    print_output(ctx, data)
+
+
+@literature.command("records")
+@click.argument("ids", nargs=-1, required=True)
+@click.pass_context
+def literature_records(ctx, ids):
+    """Batch get multiple literature records by ID."""
+    data = _literature.records(_client(ctx), list(ids))
+    print_output(ctx, data)
+
+
+@literature.command("molfile")
+@click.argument("literature_id")
+@click.pass_context
+def literature_molfile(ctx, literature_id):
+    """Get MOL file (chemical structure) for a literature record."""
+    text = _literature.get_molfile(_client(ctx), literature_id)
+    click.echo(text)
+
+
+@literature.command("structure-image")
+@click.argument("literature_id")
+@click.option("--format", "fmt", default="png", type=click.Choice(["png", "svg"]), show_default=True)
+@click.option("--width", default=300, show_default=True)
+@click.option("--height", default=300, show_default=True)
+@click.option("--output", "output_file", default=None, help="Output file path (default: <id>.<format>).")
+@click.pass_context
+def literature_structure_image(ctx, literature_id, fmt, width, height, output_file):
+    """Download structure image for a literature record."""
+    data = _literature.get_structure_image(_client(ctx), literature_id, fmt=fmt, width=width, height=height)
+    if not output_file:
+        output_file = f"{literature_id}.{fmt}"
+    with open(output_file, "wb") as f:
+        f.write(data)
+    click.echo(f"Saved to {output_file} ({len(data)} bytes)")
+
+
+@literature.command("structure-search")
+@click.option("--smiles", required=True, help="SMILES string for structure search.")
+@click.option("--type", "search_type", default="substructure", type=click.Choice(["substructure", "similarity", "exact"]), show_default=True)
+@click.option("--offset", default=0, show_default=True)
+@click.option("--hits", default=20, show_default=True)
+@click.pass_context
+def literature_structure_search(ctx, smiles, search_type, offset, hits):
+    """Search literature by chemical structure (SMILES)."""
+    data = _literature.structure_search(_client(ctx), smiles=smiles, search_type=search_type, offset=offset, hits=hits)
+    print_output(ctx, data)
+
+
+# ---------------------------------------------------------------------------
+# press-releases
+# ---------------------------------------------------------------------------
+
+@cli.group(name="press-releases")
+@click.pass_context
+def press_releases(ctx: click.Context) -> None:
+    """Press release commands."""
+
+
+@press_releases.command("search")
+@click.option("--query", default=None)
+@click.option("--offset", default=0, show_default=True)
+@click.option("--hits", default=10, show_default=True)
+@click.option("--sort-by", default=None)
+@click.option("--filters-enabled", is_flag=True, default=False,
+              help="Enable facet filters in response.")
+@click.option("--filter-count", is_flag=True, default=False,
+              help="Return filter counts in response.")
+@click.pass_context
+def press_releases_search(ctx, query, offset, hits, sort_by, filters_enabled, filter_count):
+    """Search press releases."""
+    data = _press_releases.search(
+        _client(ctx), query=query, offset=offset, hits=hits, sort_by=sort_by,
+        filters_enabled=filters_enabled, filter_count=filter_count,
+    )
+    print_output(ctx, data)
+
+
+@press_releases.command("get")
+@click.argument("id_list", nargs=-1, required=True)
+@click.pass_context
+def press_releases_get(ctx, id_list):
+    """Get press releases by ID list."""
+    data = _press_releases.get(_client(ctx), list(id_list))
+    print_output(ctx, data)
+
+
+# ---------------------------------------------------------------------------
+# ontology
+# ---------------------------------------------------------------------------
+
+@cli.group()
+@click.pass_context
+def ontology(ctx: click.Context) -> None:
+    """Ontology commands."""
+
+
+@ontology.command("search")
+@click.option("--term", required=True, help="Search term (e.g. 'obesity').")
+@click.option("--category", required=True, help="Ontology category (e.g. indication, action, technology).")
+@click.pass_context
+def ontology_search(ctx, term, category):
+    """Search the taxonomy for a term within a category."""
+    data = _ontology.search(_client(ctx), category=category, term=term)
+    print_output(ctx, data)
+
+
+@ontology.command("top-level")
+@click.option("--category", default=None)
+@click.option("--counts", is_flag=True, default=False)
+@click.option("--dataset", default=None)
+@click.pass_context
+def ontology_top_level(ctx, category, counts, dataset):
+    """List top-level ontology nodes."""
+    data = _ontology.top_level(_client(ctx), category=category, counts=counts, dataset=dataset)
+    print_output(ctx, data)
+
+
+@ontology.command("children")
+@click.option("--category", required=True)
+@click.option("--tree-code", required=True)
+@click.option("--counts", is_flag=True, default=False)
+@click.option("--dataset", default=None)
+@click.pass_context
+def ontology_children(ctx, category, tree_code, counts, dataset):
+    """List child nodes for a tree code."""
+    data = _ontology.children(
+        _client(ctx), category=category, tree_code=tree_code, counts=counts, dataset=dataset
+    )
+    print_output(ctx, data)
+
+
+@ontology.command("parents")
+@click.option("--category", required=True)
+@click.option("--tree-code", required=True)
+@click.pass_context
+def ontology_parents(ctx, category, tree_code):
+    """List parent nodes for a tree code."""
+    data = _ontology.parents(_client(ctx), category=category, tree_code=tree_code)
+    print_output(ctx, data)
+
+
+@ontology.command("synonyms")
+@click.option("--category", required=True, help="Ontology category (e.g. indication).")
+@click.option("--term", required=True, help="Term to look up synonyms for.")
+@click.pass_context
+def ontology_synonyms(ctx, category, term):
+    """Fetch synonyms for a term in a taxonomy category."""
+    data = _ontology.synonyms(_client(ctx), category=category, term=term)
+    print_output(ctx, data)
+
+
+@ontology.command("synonyms-by-id")
+@click.option("--category", required=True, help="Ontology category (e.g. drug, action, indication).")
+@click.option("--id", "node_id", required=True, help="Taxonomy node numeric identifier.")
+@click.option("--id-type", default="idapi", show_default=True, help="ID type system (e.g. idapi, ddapi).")
+@click.pass_context
+def ontology_synonyms_by_id(ctx, category, node_id, id_type):
+    """Fetch synonyms for a taxonomy node by numeric ID."""
+    data = _ontology.synonyms_by_id(_client(ctx), category=category, id=node_id, id_type=id_type)
+    print_output(ctx, data)
+
+
+@ontology.command("id-map")
+@click.option("--entity-type", required=True, help="Entity type (e.g. drug, company, disease, target, action).")
+@click.option("--id-type", required=True, help="Source ID type (e.g. idapi, ddapi, companyId, ciIndication).")
+@click.option("--ids", required=True, help="Comma-separated IDs to map.")
+@click.pass_context
+def ontology_id_map(ctx, entity_type, id_type, ids):
+    """Map IDs for a given entity type between ID systems."""
+    data = _ontology.id_map(_client(ctx), entity_type=entity_type, id_type=id_type, ids=ids)
+    print_output(ctx, data)
+
+
+@ontology.command("summary")
+@click.option("--type", "summary_type", required=True,
+              type=click.Choice([
+                  "drug", "company", "indication", "action", "trial", "deal",
+                  "patent", "journal", "meeting", "regulatory", "diseaseBriefing",
+                  "patentFamily", "source", "eventTranscript",
+              ]),
+              help="Entity type.")
+@click.option("--id", "entity_id", required=True, help="Entity identifier.")
+@click.pass_context
+def ontology_summary(ctx, summary_type, entity_id):
+    """Fetch an ontology summary for an entity."""
+    data = _ontology.summary(_client(ctx), summary_type=summary_type, id=entity_id)
+    print_output(ctx, data)
+
+
+# ---------------------------------------------------------------------------
+# targets
+# ---------------------------------------------------------------------------
+
+@cli.group()
+@click.pass_context
+def targets(ctx):
+    """Target intelligence commands."""
+
+
+@targets.command("search")
+@click.option("--query", required=True)
+@click.option("--offset", default=0, show_default=True)
+@click.option("--hits", default=20, show_default=True)
+@click.option("--sort-by", default=None)
+@click.option("--sort-direction", default=None, type=click.Choice(["ascending", "descending"]))
+@click.option("--filters-enabled", is_flag=True, default=False)
+@click.pass_context
+def targets_search(ctx, query, offset, hits, sort_by, sort_direction, filters_enabled):
+    """Search targets."""
+    data = _targets.search(_client(ctx), query, offset=offset, hits=hits, sort_by=sort_by, sort_direction=sort_direction, filters_enabled=filters_enabled)
+    print_output(ctx, data)
+
+
+@targets.command("records")
+@click.argument("ids", nargs=-1, required=True)
+@click.pass_context
+def targets_records(ctx, ids):
+    """Batch get target records (up to 50 IDs)."""
+    data = _targets.get_records(_client(ctx), list(ids))
+    print_output(ctx, data)
+
+
+@targets.command("interactions")
+@click.argument("ids", nargs=-1, required=True)
+@click.pass_context
+def targets_interactions(ctx, ids):
+    """Get interactions for targets."""
+    data = _targets.interactions(_client(ctx), list(ids))
+    print_output(ctx, data)
+
+
+@targets.command("sequences")
+@click.argument("ids", nargs=-1, required=True)
+@click.pass_context
+def targets_sequences(ctx, ids):
+    """Get sequences for targets."""
+    data = _targets.sequences(_client(ctx), list(ids))
+    print_output(ctx, data)
+
+
+@targets.command("condition-drugs")
+@click.argument("ids", nargs=-1, required=True)
+@click.pass_context
+def targets_condition_drugs(ctx, ids):
+    """Get drug-condition associations for targets."""
+    data = _targets.condition_drug_associations(_client(ctx), list(ids))
+    print_output(ctx, data)
+
+
+@targets.command("condition-genes")
+@click.argument("ids", nargs=-1, required=True)
+@click.pass_context
+def targets_condition_genes(ctx, ids):
+    """Get gene-condition associations for targets."""
+    data = _targets.condition_gene_associations(_client(ctx), list(ids))
+    print_output(ctx, data)
+
+
+@targets.command("condition-variants")
+@click.argument("ids", nargs=-1, required=True)
+@click.pass_context
+def targets_condition_variants(ctx, ids):
+    """Get gene variant-condition associations for targets."""
+    data = _targets.condition_gene_variant_associations(_client(ctx), list(ids))
+    print_output(ctx, data)
+
+
+@targets.command("drugs")
+@click.argument("ids", nargs=-1, required=True)
+@click.pass_context
+def targets_drugs(ctx, ids):
+    """Get drug records in targets context (up to 25)."""
+    data = _targets.get_drugs(_client(ctx), list(ids))
+    print_output(ctx, data)
+
+
+@targets.command("trials")
+@click.argument("ids", nargs=-1, required=True)
+@click.pass_context
+def targets_trials(ctx, ids):
+    """Get trial records in targets context (up to 25)."""
+    data = _targets.get_trials(_client(ctx), list(ids))
+    print_output(ctx, data)
+
+
+@targets.command("patents")
+@click.argument("ids", nargs=-1, required=True)
+@click.pass_context
+def targets_patents(ctx, ids):
+    """Get patent records in targets context (up to 25)."""
+    data = _targets.get_patents(_client(ctx), list(ids))
+    print_output(ctx, data)
+
+
+@targets.command("references")
+@click.argument("ids", nargs=-1, required=True)
+@click.pass_context
+def targets_references(ctx, ids):
+    """Get reference records in targets context (up to 25)."""
+    data = _targets.get_references(_client(ctx), list(ids))
+    print_output(ctx, data)
+
+
+# ---------------------------------------------------------------------------
+# analytics
+# ---------------------------------------------------------------------------
+
+@cli.group()
+@click.pass_context
+def analytics(ctx: click.Context) -> None:
+    """Analytics query commands."""
+
+
+@analytics.command("run")
+@click.argument("query_name")
+@click.option("--drug-id", default=None)
+@click.option("--indication-id", default=None)
+@click.option("--action-id", default=None)
+@click.option("--company-id", default=None)
+@click.option("--trial-id", default=None)
+@click.option("--id", "generic_id", default=None)
+@click.option("--id-list", multiple=True, help="One or more IDs (repeat flag).")
+@click.option("--fmt", default=None, help="Output format requested from the API.")
+@click.pass_context
+def analytics_run(ctx, query_name, drug_id, indication_id, action_id,
+                  company_id, trial_id, generic_id, id_list, fmt):
+    """Execute a named analytics query."""
+    data = _analytics.run(
+        _client(ctx),
+        query_name=query_name,
+        drug_id=drug_id,
+        indication_id=indication_id,
+        action_id=action_id,
+        company_id=company_id,
+        trial_id=trial_id,
+        id=generic_id,
+        id_list=list(id_list) if id_list else None,
+        fmt=fmt,
+    )
+    print_output(ctx, data)
+
+
+# ---------------------------------------------------------------------------
+# ner
+# ---------------------------------------------------------------------------
+
+@cli.group()
+@click.pass_context
+def ner(ctx: click.Context) -> None:
+    """Named entity recognition commands."""
+
+
+@ner.command("match")
+@click.argument("text")
+@click.option("--urls/--no-urls", default=False, help="Include URLs in NER response.")
+@click.pass_context
+def ner_match(ctx, text, urls):
+    """Match named entities in free text."""
+    data = _ner.match(_client(ctx), text=text, include_urls=urls)
+    print_output(ctx, data)
+
+
+# ---------------------------------------------------------------------------
+# company-analytics
+# ---------------------------------------------------------------------------
+
+@cli.group("company-analytics")
+@click.pass_context
+def company_analytics(ctx: click.Context) -> None:
+    """Company analytics commands."""
+
+
+@company_analytics.command("query-drugs")
+@click.argument("query_name")
+@click.option("--id-list", required=True, help="Comma-separated list of IDs.")
+@click.pass_context
+def company_analytics_query_drugs(ctx, query_name, id_list):
+    """Run a drug analytics query (drugSalesActualAndForecast, drugPatentProductExpiry, drugPatentExpiryDetail)."""
+    data = _company_analytics.query_drugs(_client(ctx), query_name, id_list.split(","))
+    print_output(ctx, data)
+
+
+@company_analytics.command("query-companies")
+@click.argument("query_name")
+@click.option("--id-list", required=True, help="Comma-separated list of IDs.")
+@click.pass_context
+def company_analytics_query_companies(ctx, query_name, id_list):
+    """Run a company KPI query (companyPipelineSuccess, companyDrugFirstClass, etc.)."""
+    data = _company_analytics.query_companies(_client(ctx), query_name, id_list.split(","))
+    print_output(ctx, data)
+
+
+@company_analytics.command("company-model")
+@click.argument("company_id")
+@click.pass_context
+def company_analytics_company_model(ctx, company_id):
+    """Get peer finder model for a company."""
+    data = _company_analytics.get_company_model(_client(ctx), company_id)
+    print_output(ctx, data)
+
+
+@company_analytics.command("search-model")
+@click.option("--query", required=True, help="Search query string.")
+@click.pass_context
+def company_analytics_search_model(ctx, query):
+    """Search peer finder models."""
+    data = _company_analytics.search_company_model(_client(ctx), query)
+    print_output(ctx, data)
+
+
+@company_analytics.command("similar-companies")
+@click.argument("company_id")
+@click.option("--hits", default=10, show_default=True, help="Number of similar companies to return.")
+@click.pass_context
+def company_analytics_similar_companies(ctx, company_id, hits):
+    """Find similar companies using peer finder."""
+    data = _company_analytics.get_similar_companies(_client(ctx), company_id, hits=hits)
+    print_output(ctx, data)
+
+
+@company_analytics.command("search-companies")
+@click.option("--query", required=True, help="Search query string.")
+@click.option("--offset", default=0, show_default=True)
+@click.option("--hits", default=20, show_default=True)
+@click.option("--sort-by", default=None)
+@click.pass_context
+def company_analytics_search_companies(ctx, query, offset, hits, sort_by):
+    """Search companies in analytics context."""
+    data = _company_analytics.search_companies(_client(ctx), query, offset=offset, hits=hits, sort_by=sort_by)
+    print_output(ctx, data)
+
+
+@company_analytics.command("get-company")
+@click.argument("company_id")
+@click.pass_context
+def company_analytics_get_company(ctx, company_id):
+    """Get company record in analytics context."""
+    data = _company_analytics.get_company(_client(ctx), company_id)
+    print_output(ctx, data)
+
+
+@company_analytics.command("get-companies")
+@click.argument("ids", nargs=-1, required=True)
+@click.pass_context
+def company_analytics_get_companies(ctx, ids):
+    """Batch get companies."""
+    data = _company_analytics.get_companies(_client(ctx), list(ids))
+    print_output(ctx, data)
+
+
+@company_analytics.command("search-drugs")
+@click.option("--query", required=True, help="Search query string.")
+@click.option("--offset", default=0, show_default=True)
+@click.option("--hits", default=20, show_default=True)
+@click.pass_context
+def company_analytics_search_drugs(ctx, query, offset, hits):
+    """Search drugs in analytics context."""
+    data = _company_analytics.search_drugs(_client(ctx), query, offset=offset, hits=hits)
+    print_output(ctx, data)
+
+
+@company_analytics.command("search-deals")
+@click.option("--query", required=True, help="Search query string.")
+@click.option("--offset", default=0, show_default=True)
+@click.option("--hits", default=20, show_default=True)
+@click.pass_context
+def company_analytics_search_deals(ctx, query, offset, hits):
+    """Search deals in analytics context."""
+    data = _company_analytics.search_deals(_client(ctx), query, offset=offset, hits=hits)
+    print_output(ctx, data)
+
+
+@company_analytics.command("search-patents")
+@click.option("--query", required=True, help="Search query string.")
+@click.option("--offset", default=0, show_default=True)
+@click.option("--hits", default=20, show_default=True)
+@click.pass_context
+def company_analytics_search_patents(ctx, query, offset, hits):
+    """Search patents in analytics context."""
+    data = _company_analytics.search_patents(_client(ctx), query, offset=offset, hits=hits)
+    print_output(ctx, data)
+
+
+@company_analytics.command("id-map")
+@click.argument("source_id")
+@click.pass_context
+def company_analytics_id_map(ctx, source_id):
+    """Map IDs between CI and SI."""
+    data = _company_analytics.id_map(_client(ctx), source_id)
+    print_output(ctx, data)
+
+
+# ---------------------------------------------------------------------------
+# deals-intelligence
+# ---------------------------------------------------------------------------
+
+@cli.group("deals-intelligence")
+@click.pass_context
+def deals_intelligence(ctx: click.Context) -> None:
+    """Deals intelligence commands (expanded deal records)."""
+
+
+@deals_intelligence.command("search")
+@click.option("--query", required=True, help="Search query string.")
+@click.option("--offset", default=0, show_default=True)
+@click.option("--hits", default=20, show_default=True)
+@click.option("--sort-by", default=None)
+@click.option("--filters-enabled", is_flag=True, default=False,
+              help="Enable facet filters in response.")
+@click.pass_context
+def deals_intelligence_search(ctx, query, offset, hits, sort_by, filters_enabled):
+    """Search expanded deal records."""
+    data = _deals_intelligence.search_expanded(
+        _client(ctx), query, offset=offset, hits=hits, sort_by=sort_by,
+        filters_enabled=filters_enabled,
+    )
+    print_output(ctx, data)
+
+
+@deals_intelligence.command("get")
+@click.argument("deal_id")
+@click.pass_context
+def deals_intelligence_get(ctx, deal_id):
+    """Get expanded deal record with full financials."""
+    data = _deals_intelligence.get_expanded(_client(ctx), deal_id)
+    print_output(ctx, data)
+
+
+@deals_intelligence.command("records")
+@click.argument("ids", nargs=-1, required=True)
+@click.pass_context
+def deals_intelligence_records(ctx, ids):
+    """Batch get expanded deal records (up to 30)."""
+    data = _deals_intelligence.get_expanded_batch(_client(ctx), list(ids))
+    print_output(ctx, data)
+
+
+@deals_intelligence.command("contracts")
+@click.argument("deal_id")
+@click.pass_context
+def deals_intelligence_contracts(ctx, deal_id):
+    """Get deal contract documents."""
+    data = _deals_intelligence.get_contracts(_client(ctx), deal_id)
+    print_output(ctx, data)
+
+
+@deals_intelligence.command("contract-document")
+@click.argument("deal_id")
+@click.argument("contract_id")
+@click.option("--fmt", default="pdf", type=click.Choice(["pdf", "txt"]), show_default=True,
+              help="Output format.")
+@click.option("--output", "output_file", default=None,
+              help="Output file path (default: <contract_id>.<fmt>).")
+@click.pass_context
+def deals_intelligence_contract_document(ctx, deal_id, contract_id, fmt, output_file):
+    """Get contract document as PDF or TXT."""
+    result = _deals_intelligence.get_contract_document(_client(ctx), deal_id, contract_id, fmt=fmt)
+    if fmt == "pdf":
+        if not output_file:
+            output_file = f"{contract_id}.pdf"
+        with open(output_file, "wb") as f:
+            f.write(result)
+        click.echo(f"Saved to {output_file} ({len(result)} bytes)")
+    else:
+        if output_file:
+            with open(output_file, "w") as f:
+                f.write(result)
+            click.echo(f"Saved to {output_file}")
+        else:
+            click.echo(result)
+
+
+# ---------------------------------------------------------------------------
+# drug-design
+# ---------------------------------------------------------------------------
+
+@cli.group("drug-design")
+@click.pass_context
+def drug_design(ctx: click.Context) -> None:
+    """Drug design commands."""
+
+
+@drug_design.command("pharmacology")
+@click.option("--query", required=True, help="Search query string.")
+@click.option("--offset", default=0, show_default=True)
+@click.option("--hits", default=20, show_default=True)
+@click.option("--sort-by", default=None)
+@click.pass_context
+def drug_design_pharmacology(ctx, query, offset, hits, sort_by):
+    """Search pharmacology data."""
+    data = _drug_design.search_pharmacology(_client(ctx), query, offset=offset, hits=hits, sort_by=sort_by)
+    print_output(ctx, data)
+
+
+@drug_design.command("pharmacokinetics")
+@click.option("--query", required=True, help="Search query string.")
+@click.option("--offset", default=0, show_default=True)
+@click.option("--hits", default=20, show_default=True)
+@click.option("--sort-by", default=None)
+@click.pass_context
+def drug_design_pharmacokinetics(ctx, query, offset, hits, sort_by):
+    """Search pharmacokinetics data."""
+    data = _drug_design.search_pharmacokinetics(_client(ctx), query, offset=offset, hits=hits, sort_by=sort_by)
+    print_output(ctx, data)
+
+
+@drug_design.command("search-drugs")
+@click.option("--query", required=True, help="Search query string.")
+@click.option("--offset", default=0, show_default=True)
+@click.option("--hits", default=20, show_default=True)
+@click.option("--sort-by", default=None)
+@click.pass_context
+def drug_design_search_drugs(ctx, query, offset, hits, sort_by):
+    """Search drugs in SI domain."""
+    data = _drug_design.search_drugs(_client(ctx), query, offset=offset, hits=hits, sort_by=sort_by)
+    print_output(ctx, data)
+
+
+@drug_design.command("get-drugs")
+@click.argument("ids", nargs=-1, required=True)
+@click.pass_context
+def drug_design_get_drugs(ctx, ids):
+    """Batch get drug records (up to 25 IDs)."""
+    data = _drug_design.get_drugs(_client(ctx), list(ids))
+    print_output(ctx, data)
+
+
+@drug_design.command("molfile")
+@click.argument("drug_id")
+@click.pass_context
+def drug_design_molfile(ctx, drug_id):
+    """Get MOL file for a drug structure."""
+    text = _drug_design.get_molfile(_client(ctx), drug_id)
+    click.echo(text)
+
+
+@drug_design.command("structure-image")
+@click.argument("drug_id")
+@click.option("--size", default="full", type=click.Choice(["tb", "full"]), show_default=True,
+              help="Image size: tb (thumbnail) or full.")
+@click.option("--output", "output_file", default=None,
+              help="Output file path (default: <drug_id>_structure.<size>.png).")
+@click.pass_context
+def drug_design_structure_image(ctx, drug_id, size, output_file):
+    """Get structure image for a drug."""
+    data = _drug_design.get_structure_image(_client(ctx), drug_id, size=size)
+    if not output_file:
+        output_file = f"{drug_id}_structure_{size}.png"
+    with open(output_file, "wb") as f:
+        f.write(data)
+    click.echo(f"Saved to {output_file} ({len(data)} bytes)")
+
+
+@drug_design.command("references")
+@click.argument("ids", nargs=-1, required=True)
+@click.pass_context
+def drug_design_references(ctx, ids):
+    """Batch get reference records (up to 25)."""
+    data = _drug_design.get_references(_client(ctx), list(ids))
+    print_output(ctx, data)
+
+
+@drug_design.command("patents")
+@click.argument("ids", nargs=-1, required=True)
+@click.pass_context
+def drug_design_patents(ctx, ids):
+    """Batch get patent records (up to 25)."""
+    data = _drug_design.get_patents(_client(ctx), list(ids))
+    print_output(ctx, data)
+
+
+@drug_design.command("disease-briefings-search")
+@click.option("--query", required=True, help="Search query string.")
+@click.option("--offset", default=0, show_default=True)
+@click.option("--hits", default=20, show_default=True)
+@click.pass_context
+def drug_design_disease_briefings_search(ctx, query, offset, hits):
+    """Search disease briefings."""
+    data = _drug_design.search_disease_briefings(_client(ctx), query, offset=offset, hits=hits)
+    print_output(ctx, data)
+
+
+@drug_design.command("disease-briefings")
+@click.argument("ids", nargs=-1, required=True)
+@click.pass_context
+def drug_design_disease_briefings(ctx, ids):
+    """Batch get disease briefing records (up to 10)."""
+    data = _drug_design.get_disease_briefings(_client(ctx), list(ids))
+    print_output(ctx, data)
+
+
+@drug_design.command("disease-briefing-text")
+@click.argument("briefing_id")
+@click.argument("section_id")
+@click.pass_context
+def drug_design_disease_briefing_text(ctx, briefing_id, section_id):
+    """Get disease briefing section text."""
+    data = _drug_design.get_disease_briefing_text(_client(ctx), briefing_id, section_id)
+    print_output(ctx, data)
+
+
+@drug_design.command("disease-briefing-media")
+@click.argument("filename")
+@click.option("--output", "output_file", default=None,
+              help="Output file path (default: <filename>).")
+@click.pass_context
+def drug_design_disease_briefing_media(ctx, filename, output_file):
+    """Get embedded media from a disease briefing."""
+    data = _drug_design.get_disease_briefing_multimedia(_client(ctx), filename)
+    if not output_file:
+        output_file = filename
+    with open(output_file, "wb") as f:
+        f.write(data)
+    click.echo(f"Saved to {output_file} ({len(data)} bytes)")
+
+
+# ---------------------------------------------------------------------------
+# config
+# ---------------------------------------------------------------------------
+
+@cli.command("config")
+@click.option("--env-file", default=".env", show_default=True,
+              help="Path to the .env file to write credentials into.")
+def config_cmd(env_file: str) -> None:
+    """Interactively set Cortellis API credentials and save to a .env file.
+
+    Prompts for CORTELLIS_USERNAME and CORTELLIS_PASSWORD, then writes
+    (or updates) the given .env file so subsequent commands pick them up
+    automatically.
+    """
+    import os
+    import re
+
+    click.echo("Cortellis credential setup")
+    click.echo(f"Credentials will be written to: {os.path.abspath(env_file)}\n")
+
+    username = click.prompt("CORTELLIS_USERNAME", default=os.environ.get("CORTELLIS_USERNAME", ""))
+    password = click.prompt("CORTELLIS_PASSWORD", hide_input=True,
+                            default=os.environ.get("CORTELLIS_PASSWORD", ""))
+
+    # Read existing .env content (if any) so we can update in place
+    existing_lines: list[str] = []
+    if os.path.exists(env_file):
+        with open(env_file) as fh:
+            existing_lines = fh.readlines()
+
+    def _upsert(lines: list[str], key: str, value: str) -> list[str]:
+        """Replace an existing KEY=... line or append a new one."""
+        pattern = re.compile(rf"^{re.escape(key)}\s*=")
+        updated = False
+        result = []
+        for line in lines:
+            if pattern.match(line):
+                result.append(f"{key}={value}\n")
+                updated = True
+            else:
+                result.append(line)
+        if not updated:
+            result.append(f"{key}={value}\n")
+        return result
+
+    existing_lines = _upsert(existing_lines, "CORTELLIS_USERNAME", username)
+    existing_lines = _upsert(existing_lines, "CORTELLIS_PASSWORD", password)
+
+    with open(env_file, "w") as fh:
+        fh.writelines(existing_lines)
+
+    click.echo(f"\nCredentials saved to {os.path.abspath(env_file)}")
+    click.echo("Run any cortellis command — credentials will be loaded automatically.")
+
+
+# ---------------------------------------------------------------------------
+# setup — full onboarding for new users
+# ---------------------------------------------------------------------------
+
+@cli.command("setup")
+def setup_cmd() -> None:
+    """First-time setup wizard for new users.
+
+    Walks through: credentials, API connectivity test, and Claude Code check.
+    """
+    import os
+    import re
+    import shutil
+    from pathlib import Path
+
+    click.echo(_BANNER)
+    click.echo("  Welcome to Cortellis CLI Setup!\n")
+
+    # Step 1: Credentials
+    click.echo("  Step 1/3: Cortellis API Credentials")
+    click.echo("  " + "-" * 40)
+
+    env_path = Path.cwd() / ".env"
+    existing = {}
+    if env_path.exists():
+        for line in env_path.read_text().splitlines():
+            line = line.strip()
+            if line and not line.startswith("#") and "=" in line:
+                k, v = line.split("=", 1)
+                existing[k.strip()] = v.strip()
+
+    current_user = existing.get("CORTELLIS_USERNAME", os.environ.get("CORTELLIS_USERNAME", ""))
+    if current_user:
+        click.echo(f"  Current username: {current_user}")
+        if not click.confirm("  Update credentials?", default=False):
+            username = current_user
+            password = existing.get("CORTELLIS_PASSWORD", os.environ.get("CORTELLIS_PASSWORD", ""))
+        else:
+            username = click.prompt("  Username", default=current_user)
+            password = click.prompt("  Password", hide_input=True)
+    else:
+        username = click.prompt("  Username")
+        password = click.prompt("  Password", hide_input=True)
+
+    existing["CORTELLIS_USERNAME"] = username
+    existing["CORTELLIS_PASSWORD"] = password
+    env_path.write_text("\n".join(f"{k}={v}" for k, v in existing.items()) + "\n")
+    click.echo(f"  Saved to {env_path}\n")
+
+    # Step 2: Test API connectivity
+    click.echo("  Step 2/3: Testing API Connection")
+    click.echo("  " + "-" * 40)
+    try:
+        from cli_anything.cortellis.core.client import CortellisClient as _TestClient
+        c = _TestClient(username=username, password=password)
+        result = c.get("drugs-v2/drug/search", params={"query": "*", "hits": "1", "fmt": "json"})
+        total = result.get("drugResultsOutput", {}).get("@totalResults", "?")
+        click.echo(f"  Connected! ({total} drugs in database)")
+        c.close()
+    except Exception as e:
+        click.echo(f"  Connection failed: {e}")
+        click.echo("  Check your credentials and try again with: cortellis config")
+    click.echo()
+
+    # Step 3: Claude Code check (for chat mode)
+    click.echo("  Step 3/3: Claude Code (for AI Chat Mode)")
+    click.echo("  " + "-" * 40)
+    claude_bin = shutil.which("claude")
+    if claude_bin:
+        click.echo("  Claude Code CLI found!")
+        # Check if logged in
+        import subprocess as _sp
+        try:
+            check = _sp.run([claude_bin, "--print", "-p", "say ok", "--max-turns", "1"],
+                            capture_output=True, text=True, timeout=15)
+            if check.returncode == 0:
+                click.echo("  Authenticated! 'cortellis chat' is ready.")
+            else:
+                err = check.stderr.strip()
+                if "login" in err.lower() or "auth" in err.lower() or "not logged" in err.lower():
+                    click.echo("  Not logged in yet. Run this to authenticate:")
+                    click.echo("    claude login")
+                    click.echo("  Then 'cortellis chat' will work.")
+                else:
+                    click.echo("  'cortellis chat' should be ready.")
+        except _sp.TimeoutExpired:
+            click.echo("  Auth check timed out — 'cortellis chat' should still work.")
+        except Exception:
+            click.echo("  Could not verify auth — try 'cortellis chat' to test.")
+    else:
+        click.echo("  Claude Code CLI not found.")
+        click.echo("  To enable AI chat mode, install Claude Code:")
+        click.echo("    npm install -g @anthropic-ai/claude-code")
+        click.echo("    claude login")
+        click.echo("  (Optional — all other commands work without it)")
+    click.echo()
+
+    # Summary
+    click.echo("  " + "=" * 50)
+    click.echo("  Setup Complete!")
+    click.echo("  " + "=" * 50)
+    click.echo()
+    click.echo("  Quick start:")
+    click.echo("    cortellis drugs search --phase L --hits 5")
+    click.echo("    cortellis --json companies search --query \"Pfizer\"")
+    click.echo("    cortellis ontology search --term \"obesity\" --category indication")
+    if claude_bin:
+        click.echo("    cortellis chat              # AI-powered natural language")
+    click.echo()
+    click.echo("  Run 'cortellis --help' to see all 17 command groups.")
+
+
+# ---------------------------------------------------------------------------
+# repl — interactive command REPL
+# ---------------------------------------------------------------------------
+
+@cli.command("repl")
+@click.pass_context
+def repl_cmd(ctx) -> None:
+    """Launch interactive command REPL."""
+    click.echo(_BANNER)
+    from cli_anything.cortellis.utils.repl_skin import run_repl
+    run_repl(cli, ctx)
+
+
+# ---------------------------------------------------------------------------
+# chat — AI-powered natural language interface via Claude Code
+# ---------------------------------------------------------------------------
+
+@cli.command("chat")
+@click.option("--debug", is_flag=True, default=False, help="Show API commands being executed.")
+def chat_cmd(debug) -> None:
+    """Start an AI chat session for querying Cortellis in natural language.
+
+    Launches Claude Code with Cortellis knowledge pre-loaded.
+    Ask questions like "show me Phase 3 drugs for obesity" and get answers.
+    Requires the 'claude' CLI (Claude Code subscription).
+    """
+    import json as _json
+    import shutil
+    import subprocess
+    from pathlib import Path
+
+    claude_bin = shutil.which("claude")
+    if not claude_bin:
+        click.echo("Error: 'claude' CLI not found. Install Claude Code first.")
+        click.echo("  https://docs.anthropic.com/en/docs/claude-code")
+        raise SystemExit(1)
+
+    click.echo(_BANNER)
+    click.echo("  Cortellis AI Chat — powered by Claude Code")
+    click.echo("  Ask questions naturally. Type 'exit' or Ctrl-D to quit.\n")
+
+    # Find SKILL.md for context
+    skill_path = Path(__file__).parent / "skills" / "SKILL.md"
+    skill_content = ""
+    if skill_path.exists():
+        skill_content = skill_path.read_text()
+
+    # Build the system prompt
+    venv_activate = str(Path(__file__).resolve().parents[2] / ".venv" / "bin" / "activate")
+    # Prefix that activates venv + runs cortellis in one shot
+    run = f"source {venv_activate} && cortellis --json"
+
+    system_prompt = f"""You are a Cortellis pharmaceutical intelligence assistant.
+You answer questions about drugs, companies, deals, clinical trials, regulatory events,
+conferences, literature, press releases, ontology, and analytics using the Cortellis API.
+
+CRITICAL RULE: Every Bash command MUST start with this exact prefix:
+  {run}
+
+Never try to run `cortellis` without this prefix. Never try to find or check the venv path. Just use the prefix above every single time.
+
+{skill_content}
+
+WORKFLOW:
+1. User asks a question
+2. You run one or more Bash commands using the prefix above
+3. You summarize the JSON results in clear, conversational language
+
+EXAMPLES:
+- "what drugs are in phase 3 for obesity?" →
+  First: {run} ontology search --term "obesity" --category indication
+  Then use the ID: {run} drugs search --phase C3 --indication 238 --hits 10
+
+- "tell me about tirzepatide" →
+  {run} drugs get 101964 --category report
+
+- "show me Pfizer deals" →
+  {run} deals search --principal "Pfizer" --hits 10
+
+- "find launched drugs for diabetes in the US" →
+  {run} ontology search --term "diabetes" --category indication
+  Then: {run} drugs search --phase L --indication <ID> --country US --hits 20
+
+IMPORTANT: Indication, company, and country filters use numeric IDs. Always look up IDs first with ontology search if the user gives you a name.
+Always be concise and highlight the most relevant information."""
+
+    first_turn = True
+    while True:
+        try:
+            question = input("  you> ").strip()
+        except (EOFError, KeyboardInterrupt):
+            click.echo("\n  Goodbye!")
+            break
+
+        if not question:
+            continue
+        if question.lower() in ("exit", "quit", "/exit"):
+            click.echo("  Goodbye!")
+            break
+
+        cmd = [claude_bin, "--print", "-p", question,
+               "--append-system-prompt", system_prompt,
+               "--allowedTools", "Bash",
+               "--dangerously-skip-permissions"]
+        if debug:
+            cmd.extend(["--output-format", "stream-json", "--verbose"])
+        if not first_turn:
+            cmd.append("--continue")
+
+        # Show spinner while waiting for first output
+        import threading
+        import itertools
+        import time
+
+        stop_spinner = threading.Event()
+
+        t_start = time.time()
+
+        def spin():
+            dots = itertools.cycle(["", ".", "..", "..."])
+            while not stop_spinner.is_set():
+                elapsed = int(time.time() - t_start)
+                d = next(dots)
+                sys.stdout.write(f"\r  Querying Cortellis{d:<3s}  ({elapsed}s)")
+                sys.stdout.flush()
+                time.sleep(0.4)
+            elapsed = int(time.time() - t_start)
+            sys.stdout.write(f"\r  Answered in {elapsed}s" + " " * 20 + "\n\n")
+            sys.stdout.flush()
+
+        spinner_thread = threading.Thread(target=spin, daemon=True)
+        spinner_thread.start()
+
+        proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+        first_output = True
+
+        if debug:
+            # Parse stream-json to show tool calls + final answer
+            for line in iter(proc.stdout.readline, b""):
+                decoded = line.decode("utf-8", errors="replace").strip()
+                if not decoded:
+                    continue
+                try:
+                    event = _json.loads(decoded)
+                except _json.JSONDecodeError:
+                    continue
+
+                etype = event.get("type", "")
+
+                # Tool calls are inside assistant message content array
+                if etype == "assistant" and "message" in event:
+                    content = event["message"].get("content", [])
+                    if isinstance(content, list):
+                        for block in content:
+                            if block.get("type") == "tool_use":
+                                if first_output:
+                                    stop_spinner.set()
+                                    spinner_thread.join()
+                                    first_output = False
+                                tool = block.get("name", "?")
+                                inp = block.get("input", {})
+                                if tool == "Bash" and "command" in inp:
+                                    cmd_str = inp["command"]
+                                    if "cortellis" in cmd_str:
+                                        short = cmd_str.split("cortellis", 1)[1].strip()
+                                        sys.stdout.write(f"  > cortellis {short}\n")
+                                    else:
+                                        sys.stdout.write(f"  > {cmd_str[:80]}\n")
+                                else:
+                                    sys.stdout.write(f"  > {tool}\n")
+                                sys.stdout.flush()
+
+                elif etype == "result":
+                    if first_output:
+                        stop_spinner.set()
+                        spinner_thread.join()
+                        first_output = False
+                    text = event.get("result", "")
+                    sys.stdout.write(text)
+                    if not text.endswith("\n"):
+                        sys.stdout.write("\n")
+                    sys.stdout.flush()
+        else:
+            # Plain text streaming
+            for line in iter(proc.stdout.readline, b""):
+                if first_output:
+                    stop_spinner.set()
+                    spinner_thread.join()
+                    first_output = False
+                decoded = line.decode("utf-8", errors="replace")
+                sys.stdout.write(decoded)
+                sys.stdout.flush()
+
+        if first_output:
+            stop_spinner.set()
+            spinner_thread.join()
+
+        proc.wait()
+        click.echo()
+        first_turn = False
