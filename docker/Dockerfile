@@ -25,9 +25,13 @@ RUN JS_FILE=$(ls $CLOUDCLI_DIST/assets/index-*.js) && \
     sed -i 's|"Loading Claude Code UI"|"Loading Cortellis CLI"|g' "$JS_FILE" && \
     sed -i 's|"Claude Code UI"|"Cortellis CLI"|g' "$JS_FILE"
 
-# Copy custom favicon/logo (if provided)
+# Copy custom favicon/logo
 COPY docker/branding/favicon.svg "$CLOUDCLI_DIST/favicon.svg"
 COPY docker/branding/logo.svg "$CLOUDCLI_DIST/logo.svg"
+
+# Inject banner script into index.html
+COPY docker/branding/inject.js "$CLOUDCLI_DIST/cortellis-inject.js"
+RUN sed -i 's|</head>|<script src="/cortellis-inject.js"></script></head>|' "$CLOUDCLI_DIST/index.html"
 
 # ---------- Pre-install Cortellis CLI ----------
 
