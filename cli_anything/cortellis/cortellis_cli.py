@@ -1742,7 +1742,13 @@ EXAMPLES:
   Then: {run} drugs search --phase L --indication <ID> --country US --hits 20
 
 IMPORTANT: Indication, company, and country filters use numeric IDs. Always look up IDs first with ontology search if the user gives you a name.
-Always be concise and highlight the most relevant information."""
+
+STRICT DATA RULES:
+1. ONLY report data returned by cortellis. Never add drugs/companies/trials from your training data.
+2. Give exact numbers. Never say "~8" or "6-7". If the query returned 8 results, say "8".
+3. If data is missing from results, say "not in the Cortellis results". Do NOT fill gaps from memory.
+4. Never mention drugs that did not appear in the query results.
+5. Run the CLI for EVERY pharma question. Never answer from memory."""
 
     first_turn = True
     while True:
