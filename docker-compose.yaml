@@ -1,0 +1,32 @@
+# ==============================================================================
+# Cortellis CLI — Browser Mode (powered by HolyClaude)
+#
+# Usage:
+#   1. Copy .env.example to .env and fill in your credentials
+#   2. docker compose up -d
+#   3. Open http://localhost:3001
+#   4. Ask: "what drugs are on the market for obesity?"
+# ==============================================================================
+
+services:
+  cortellis:
+    image: coderluii/holyclaude:latest
+    container_name: cortellis-cli
+    hostname: cortellis-cli
+    restart: unless-stopped
+    shm_size: 2g
+    cap_add:
+      - SYS_ADMIN
+      - SYS_PTRACE
+    security_opt:
+      - seccomp=unconfined
+    ports:
+      - "3001:3001"
+    volumes:
+      - .:/workspace/cortellis-cli
+      - ./data/claude:/home/claude/.claude
+    environment:
+      - TZ=${TZ:-UTC}
+      - CORTELLIS_USERNAME=${CORTELLIS_USERNAME}
+      - CORTELLIS_PASSWORD=${CORTELLIS_PASSWORD}
+    entrypoint: ["/bin/bash", "-c", "/workspace/cortellis-cli/docker/bootstrap.sh && /init"]
