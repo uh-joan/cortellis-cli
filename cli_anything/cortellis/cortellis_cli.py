@@ -63,9 +63,11 @@ load_dotenv()
 @click.group(invoke_without_command=True)
 @click.option("--json", "json_mode", is_flag=True, default=False,
               help="Output raw JSON instead of formatted tables.")
+@click.option("--debug", is_flag=True, default=False,
+              help="Show API commands being executed in chat mode.")
 @click.version_option(__version__, prog_name="cortellis")
 @click.pass_context
-def cli(ctx: click.Context, json_mode: bool) -> None:
+def cli(ctx: click.Context, json_mode: bool, debug: bool) -> None:
     """Cortellis pharmaceutical intelligence CLI."""
     ctx.ensure_object(dict)
     ctx.obj["json"] = json_mode
@@ -73,7 +75,7 @@ def cli(ctx: click.Context, json_mode: bool) -> None:
 
     if ctx.invoked_subcommand is None:
         # No subcommand — launch AI chat mode
-        ctx.invoke(chat_cmd, debug=False)
+        ctx.invoke(chat_cmd, debug=debug)
 
 
 def _client(ctx: click.Context) -> CortellisClient:
@@ -1675,8 +1677,6 @@ def repl_cmd(ctx) -> None:
 # chat — AI-powered natural language interface via Claude Code
 # ---------------------------------------------------------------------------
 
-@cli.command("chat")
-@click.option("--debug", is_flag=True, default=False, help="Show API commands being executed.")
 def chat_cmd(debug) -> None:
     """Start an AI chat session for querying Cortellis in natural language.
 
