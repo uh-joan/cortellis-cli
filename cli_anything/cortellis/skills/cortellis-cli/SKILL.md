@@ -1,3 +1,8 @@
+---
+name: cortellis-cli
+description: Full command reference for the Cortellis pharmaceutical intelligence CLI (17 command groups, 80+ subcommands)
+---
+
 # Cortellis CLI Skill
 
 A CLI-Anything skill for querying the Cortellis pharmaceutical intelligence platform.
