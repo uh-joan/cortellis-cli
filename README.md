@@ -14,6 +14,8 @@
   ╚═════════════════════════════════════════════════════════════════════════════╝
 ```
 
+> **Disclaimer:** This is an **unofficial, community-built tool**. It is not affiliated with, endorsed by, or supported by Clarivate, Cortellis, or any of their subsidiaries. Use at your own risk. You must have valid Cortellis API credentials and an active subscription to use this tool. Respect your organization's data usage policies and API terms of service.
+
 The entire Cortellis pharmaceutical intelligence platform in your terminal. Ask questions in plain English — AI does the rest.
 
 ## Quick Start
