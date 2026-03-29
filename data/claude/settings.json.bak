@@ -1,8 +1,0 @@
-{
-  "permissions": {
-    "defaultMode": "acceptEdits"
-  },
-  "env": {
-    "DISABLE_AUTOUPDATER": "1"
-  }
-}

@@ -9,3 +9,5 @@ build/
 .omc/
 *.png
 *.svg
+data/
+.claude/
