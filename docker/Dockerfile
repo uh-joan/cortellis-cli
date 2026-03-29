@@ -44,13 +44,17 @@ COPY docker/settings.json /home/claude/.claude/settings.json
 COPY cli_anything/cortellis/skills/SKILL.md /home/claude/.claude/skills/cortellis.md
 COPY docker/cortellis-claude.md /opt/cortellis-claude.md
 
-# Entrypoint wrapper: appends Cortellis instructions to CLAUDE.md after HolyClaude bootstrap,
+# Entrypoint wrapper: PREPENDS Cortellis instructions to CLAUDE.md (top priority),
 # and writes .env from container env vars
 RUN cat > /opt/cortellis-init.sh <<'SCRIPT'
 #!/bin/sh
-# Append Cortellis instructions to CLAUDE.md (HolyClaude bootstrap may overwrite it)
+# Prepend Cortellis instructions to TOP of CLAUDE.md so they take priority
 if ! grep -q "Cortellis CLI" /home/claude/.claude/CLAUDE.md 2>/dev/null; then
-  cat /opt/cortellis-claude.md >> /home/claude/.claude/CLAUDE.md
+  cat /opt/cortellis-claude.md /home/claude/.claude/CLAUDE.md > /tmp/claude-md-merged && \
+  mv /tmp/claude-md-merged /home/claude/.claude/CLAUDE.md
+elif ! head -5 /home/claude/.claude/CLAUDE.md | grep -q "Cortellis CLI"; then
+  cat /opt/cortellis-claude.md /home/claude/.claude/CLAUDE.md > /tmp/claude-md-merged && \
+  mv /tmp/claude-md-merged /home/claude/.claude/CLAUDE.md
 fi
 # Write .env from env vars for python-dotenv
 if [ -n "$CORTELLIS_USERNAME" ] && [ -n "$CORTELLIS_PASSWORD" ]; then
