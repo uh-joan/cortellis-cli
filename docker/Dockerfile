@@ -48,7 +48,7 @@ COPY docker/cortellis-claude.md /opt/cortellis-claude.md
 # and writes .env from container env vars
 RUN cat > /opt/cortellis-init.sh <<'SCRIPT'
 #!/bin/sh
-# Prepend Cortellis instructions to TOP of CLAUDE.md so they take priority
+# Prepend Cortellis instructions to TOP of global CLAUDE.md
 if ! grep -q "Cortellis CLI" /home/claude/.claude/CLAUDE.md 2>/dev/null; then
   cat /opt/cortellis-claude.md /home/claude/.claude/CLAUDE.md > /tmp/claude-md-merged && \
   mv /tmp/claude-md-merged /home/claude/.claude/CLAUDE.md
@@ -56,6 +56,10 @@ elif ! head -5 /home/claude/.claude/CLAUDE.md | grep -q "Cortellis CLI"; then
   cat /opt/cortellis-claude.md /home/claude/.claude/CLAUDE.md > /tmp/claude-md-merged && \
   mv /tmp/claude-md-merged /home/claude/.claude/CLAUDE.md
 fi
+# Also put CLAUDE.md in workspace (where CloudCLI opens sessions)
+mkdir -p /workspace/.claude
+cp /opt/cortellis-claude.md /workspace/.claude/CLAUDE.md
+cp /opt/cortellis-claude.md /workspace/CLAUDE.md
 # Write .env from env vars for python-dotenv
 if [ -n "$CORTELLIS_USERNAME" ] && [ -n "$CORTELLIS_PASSWORD" ]; then
   echo "CORTELLIS_USERNAME=$CORTELLIS_USERNAME" > /opt/cortellis-cli/.env
