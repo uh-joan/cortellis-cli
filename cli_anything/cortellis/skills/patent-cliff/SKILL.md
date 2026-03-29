@@ -1,3 +1,8 @@
+---
+name: patent-cliff
+description: /patent-cliff: Patent Expiry Analysis
+---
+
 # /patent-cliff — Patent Expiry Analysis
 
 Identify drugs facing patent cliffs and potential generic competition.

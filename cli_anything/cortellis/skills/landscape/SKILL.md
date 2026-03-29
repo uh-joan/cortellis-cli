@@ -1,3 +1,8 @@
+---
+name: landscape
+description: /landscape: Competitive Landscape Report
+---
+
 # /landscape — Competitive Landscape Report
 
 Generate a full competitive landscape for a therapeutic indication.

@@ -1,3 +1,8 @@
+---
+name: deal-scout
+description: /deal-scout: Deal Scouting Report
+---
+
 # /deal-scout — Deal Scouting Report
 
 Find and analyze recent deals in a therapeutic area or for a company.

@@ -1,3 +1,8 @@
+---
+name: regulatory-watch
+description: /regulatory-watch: Regulatory Activity Monitor
+---
+
 # /regulatory-watch — Regulatory Activity Monitor
 
 Track recent regulatory activity for a drug, company, or region.

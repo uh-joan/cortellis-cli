@@ -1,3 +1,8 @@
+---
+name: drug-profile
+description: /drug-profile: Deep Drug Profile
+---
+
 # /drug-profile — Deep Drug Profile
 
 Everything about a single drug from Cortellis data.

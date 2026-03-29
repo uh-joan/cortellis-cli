@@ -1,3 +1,8 @@
+---
+name: target-map
+description: /target-map: Target Validation Report
+---
+
 # /target-map — Target Validation Report
 
 Map the competitive landscape around a biological target.

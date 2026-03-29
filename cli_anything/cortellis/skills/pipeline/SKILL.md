@@ -1,3 +1,8 @@
+---
+name: pipeline
+description: /pipeline: Company Pipeline Analysis
+---
+
 # /pipeline — Company Pipeline Analysis
 
 Analyze a company's full drug development pipeline.
