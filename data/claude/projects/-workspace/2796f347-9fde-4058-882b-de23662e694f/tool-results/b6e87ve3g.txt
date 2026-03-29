@@ -1,0 +1,831 @@
+{
+  "drugResultsOutput": {
+    "@hits": "15",
+    "@offset": "0",
+    "@totalResults": "15",
+    "SearchResults": {
+      "Drug": [
+        {
+          "@id": "91249",
+          "@name": "liraglutide biosimilar, Hangzhou Zhongmei Huadong Pharmaceutical",
+          "@lastModificationDate": "2023-07-05T00:00:00Z",
+          "@phaseHighest": "Launched",
+          "CompanyOriginator": "Hangzhou Jiuyuan Genetic Biopharmaceutical Co Ltd",
+          "CompaniesPrimary": {
+            "Company": [
+              "Gulf Pharmaceutical Industries Julphar Co PSC",
+              "Hangzhou Zhongmei Huadong Pharmaceutical Co Ltd"
+            ]
+          },
+          "IndicationsPrimary": {
+            "Indication": [
+              "Non-insulin dependent diabetes",
+              "Obesity"
+            ]
+          },
+          "ActionsPrimary": {
+            "Action": "Glucagon-like peptide 1 receptor agonist"
+          },
+          "Technologies": {
+            "Technology": [
+              "Biological",
+              "Biosimilar product",
+              "Protein recombinant",
+              "Subcutaneous formulation"
+            ]
+          },
+          "TherapyAreas": {
+            "TherapyArea": [
+              "Endocrine/Metabolic",
+              "Other/Miscellaneous"
+            ]
+          },
+          "Summary": "Hangzhou Zhongmei Huadong Pharmaceutical , under license from Hangzhou Jiuyuan Gene Engineering , has developed and launched a biosimilar version of liraglutide , for the potential subcutaneous treatment of type 2 diabetes and obesity [ 1953282 ], [ 2186996 ], [ 2136711 ], [ 2441609 ],[ 2998829 ]. In September 2021, an NDA was filed in China [ 2520401 ]; in June 2022, marketing approval was expected by the end of 2022 [ 2694402 ].In Mach 2023,the drug was approved by NMPA for the treatment of",
+          "CompaniesSecondary": {
+            "Company": "Hangzhou Jiuyuan Genetic Biopharmaceutical Co Ltd"
+          },
+          "ActionsSecondary": {
+            "Action": "Hypoglycemic agent"
+          },
+          "AddedDate": "2014-05-16T00:00:00Z"
+        },
+        {
+          "@id": "80923",
+          "@name": "beinaglutide",
+          "@lastModificationDate": "2026-03-26T00:00:00Z",
+          "@phaseHighest": "Launched",
+          "CompanyOriginator": "Shanghai Benemae Pharmaceutical Corp",
+          "CompaniesPrimary": {
+            "Company": "Shanghai Benemae Pharmaceutical Corp"
+          },
+          "RegulatoryDesignations": {
+            "RegulatoryDesignation": "National Science and Technology Major Project"
+          },
+          "IndicationsPrimary": {
+            "Indication": [
+              "Metabolic dysfunction-associated steatotic liver disease",
+              "Non-insulin dependent diabetes",
+              "Obesity",
+              "Obstructive sleep apnea"
+            ]
+          },
+          "ActionsPrimary": {
+            "Action": "Glucagon-like peptide 1 receptor agonist"
+          },
+          "Technologies": {
+            "Technology": [
+              "Biological",
+              "Protein recombinant",
+              "Subcutaneous formulation"
+            ]
+          },
+          "TherapyAreas": {
+            "TherapyArea": [
+              "Neurology/Psychiatric",
+              "Gastrointestinal",
+              "Endocrine/Metabolic",
+              "Other/Miscellaneous"
+            ]
+          },
+          "Summary": "Shanghai Benemae Pharmaceutical (formerly Shanghai Huayi Bio-Tech Lab) has developed and launched beinaglutide, a rh glucagon-like peptide 1 (7-36) (rhGLP-1, YST, Yin Sheng Tai, beinalutai, HYBR-014, benaglutide), for the sc treatment of type 2 diabetes and obesity [ 1323109 ], [ 1575434 ], [ 3706329 ], [ 2623579 ]. In February 2017, the product was launched for type 2 diabetes [ 2024985 ]. In July 2023, the drug was approved for obesity [ 3706329 ]. By April 2018, the project had been listed as",
+          "ActionsSecondary": {
+            "Action": "Hypoglycemic agent"
+          },
+          "AddedDate": "2012-09-24T00:00:00Z"
+        },
+        {
+          "@id": "75881",
+          "@name": "sibutramine maleate (obesity), GL PharmTech",
+          "@lastModificationDate": "2012-02-07T00:00:00Z",
+          "@phaseHighest": "Launched",
+          "CompanyOriginator": "GL PharmTech Corp",
+          "CompaniesPrimary": {
+            "Company": "GL PharmTech Corp"
+          },
+          "IndicationsPrimary": {
+            "Indication": "Obesity"
+          },
+          "Technologies": {
+            "Technology": [
+              "Oral formulation",
+              "Small molecule"
+            ]
+          },
+          "TherapyAreas": {
+            "TherapyArea": "Other/Miscellaneous"
+          },
+          "Summary": "GL PharmTech has developed and launched sibutramine maleate (GL-2504), an incrementally modified drug of sibutramine , for the oral treatment of obesity. By December 2011, the drug had been launched [ 1255399 ].",
+          "ActionsSecondary": {
+            "Action": [
+              "5-HT uptake inhibitor",
+              "Appetite suppressant",
+              "Norepinephrine uptake inhibitor"
+            ]
+          },
+          "AddedDate": "2012-02-04T00:00:00Z"
+        },
+        {
+          "@id": "69732",
+          "@name": "sibutramine sulfate (oral, obesity), Kyungdong",
+          "@lastModificationDate": "2018-07-04T00:00:00Z",
+          "@phaseHighest": "Launched",
+          "CompanyOriginator": "Kyungdong Pharm Co Ltd",
+          "CompaniesPrimary": {
+            "Company": "Kyungdong Pharm Co Ltd"
+          },
+          "IndicationsPrimary": {
+            "Indication": "Obesity"
+          },
+          "Technologies": {
+            "Technology": [
+              "Capsule formulation",
+              "Oral formulation",
+              "Small molecule"
+            ]
+          },
+          "TherapyAreas": {
+            "TherapyArea": "Other/Miscellaneous"
+          },
+          "Summary": "Kyungdong Pharm has developed and launched Silumin, a capsule formulation of the serotonin and epinephrine uptake inhibitor sibutramine sulfate (structure shown), for the treatment of obesity. In March 2008, the product was launched in Korea [ 1161545 ].",
+          "ActionsSecondary": {
+            "Action": [
+              "5-HT uptake inhibitor",
+              "Appetite suppressant",
+              "Norepinephrine uptake inhibitor"
+            ]
+          },
+          "AddedDate": "2011-01-17T00:00:00Z"
+        },
+        {
+          "@id": "66865",
+          "@name": "metformin acetate",
+          "@lastModificationDate": "2025-08-06T00:00:00Z",
+          "@phaseHighest": "Launched",
+          "CompanyOriginator": "HanAll Biopharma Co Ltd",
+          "CompaniesPrimary": {
+            "Company": "HanAll Biopharma Co Ltd"
+          },
+          "IndicationsPrimary": {
+            "Indication": [
+              "Diabetes mellitus",
+              "Obesity"
+            ]
+          },
+          "ActionsPrimary": {
+            "Action": [
+              "AMP activated protein kinase stimulator",
+              "Free fatty acid receptor 2 agonist"
+            ]
+          },
+          "Technologies": {
+            "Technology": [
+              "Oral formulation",
+              "Small molecule",
+              "Tablet formulation"
+            ]
+          },
+          "TherapyAreas": {
+            "TherapyArea": [
+              "Gastrointestinal",
+              "Endocrine/Metabolic",
+              "Cancer",
+              "Other/Miscellaneous"
+            ]
+          },
+          "Summary": "HanAll Biopharma has developed and launched metformin acetate (Acetomet; HL-018, described as a GPCR-43 agonist) for the treatment of diabetes and obesity, as a tablet [ 1017054 ], [ 1069578 ], [ 1107488 ], [ 1357385 ], [ 1477898 ]. By September 2013, the drug had been launched and at that time, the company was seeking to outlicense the drug [ 1477898 ]. The company was previously investigating HL-018 for hepatitis [ 969203 ]. In December 2008, the drug was listed as being \"in screening\" [ 969203",
+          "IndicationsSecondary": {
+            "Indication": [
+              "Cancer",
+              "Hepatitis"
+            ]
+          },
+          "ActionsSecondary": {
+            "Action": [
+              "Anticancer",
+              "Antiviral",
+              "Hypoglycemic agent"
+            ]
+          },
+          "AddedDate": "2010-06-15T00:00:00Z"
+        },
+        {
+          "@id": "64898",
+          "@name": "sibutramine mesylate (oral, obesity), Hanmi",
+          "@lastModificationDate": "2011-01-11T00:00:00Z",
+          "@phaseHighest": "Launched",
+          "CompanyOriginator": "Hanmi Pharmaceutical Co Ltd",
+          "CompaniesPrimary": {
+            "Company": "Hanmi Pharmaceutical Co Ltd"
+          },
+          "IndicationsPrimary": {
+            "Indication": "Obesity"
+          },
+          "Technologies": {
+            "Technology": [
+              "Capsule formulation",
+              "Oral formulation",
+              "Small molecule"
+            ]
+          },
+          "TherapyAreas": {
+            "TherapyArea": "Other/Miscellaneous"
+          },
+          "Summary": "Hanmi has developed and launched Slimmer, a capsule formulation of the serotonin and norepinephrine reuptake inhibitor sibutramine mesylate, for the treatment of obesity [ 1068278 ]. In July 2007, it was launched in Korea [ 1057800 ].",
+          "ActionsSecondary": {
+            "Action": [
+              "5-HT uptake inhibitor",
+              "Appetite suppressant",
+              "Norepinephrine uptake inhibitor"
+            ]
+          },
+          "AddedDate": "2009-11-17T00:00:00Z"
+        },
+        {
+          "@id": "61983",
+          "@name": "setmelanotide acetate",
+          "@lastModificationDate": "2026-03-27T00:00:00Z",
+          "@phaseHighest": "Launched",
+          "CompanyOriginator": "Ipsen SA",
+          "CompaniesPrimary": {
+            "Company": [
+              "Genpharm Services FZ-LLC",
+              "Medison Pharma Ltd",
+              "Rhythm Pharmaceuticals Inc"
+            ]
+          },
+          "RegulatoryDesignations": {
+            "RegulatoryDesignation": [
+              "Breakthrough Therapy",
+              "Orphan Drug",
+              "Paediatric Investigation Plan",
+              "Priority Review",
+              "PRIME",
+              "Rare Pediatric Disease"
+            ]
+          },
+          "IndicationsPrimary": {
+            "Indication": [
+              "Alstrom syndrome",
+              "Genetic disorder",
+              "Hyperphagia",
+              "Laurence-Moon syndrome",
+              "Leptin deficiency",
+              "Obesity",
+              "Prader-Willi syndrome"
+            ]
+          },
+          "ActionsPrimary": {
+            "Action": [
+              "Insulin sensitizer",
+              "Leptin receptor modulator",
+              "Melanocortin MC4 receptor agonist"
+            ]
+          },
+          "Technologies": {
+            "Technology": [
+              "Cyclic Peptide",
+              "Injectable controlled release formulation",
+              "Once daily formulation",
+              "Small molecule",
+              "Subcutaneous formulation",
+              "Sustained release formulation"
+            ]
+          },
+          "TherapyAreas": {
+            "TherapyArea": [
+              "Cardiovascular",
+              "Neurology/Psychiatric",
+              "Other/Miscellaneous",
+              "Endocrine/Metabolic"
+            ]
+          },
+          "Summary": "Rhythm Pharmaceuticals (formerly Rhythm Metabolic), under license from Ipsen , has developed and launched long-acting setmelanotide (RM-493; BIM-22493) as acetate salt (Imcivree), the lead from a series of sc peptide melanocortin 4 (MC4) agonist appetite suppressants [ 974820 ], [ 1081814 ], [ 1109484 ], [ 1666836 ], [ 1686147 ], [ 1735374 ], [ 1869921 ], [ 1926625 ], [ 2007677 ]. In the US, the drug is indicated to reduce excess body weight and maintain weight reduction long term in adults and pediatric",
+          "CompaniesSecondary": {
+            "Company": [
+              "Ipsen SA",
+              "RareStone Group"
+            ]
+          },
+          "IndicationsSecondary": {
+            "Indication": [
+              "Diabetes mellitus",
+              "Metabolic disorder",
+              "Syndrome X"
+            ]
+          },
+          "ActionsSecondary": {
+            "Action": [
+              "Appetite suppressant",
+              "Hypoglycemic agent"
+            ]
+          },
+          "AddedDate": "2008-12-01T00:00:00Z"
+        },
+        {
+          "@id": "59271",
+          "@name": "semaglutide (subcutaneous, diabetes/obesity/NASH), Novo Nordisk",
+          "@lastModificationDate": "2026-03-27T00:00:00Z",
+          "@phaseHighest": "Launched",
+          "CompanyOriginator": "Novo Nordisk A/S",
+          "CompaniesPrimary": {
+            "Company": "Novo Nordisk A/S"
+          },
+          "RegulatoryDesignations": {
+            "RegulatoryDesignation": [
+              "Accelerated Approval",
+              "Breakthrough Therapy",
+              "Paediatric Investigation Plan",
+              "Priority Review"
+            ]
+          },
+          "IndicationsPrimary": {
+            "Indication": [
+              "Alcoholic liver disease",
+              "Cardiac failure",
+              "Compensated liver cirrhosis",
+              "Insulin dependent diabetes",
+              "Metabolic dysfunction-associated steatohepatitis",
+              "Metabolic dysfunction-associated steatotic liver disease",
+              "Non-insulin dependent diabetes",
+              "Obesity",
+              "Peripheral vascular disease",
+              "Renal injury"
+            ]
+          },
+          "ActionsPrimary": {
+            "Action": "Glucagon-like peptide 1 receptor agonist"
+          },
+          "Technologies": {
+            "Technology": [
+              "Injectable controlled release formulation",
+              "Peptide",
+              "Small molecule",
+              "Subcutaneous formulation"
+            ]
+          },
+          "TherapyAreas": {
+            "TherapyArea": [
+              "Other/Miscellaneous",
+              "Genitourinary/Sexual Function",
+              "Gastrointestinal",
+              "Endocrine/Metabolic",
+              "Cardiovascular",
+              "Neurology/Psychiatric"
+            ]
+          },
+          "Summary": "Novo Nordisk has developed and launched a once-weekly sc formulation of the GLP-1 analog semaglutide (Ozempic; Wegovy; NN-9535; NN-9536; NNC 0113-0217) in a pre-filled pen injection [ 869898 ], [ 1707527 ], [ 1733186 ], [ 1732284 ], [ 17 45700 ], [ 2002458 ], [ 1926937 ]. The product as Ozempic (NN-9535) is indicated in the US as an adjunct to diet and exercise to improve glycemic control in adults with type II diabetes mellitus, and to reduce the risk of major adverse cardiovascular events (MACE",
+          "IndicationsSecondary": {
+            "Indication": "Alzheimers disease"
+          },
+          "ActionsSecondary": {
+            "Action": [
+              "Anti-inflammatory",
+              "Appetite suppressant",
+              "Hypoglycemic agent"
+            ]
+          },
+          "AddedDate": "2008-01-23T00:00:00Z"
+        },
+        {
+          "@id": "55454",
+          "@name": "naltrexone + bupropion (obesity), Nalpropion",
+          "@lastModificationDate": "2025-12-11T00:00:00Z",
+          "@phaseHighest": "Launched",
+          "CompanyOriginator": "Orexigen Therapeutics Inc",
+          "CompaniesPrimary": {
+            "Company": [
+              "Bausch Health Companies Inc (d/b/a Bausch Health)",
+              "Biologix FZ Co",
+              "Bruno Farmaceutici",
+              "Cheplapharm Arzneimittel GmbH",
+              "Consilient Health Ltd",
+              "Kwangdong Pharmaceutical Co Ltd",
+              "Laboratorios Farmaceuticos Rovi SA",
+              "Merck KGaA",
+              "Nalpropion Pharmaceuticals Inc",
+              "Navamedic ASA",
+              "iNova Pharmaceuticals Pty Ltd"
+            ]
+          },
+          "RegulatoryDesignations": {
+            "RegulatoryDesignation": "Paediatric Investigation Plan"
+          },
+          "IndicationsPrimary": {
+            "Indication": "Obesity"
+          },
+          "ActionsPrimary": {
+            "Action": [
+              "Dopamine receptor antagonist",
+              "Opioid receptor antagonist",
+              "Proopiomelanocortin stimulator"
+            ]
+          },
+          "Technologies": {
+            "Technology": [
+              "Drug combination",
+              "Film coating",
+              "Oral formulation",
+              "Oral sustained release formulation",
+              "Small molecule",
+              "Tablet formulation"
+            ]
+          },
+          "TherapyAreas": {
+            "TherapyArea": [
+              "Other/Miscellaneous",
+              "Toxicity/Intoxication",
+              "Neurology/Psychiatric"
+            ]
+          },
+          "Summary": "Contrave (NB-32; Mysimba), developed and launched by Orexigen Therapeutics and former licensee Takeda Pharmaceutical and now marketed by Currax Pharmaceuticals LLC (following the acquisition of Nalpropion Pharmaceuticals which had orginally acquired the assets from Orexigen), is a sustained-release oral combination of the opioid antagonist naltrexone and the dopamine antagonist bupropion. The product is believed to stimulate pro-opiomelanocortin (POMC) neurons to induce release of alpha MSH, which",
+          "CompaniesSecondary": {
+            "Company": [
+              "Orexigen Therapeutics Inc",
+              "Takeda Pharmaceutical Co Ltd"
+            ]
+          },
+          "IndicationsSecondary": {
+            "Indication": [
+              "Depression",
+              "Nicotine dependence"
+            ]
+          },
+          "ActionsSecondary": {
+            "Action": [
+              "Antidepressant",
+              "Appetite suppressant",
+              "Energy metabolism modulator",
+              "Hypoglycemic agent"
+            ]
+          },
+          "AddedDate": "2006-05-25T00:00:00Z"
+        },
+        {
+          "@id": "55369",
+          "@name": "phentermine + topiramate (oral, obesity/type 2 diabetes), VIVUS",
+          "@lastModificationDate": "2026-02-02T00:00:00Z",
+          "@phaseHighest": "Launched",
+          "CompanyOriginator": "VIVUS Inc",
+          "CompaniesPrimary": {
+            "Company": [
+              "Alvogen Inc",
+              "Pharmaccess Foundation",
+              "VIVUS Inc"
+            ]
+          },
+          "IndicationsPrimary": {
+            "Indication": "Obesity"
+          },
+          "ActionsPrimary": {
+            "Action": "Adrenergic receptor agonist"
+          },
+          "Technologies": {
+            "Technology": [
+              "Capsule formulation",
+              "Drug combination",
+              "Once daily formulation",
+              "Small molecule",
+              "Sustained release formulation"
+            ]
+          },
+          "TherapyAreas": {
+            "TherapyArea": [
+              "Endocrine/Metabolic",
+              "Gastrointestinal",
+              "Neurology/Psychiatric",
+              "Other/Miscellaneous"
+            ]
+          },
+          "Summary": "VIVUS (now a wholly-owned subsidiary of Icahn Enterprises, a holding company, following filing of bankruptcy of VIVUS in November 2020) has developed and launched Qsymia (formerly Qnexa; VI-0521; Qsiva), an extended-release formulation of low-dose phentermine and topiramate . The product is indicated in the US as an adjunct to a reduced-calorie diet and increased physical activity for chronic weight management in adults with an initial body mass index (BMI) of &gt;/= 30 kg/m2 (obese) or &gt;/= 27",
+          "IndicationsSecondary": {
+            "Indication": [
+              "Binge eating disorder",
+              "Bulimia nervosa",
+              "Metabolic dysfunction-associated steatohepatitis",
+              "Non-insulin dependent diabetes",
+              "Sleep apnea"
+            ]
+          },
+          "ActionsSecondary": {
+            "Action": [
+              "Anti-inflammatory",
+              "Appetite suppressant",
+              "Dopamine uptake inhibitor",
+              "GABA modulator",
+              "Hypoglycemic agent",
+              "Psychostimulant"
+            ]
+          },
+          "AddedDate": "2006-05-11T00:00:00Z"
+        },
+        {
+          "@id": "5148",
+          "@name": "liraglutide",
+          "@lastModificationDate": "2026-03-27T00:00:00Z",
+          "@phaseHighest": "Launched",
+          "CompanyOriginator": "The General Hospital Corp (d/b/a Massachusetts General Hospital)",
+          "CompaniesPrimary": {
+            "Company": "Novo Nordisk A/S"
+          },
+          "RegulatoryDesignations": {
+            "RegulatoryDesignation": "Paediatric Investigation Plan"
+          },
+          "IndicationsPrimary": {
+            "Indication": [
+              "Insulin dependent diabetes",
+              "Nicotine dependence",
+              "Non-insulin dependent diabetes",
+              "Obesity",
+              "Parkinsons disease",
+              "Pouchitis"
+            ]
+          },
+          "ActionsPrimary": {
+            "Action": "Glucagon-like peptide 1 receptor agonist"
+          },
+          "Technologies": {
+            "Technology": [
+              "Biological",
+              "Peptide",
+              "Protein recombinant",
+              "Subcutaneous formulation"
+            ]
+          },
+          "TherapyAreas": {
+            "TherapyArea": [
+              "Cardiovascular",
+              "Endocrine/Metabolic",
+              "Gastrointestinal",
+              "Immune",
+              "Neurology/Psychiatric",
+              "Ocular",
+              "Other/Miscellaneous",
+              "Toxicity/Intoxication"
+            ]
+          },
+          "Summary": "Novo Nordisk , under license from Scios and Massachusetts General Hospital (MGH), has developed and launched liraglutide (Victoza; Saxenda; NN-2211; NNC-90-1170), a long-acting, once-daily stable analog of GLP-1 for sc administration. The product is indicated in the US as Victoza as an adjunct to diet and exercise to improve glycemic control in patients 10 years and older with type 2 diabetes mellitus, and to reduce the risk of major adverse cardiovascular events in adults with type 2 diabetes",
+          "CompaniesSecondary": {
+            "Company": [
+              "Pfizer Inc",
+              "Scios Inc",
+              "The General Hospital Corp (d/b/a Massachusetts General Hospital)"
+            ]
+          },
+          "IndicationsSecondary": {
+            "Indication": [
+              "Alzheimers disease",
+              "Atherosclerosis",
+              "Binge eating disorder",
+              "Diabetic neuropathy",
+              "Diabetic retinopathy",
+              "Metabolic dysfunction-associated steatohepatitis",
+              "Psoriatic arthritis",
+              "Sleep apnea"
+            ]
+          },
+          "ActionsSecondary": {
+            "Action": [
+              "Anti-inflammatory",
+              "Antiarteriosclerotic",
+              "Antiparkinsonian",
+              "Hypoglycemic agent",
+              "Neuroprotectant",
+              "Nootropic agent"
+            ]
+          },
+          "AddedDate": "1996-02-16T00:00:00Z"
+        },
+        {
+          "@id": "3781",
+          "@name": "orlistat",
+          "@lastModificationDate": "2026-03-09T00:00:00Z",
+          "@phaseHighest": "Launched",
+          "CompanyOriginator": "F Hoffmann-La Roche Ltd",
+          "CompaniesPrimary": {
+            "Company": [
+              "Cheplapharm Arzneimittel GmbH",
+              "Taisho Pharmaceutical Co Ltd."
+            ]
+          },
+          "IndicationsPrimary": {
+            "Indication": "Obesity"
+          },
+          "ActionsPrimary": {
+            "Action": [
+              "Lipase inhibitor",
+              "Pancreatic lipase inhibitor"
+            ]
+          },
+          "Technologies": {
+            "Technology": [
+              "Capsule formulation",
+              "Oral formulation",
+              "Small molecule"
+            ]
+          },
+          "TherapyAreas": {
+            "TherapyArea": "Other/Miscellaneous"
+          },
+          "Summary": "Roche Holding has developed and launched orlistat (Xenical), a non-systemic reversible inhibitor of gastrointestinal lipases, now marketed by CHEPLAPHARM . It is indicated for obesity management, including weight loss and weight maintenance when used in conjunction with a reduced-calorie diet. It is also indicated to reduce the risk of weight gain after prior weight loss [ 1437573 ]. Orlistat was first launched in the UK and France in September 1998 [ 299097 ], [ 1351815 ]. In April 1999, Orlistat",
+          "CompaniesSecondary": {
+            "Company": [
+              "Chugai Pharmaceutical Co Ltd",
+              "Nippon Roche KK",
+              "Roche Holding Ltd"
+            ]
+          },
+          "ActionsSecondary": {
+            "Action": "Lipid uptake inhibitor"
+          },
+          "AddedDate": "1996-02-16T00:00:00Z"
+        },
+        {
+          "@id": "28895",
+          "@name": "semaglutide (oral, once-daily, type 2 diabetes), Novo Nordisk",
+          "@lastModificationDate": "2026-03-27T00:00:00Z",
+          "@phaseHighest": "Launched",
+          "CompanyOriginator": "Novo Nordisk A/S",
+          "CompaniesPrimary": {
+            "Company": "Novo Nordisk A/S"
+          },
+          "RegulatoryDesignations": {
+            "RegulatoryDesignation": "Priority Review"
+          },
+          "IndicationsPrimary": {
+            "Indication": [
+              "Glomerulonephritis",
+              "Non-insulin dependent diabetes",
+              "Obesity"
+            ]
+          },
+          "ActionsPrimary": {
+            "Action": "Glucagon-like peptide 1 receptor agonist"
+          },
+          "Technologies": {
+            "Technology": [
+              "Enteric coated tablet formulation",
+              "Once daily formulation",
+              "Oral absorption enhancer",
+              "Oral sustained release formulation",
+              "Peptide",
+              "Small molecule",
+              "Tablet formulation"
+            ]
+          },
+          "TherapyAreas": {
+            "TherapyArea": [
+              "Endocrine/Metabolic",
+              "Genitourinary/Sexual Function",
+              "Neurology/Psychiatric",
+              "Other/Miscellaneous"
+            ]
+          },
+          "Summary": "Novo Nordisk has developed and launched an oral once-daily formulation of semaglutide (NN-9924; NN-6535; NN-9932; OG-217-SC; oral GLP-1 217 SNAC; NNC0113-0217; Rybelsus; Wegovy), a long-acting glucagon-like peptide (GLP)-1 analog, developed using Emisphere Technologies ' Eligen Technology and Merrion Pharmaceuticals ' s GIPET technology [ 493755 ], [ 919314 ], [ 973862 ], [ 1066601 ], [ 1068371 ], [ 1463240 ], [ 1504916 ], [ 1512388 ], [ 2414111 ], [ 3850103 ], [ 4255952 ]. In the US, Rybelsus is",
+          "IndicationsSecondary": {
+            "Indication": "Alzheimers disease"
+          },
+          "ActionsSecondary": {
+            "Action": "Hypoglycemic agent"
+          },
+          "AddedDate": "2000-05-30T00:00:00Z"
+        },
+        {
+          "@id": "104263",
+          "@name": "mazdutide",
+          "@lastModificationDate": "2026-03-26T00:00:00Z",
+          "@phaseHighest": "Launched",
+          "CompanyOriginator": "Eli Lilly & Co",
+          "CompaniesPrimary": {
+            "Company": [
+              "Eli Lilly & Co",
+              "Innovent Biologics (Suzhou) Co Ltd"
+            ]
+          },
+          "IndicationsPrimary": {
+            "Indication": [
+              "Alcoholism",
+              "Cardiac failure",
+              "Metabolic dysfunction-associated steatohepatitis",
+              "Metabolic dysfunction-associated steatotic liver disease",
+              "Non-insulin dependent diabetes",
+              "Obesity",
+              "Obstructive sleep apnea"
+            ]
+          },
+          "ActionsPrimary": {
+            "Action": [
+              "Glucagon receptor agonist",
+              "Glucagon-like peptide 1 receptor agonist",
+              "Oxyntomodulin ligand"
+            ]
+          },
+          "Technologies": {
+            "Technology": [
+              "Biological",
+              "Injectable controlled release formulation",
+              "Liquid formulation",
+              "Once weekly formulation",
+              "Peptide",
+              "Subcutaneous formulation",
+              "Sustained release formulation"
+            ]
+          },
+          "TherapyAreas": {
+            "TherapyArea": [
+              "Cardiovascular",
+              "Toxicity/Intoxication",
+              "Endocrine/Metabolic",
+              "Gastrointestinal",
+              "Neurology/Psychiatric",
+              "Other/Miscellaneous"
+            ]
+          },
+          "Summary": "Eli Lilly is developing mazdutide (LY-3305677, IBI-362, OXM-3), a long-acting oxyntomodulin peptide analog, which acts as a dual agonist of both GLP-1 and glucagon receptors, as a follow-on to the long-acting PEGylated oxyntomodulin peptide analog pegapamodutide , for the potential once weekly sc treatment of obesity, and alcohol use disorder (AUD) [ 1765710 ], [ 1766783 ], [ 1878502 ], [ 1946730 ], [ 2187414 ], [ 2777075 ], [ 2817896 ], [ 3951307 ]. In November 2023, a phase II trial for obesity",
+          "ActionsSecondary": {
+            "Action": [
+              "Cardiovascular agent",
+              "Hypoglycemic agent"
+            ]
+          },
+          "AddedDate": "2016-11-28T00:00:00Z"
+        },
+        {
+          "@id": "101964",
+          "@name": "tirzepatide",
+          "@lastModificationDate": "2026-03-27T00:00:00Z",
+          "@phaseHighest": "Launched",
+          "CompanyOriginator": "Eli Lilly & Co",
+          "CompaniesPrimary": {
+            "Company": [
+              "Eli Lilly & Co",
+              "Tanabe Pharma Corp"
+            ]
+          },
+          "RegulatoryDesignations": {
+            "RegulatoryDesignation": [
+              "Fast Track",
+              "Paediatric Investigation Plan"
+            ]
+          },
+          "IndicationsPrimary": {
+            "Indication": [
+              "Cardiac failure",
+              "Cardiovascular disease",
+              "Chronic kidney disease",
+              "Hypertension",
+              "Insulin dependent diabetes",
+              "Lipid metabolism disorder",
+              "Metabolic dysfunction-associated steatohepatitis",
+              "Metabolic dysfunction-associated steatotic liver disease",
+              "Non-insulin dependent diabetes",
+              "Obesity",
+              "Obstructive sleep apnea",
+              "Plaque psoriasis",
+              "Psoriatic arthritis",
+              "Ulcerative colitis"
+            ]
+          },
+          "ActionsPrimary": {
+            "Action": [
+              "Gastric inhibitory polypeptide receptor agonist",
+              "Glucagon-like peptide 1 receptor agonist"
+            ]
+          },
+          "Technologies": {
+            "Technology": [
+              "Once weekly formulation",
+              "Peptide",
+              "Small molecule",
+              "Solution",
+              "Subcutaneous formulation"
+            ]
+          },
+          "TherapyAreas": {
+            "TherapyArea": [
+              "Cardiovascular",
+              "Dermatologic",
+              "Other/Miscellaneous",
+              "Neurology/Psychiatric",
+              "Immune",
+              "Endocrine/Metabolic",
+              "Gastrointestinal",
+              "Genitourinary/Sexual Function"
+            ]
+          },
+          "Summary": "Eli Lilly has developed and launched tirzepatide (LY-3298176; Mounjaro; Tilzepatide; Zepbound; ZEHP-bownd; Yurpeak), a once-weekly peptide co-agonist of GIP (gastric inhibitory polypeptide) and glucagon-like peptide 1 (GLP-1); licensee Mitsubishi Tanabe Pharma (now Tanabe Pharma , and formerly a subsidiary of Mitsubishi Chemical Group ) would commercialize the drug in Japan for type 2 diabetes mellitus (T2D) [ 2714042 ], [ 2701200 ], [ 2713871 ], [ 4193618 ], [ 4233373 ]. In the US, the drug is indicated",
+          "IndicationsSecondary": {
+            "Indication": "Renal disease"
+          },
+          "ActionsSecondary": {
+            "Action": [
+              "Antihypertensive",
+              "Appetite suppressant",
+              "Hypoglycemic agent"
+            ]
+          },
+          "AddedDate": "2016-05-09T00:00:00Z"
+        }
+      ]
+    }
+  }
+}
