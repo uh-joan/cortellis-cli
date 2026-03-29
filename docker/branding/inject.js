@@ -1,5 +1,10 @@
 // Cortellis CLI — Login page banner injection
 (function() {
+  // Hide the logo image (replaced by ASCII banner)
+  var style = document.createElement('style');
+  style.textContent = 'img[src*="logo"]{display:none!important}';
+  document.head.appendChild(style);
+
   const BANNER = `
   ██████╗ ██████╗ ██████╗ ████████╗███████╗██╗     ██╗     ██╗███████╗
  ██╔════╝██╔═══██╗██╔══██╗╚══██╔══╝██╔════╝██║     ██║     ██║██╔════╝
