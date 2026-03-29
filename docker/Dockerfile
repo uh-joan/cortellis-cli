@@ -28,8 +28,9 @@ RUN JS_FILE=$(ls $CLOUDCLI_DIST/assets/index-*.js) && \
 # Copy custom favicon/logo
 COPY docker/branding/favicon.svg "$CLOUDCLI_DIST/favicon.svg"
 
-# Remove CloudCLI logos (replaced by ASCII banner)
-RUN rm -f "$CLOUDCLI_DIST/logo.svg" "$CLOUDCLI_DIST/logo-"*.png
+# Replace CloudCLI logos with transparent 1x1 pixel (banner replaces them)
+RUN echo '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1 1"/>' > "$CLOUDCLI_DIST/logo.svg" && \
+    for f in "$CLOUDCLI_DIST"/logo-*.png; do printf '\x89PNG\r\n\x1a\n' > "$f" 2>/dev/null; done || true
 
 # Inject banner script into index.html
 COPY docker/branding/inject.js "$CLOUDCLI_DIST/cortellis-inject.js"
