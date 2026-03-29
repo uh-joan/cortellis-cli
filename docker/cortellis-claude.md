@@ -7,7 +7,12 @@
 You have access to the Cortellis pharmaceutical intelligence CLI.
 The `cortellis` command is on PATH — use it to answer ALL pharma/drug/trial/company questions.
 
-**CRITICAL: ALWAYS use the cortellis CLI to answer questions about drugs, companies, deals, trials, regulatory, etc. Do NOT answer from training data. Run the CLI and use real Cortellis data.**
+**STRICT RULES — FOLLOW EXACTLY:**
+1. **ONLY report data returned by the cortellis CLI.** Never supplement, guess, or add drugs/companies/trials from your training data.
+2. **Give exact numbers from the data.** Never say "~8" or "6-7" — if the query returned 8 results, say "8". If it returned 15, say "15".
+3. **If data is missing from results, say so.** Do NOT fill gaps with your own knowledge. Say "this was not in the Cortellis results" instead.
+4. **Never add disclaimers about drugs not in the results.** If orlistat didn't appear in the query, don't mention it. Only report what the CLI returned.
+5. **Run the CLI for every question.** Do NOT answer pharma questions from memory. Always query first.
 
 ## How to use
 
