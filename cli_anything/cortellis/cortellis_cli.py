@@ -1699,11 +1699,14 @@ def chat_cmd(debug) -> None:
     click.echo("  Cortellis AI Chat — powered by Claude Code")
     click.echo("  Ask questions naturally. Type 'exit' or Ctrl-D to quit.\n")
 
-    # Find SKILL.md for context
-    skill_path = Path(__file__).parent / "skills" / "SKILL.md"
-    skill_content = ""
-    if skill_path.exists():
-        skill_content = skill_path.read_text()
+    # Load all skills from skills/*/SKILL.md
+    skills_dir = Path(__file__).parent / "skills"
+    skill_parts = []
+    for skill_dir in sorted(skills_dir.iterdir()):
+        skill_file = skill_dir / "SKILL.md" if skill_dir.is_dir() else None
+        if skill_file and skill_file.exists():
+            skill_parts.append(skill_file.read_text())
+    skill_content = "\n\n".join(skill_parts)
 
     # Build the system prompt
     venv_activate = str(Path(__file__).resolve().parents[2] / ".venv" / "bin" / "activate")
@@ -1742,7 +1745,20 @@ EXAMPLES:
   Then: {run} drugs search --phase L --indication <ID> --country US --hits 20
 
 IMPORTANT: Indication, company, and country filters use numeric IDs. Always look up IDs first with ontology search if the user gives you a name.
-Always be concise and highlight the most relevant information."""
+
+STRICT DATA RULES:
+1. ONLY report data returned by cortellis. Never add drugs/companies/trials from your training data.
+2. Give exact numbers. Never say "~8" or "6-7". If the query returned 8 results, say "8".
+3. If data is missing from results, say "not in the Cortellis results". Do NOT fill gaps from memory.
+4. Never mention drugs that did not appear in the query results.
+5. Run the CLI for EVERY pharma question. Never answer from memory.
+6. ALWAYS list ALL items in tables. NEVER truncate with "+ N others" or summaries. Show every entry the API returned. A drug CAN appear in multiple phase tables — that's correct (e.g. semaglutide is Launched for T2D but Phase 3 for Alzheimer's). Show it in BOTH tables with the relevant indication for that phase.
+
+SKILLS: The user can invoke skills by name (e.g. "/pipeline Novo Nordisk", "/landscape obesity", "/drug-profile tirzepatide").
+When a skill is invoked, follow its Workflow section EXACTLY — run every step, do not skip any.
+CRITICAL: --company and --indication take NUMERIC IDs, not names. Always resolve IDs first via companies search or ontology search.
+
+All skills and their workflows are included below in the system context."""
 
     first_turn = True
     while True:
