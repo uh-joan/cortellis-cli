@@ -41,6 +41,39 @@ def indication_count(drug):
 
 
 def resolve(name):
+    # Strategy 1: NER — best for originator resolution
+    r = subprocess.run(
+        ["cortellis", "--json", "ner", "match", name],
+        capture_output=True, text=True,
+    )
+    try:
+        d = json.loads(r.stdout)
+        entities = d.get("NamedEntityRecognition", {}).get("Entities", {}).get("Entity", [])
+        if isinstance(entities, dict):
+            entities = [entities]
+        # Find exact name match among Drug entities
+        for e in entities:
+            if e.get("@type") == "Drug" and e.get("@name", "").lower() == name.lower():
+                ner_id = e.get("@id", "")
+                if ner_id:
+                    # Verify with a quick get to confirm phase + indications
+                    r2 = subprocess.run(
+                        ["cortellis", "--json", "drugs", "search", "--query",
+                         f"drugId:{ner_id}", "--hits", "1"],
+                        capture_output=True, text=True,
+                    )
+                    try:
+                        d2 = json.loads(r2.stdout)
+                        drug = d2.get("drugResultsOutput", {}).get("SearchResults", {}).get("Drug", {})
+                        if isinstance(drug, list):
+                            drug = drug[0]
+                        return ner_id, drug.get("@name", name), drug.get("@phaseHighest", ""), indication_count(drug)
+                    except:
+                        return ner_id, name, "", 0
+    except:
+        pass
+
+    # Strategy 2: drug name search with scoring
     r = subprocess.run(
         ["cortellis", "--json", "drugs", "search", "--drug-name", name, "--hits", "10"],
         capture_output=True, text=True,
@@ -67,14 +100,17 @@ def resolve(name):
         # Exact match bonus: drug name starts with search term and isn't a combo
         name_lower = name.lower()
         drug_name_lower = drug_name.lower()
-        is_exact = drug_name_lower.startswith(name_lower) and "+" not in drug_name and "co-formulation" not in drug_name_lower
-        is_combo = "+" in drug_name or "co-formulation" in drug_name_lower or "biosimilar" in drug_name_lower
+        is_exact = drug_name_lower.startswith(name_lower) and "+" not in drug_name and "co-formulation" not in drug_name_lower and "biosimilar" not in drug_name_lower
+        is_combo = "+" in drug_name or "co-formulation" in drug_name_lower
+        is_biosimilar = "biosimilar" in drug_name_lower
 
         score = phase_score(phase) * 1000 + indics * 10
         if is_exact:
             score += 500  # Prefer exact matches, but not over a much higher phase
         if is_combo:
             score -= 5000  # Strongly penalize combinations
+        if is_biosimilar:
+            score -= 3000  # Penalize biosimilars — user usually means the originator
 
         scored.append((score, drug_id, drug_name, phase, indics))
 
