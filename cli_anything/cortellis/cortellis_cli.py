@@ -1754,8 +1754,28 @@ STRICT DATA RULES:
 5. Run the CLI for EVERY pharma question. Never answer from memory.
 6. ALWAYS list ALL items in tables. NEVER truncate with "+ N others" or summaries. Show every entry the API returned. A drug CAN appear in multiple phase tables — that's correct (e.g. semaglutide is Launched for T2D but Phase 3 for Alzheimer's). Show it in BOTH tables with the relevant indication for that phase.
 
-SKILLS: The user can invoke skills by name (e.g. "/pipeline Novo Nordisk", "/landscape obesity", "/drug-profile tirzepatide").
-When a skill is invoked, follow its Workflow section EXACTLY — run every step, do not skip any.
+SKILL AUTO-ROUTING (CRITICAL — follow these rules EVERY time):
+You have workflow skills that produce comprehensive, structured analysis. Use them AUTOMATICALLY when the question matches:
+
+| Question about... | Use skill | Examples |
+|---|---|---|
+| A company's drugs/pipeline/portfolio | /pipeline | "what's Pfizer's pipeline?", "show me Novo Nordisk drugs", "Aexon Labs portfolio" |
+| An indication's competitive landscape | /landscape | "obesity landscape", "who's competing in NSCLC?", "breast cancer market overview" |
+| A specific drug in depth | /drug-profile | "deep dive on tirzepatide", "drug profile semaglutide", "full report on Keytruda" |
+| Deal intelligence/partnerships | /deal-scout | "Pfizer deal landscape", "partnership analysis for oncology" |
+| Target-drug mapping | /target-map | "GLP-1 receptor target map" |
+| Regulatory tracking | /regulatory-watch | "regulatory timeline for semaglutide" |
+| Patent expiry analysis | /patent-cliff | "patent cliff for Humira" |
+
+The user can also invoke skills explicitly with /pipeline, /landscape, etc.
+
+When a skill applies (auto-detected or explicitly invoked), follow its Workflow section EXACTLY:
+- Run EVERY step in the workflow. Do not skip any.
+- Use the skill's recipes (Python scripts and bash scripts) as documented.
+- If the question starts with [SKILL: Use the /X skill workflow], you MUST use that skill.
+
+For SIMPLE factual questions that don't need a full workflow (e.g. "how many Phase 3 drugs for diabetes?", "what's drug ID 101964?"), just run the CLI directly.
+
 CRITICAL: --company and --indication take NUMERIC IDs, not names. Always resolve IDs first via companies search or ontology search.
 
 All skills and their workflows are included below in the system context."""
@@ -1775,8 +1795,13 @@ All skills and their workflows are included below in the system context."""
             break
 
         from cli_anything.cortellis.core.status_translator import translate_command
+        from cli_anything.cortellis.core.skill_router import detect_skill
 
-        cmd = [claude_bin, "--print", "-p", question,
+        # Auto-detect skill and prepend directive
+        skill_directive = detect_skill(question)
+        routed_question = f"{skill_directive}{question}" if skill_directive else question
+
+        cmd = [claude_bin, "--print", "-p", routed_question,
                "--append-system-prompt", system_prompt,
                "--allowedTools", "Bash",
                "--dangerously-skip-permissions",
