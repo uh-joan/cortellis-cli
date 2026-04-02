@@ -25,13 +25,28 @@ _SKIP_RE = re.compile(
 # Python script basename → (friendly label, show_first_arg)
 _PYTHON_SCRIPTS = {
     "resolve_indication": ("Resolving indication", True),
+    "resolve_drug": ("Resolving drug", True),
+    "resolve_company": ("Resolving company", True),
+    "resolve_phase_indications": ("Resolving phase-indication mapping", False),
     "ci_drugs_to_csv": ("Processing drug data", False),
+    "si_drugs_to_csv": ("Processing drug design data", False),
+    "deals_to_csv": ("Processing deals", False),
+    "trials_to_csv": ("Processing trial data", False),
+    "merge_dedup": ("Merging and deduplicating data", False),
+    "count_by_field": ("Counting results", False),
     "landscape_report_generator": ("Generating landscape report", False),
-    "company_landscape": ("Analyzing company landscape", False),
-    "enrich_mechanisms": ("Enriching mechanism data", False),
-    "group_biosimilars": ("Grouping biosimilar drugs", False),
-    "resolve_company": ("Resolving company ID", False),
+    "drug_report_generator": ("Generating drug profile", False),
     "report_generator": ("Generating pipeline report", False),
+    "company_landscape": ("Analyzing company landscape", False),
+    "enrich_mechanisms": ("Enriching mechanism data from SI", False),
+    "group_biosimilars": ("Grouping biosimilar drugs", False),
+    "trials_phase_summary": ("Summarizing trial phases", False),
+}
+
+# Bash script basename → friendly label
+_BASH_SCRIPTS = {
+    "fetch_phase": "Fetching drugs by phase",
+    "fetch_indication_phase": "Fetching drugs by phase",
 }
 
 
@@ -60,6 +75,15 @@ def translate_command(cmd: str) -> "str | None":
                         arg = arg_m.group(1) or arg_m.group(2)
                         return f"{label}: {arg}"
                 return label
+        return f"Running script: {script_key}"
+
+    # Bash script handling
+    bash_m = re.match(r"bash\s+\S*?([a-zA-Z_]+)\.sh\b", cmd)
+    if bash_m:
+        script_key = bash_m.group(1).lower()
+        label = _BASH_SCRIPTS.get(script_key)
+        if label:
+            return label
         return f"Running script: {script_key}"
 
     # Cortellis commands
