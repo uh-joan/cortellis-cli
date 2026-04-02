@@ -1797,7 +1797,17 @@ All skills and their workflows are included below in the system context."""
         from cli_anything.cortellis.core.status_translator import translate_command
         from cli_anything.cortellis.core.skill_router import detect_skill
 
-        # Auto-detect skill and prepend directive
+        # Handle explicit /skill invocations — strip the / to prevent
+        # Claude Code from interpreting it as a slash command
+        CORTELLIS_SKILLS = {"pipeline", "landscape", "drug-profile", "deal-scout",
+                            "target-map", "regulatory-watch", "patent-cliff"}
+        if question.startswith("/"):
+            skill_name = question.split()[0][1:].lower()
+            if skill_name in CORTELLIS_SKILLS:
+                args = question[len(skill_name) + 1:].strip()
+                question = f"[SKILL: Use the /{skill_name} skill workflow] {args}"
+
+        # Auto-detect skill and prepend directive for natural language queries
         skill_directive = detect_skill(question)
         routed_question = f"{skill_directive}{question}" if skill_directive else question
 
