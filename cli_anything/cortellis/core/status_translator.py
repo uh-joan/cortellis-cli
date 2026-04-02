@@ -118,15 +118,9 @@ def translate_command(cmd: str) -> "str | None":
     if drugs_m:
         args = drugs_m.group(1)
         phase_m = re.search(r"--phase\s+(\S+)", args, re.IGNORECASE)
-        hits_m = re.search(r"--hits\s+(\d+)", args, re.IGNORECASE)
         phase = _PHASE_LABELS.get(phase_m.group(1).upper(), phase_m.group(1)) if phase_m else None
-        hits = hits_m.group(1) if hits_m else None
-        if phase and hits:
-            return f"Fetching {phase} drugs (up to {hits})"
         if phase:
-            return f"Fetching {phase} drugs"
-        if hits:
-            return f"Searching drugs (up to {hits})"
+            return f"Searching {phase} drugs"
         return "Searching drugs"
 
     # drugs get
