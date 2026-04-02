@@ -8,7 +8,9 @@ import csv, json, sys
 data = json.load(sys.stdin)
 results = data.get("trialResultsOutput", {})
 total = results.get("@totalResults", "0")
-trials = results.get("SearchResults", {}).get("Trial", [])
+sr = results.get("SearchResults", {})
+if isinstance(sr, str): sr = {}
+trials = sr.get("Trial", [])
 if isinstance(trials, dict): trials = [trials]
 
 writer = csv.writer(sys.stdout)

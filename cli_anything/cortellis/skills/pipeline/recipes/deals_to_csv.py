@@ -7,7 +7,9 @@ import csv, json, sys
 
 data = json.load(sys.stdin)
 results = data.get("dealResultsOutput", {})
-deals = results.get("SearchResults", {}).get("Deal", [])
+sr = results.get("SearchResults", {})
+if isinstance(sr, str): sr = {}
+deals = sr.get("Deal", [])
 if isinstance(deals, dict): deals = [deals]
 
 writer = csv.writer(sys.stdout)
