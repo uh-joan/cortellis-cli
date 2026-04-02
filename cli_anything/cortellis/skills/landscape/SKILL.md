@@ -91,10 +91,11 @@ python3 $RECIPES/trials_phase_summary.py <ID> $DIR/trials_summary.csv
 
 ### Step 8: Generate report
 ```bash
-python3 $RECIPES/landscape_report_generator.py $DIR "<INDICATION_NAME>" "<INDICATION_ID>"
+python3 $RECIPES/landscape_report_generator.py $DIR "<INDICATION_NAME>" "<INDICATION_ID>" "<USER_INPUT>"
 # Reads .meta.json files for accurate truncation warnings.
 # Pipeline chart, mechanism density chart, top companies chart.
 # Drug tables per phase, company ranking, deals, trials summary.
+# USER_INPUT is the original user query; shown in header when it differs from resolved name.
 ```
 
 ## Output Rules
@@ -191,10 +192,11 @@ python3 $RECIPES/trials_phase_summary.py <IND_ID> $DIR/trials_summary.csv
 
 ### landscape_report_generator.py — Report with ASCII charts
 ```bash
-python3 $RECIPES/landscape_report_generator.py $DIR "<NAME>" "<ID>"
+python3 $RECIPES/landscape_report_generator.py $DIR "<NAME>" "<ID>" "<USER_INPUT>"
 # Reads .meta.json for accurate truncation warnings (no false positives).
 # Pipeline chart, mechanism density chart, top companies chart.
 # Wider table columns: drug (60), company (40), mechanism (50).
+# USER_INPUT shown in header when it differs from resolved indication name.
 ```
 
 NOTE: This skill reuses pipeline recipes for CSV conversion:
