@@ -1774,20 +1774,25 @@ All skills and their workflows are included below in the system context."""
             click.echo("  Goodbye!")
             break
 
+        from cli_anything.cortellis.core.status_translator import translate_command
+
         cmd = [claude_bin, "--print", "-p", question,
                "--append-system-prompt", system_prompt,
                "--allowedTools", "Bash",
-               "--dangerously-skip-permissions"]
-        if debug:
-            cmd.extend(["--output-format", "stream-json", "--verbose"])
+               "--dangerously-skip-permissions",
+               "--output-format", "stream-json", "--verbose"]
         if not first_turn:
             cmd.append("--continue")
 
-        # Show spinner while waiting for first output
+        # Show spinner while waiting for output; in non-debug mode update status
+        # dynamically as tool calls stream in, printing each status as a new line.
         import threading
         import itertools
         import time
 
+        # [label, needs_newline]
+        # needs_newline: True while spinner is actively overwriting the current line
+        spinner_state = ["Querying Cortellis", False]
         stop_spinner = threading.Event()
 
         t_start = time.time()
@@ -1797,12 +1802,11 @@ All skills and their workflows are included below in the system context."""
             while not stop_spinner.is_set():
                 elapsed = int(time.time() - t_start)
                 d = next(dots)
-                sys.stdout.write(f"\r  Querying Cortellis{d:<3s}  ({elapsed}s)")
+                label = spinner_state[0]
+                sys.stdout.write(f"\r  {label}{d:<3s}  ({elapsed}s)")
                 sys.stdout.flush()
+                spinner_state[1] = True
                 time.sleep(0.4)
-            elapsed = int(time.time() - t_start)
-            sys.stdout.write(f"\r  Answered in {elapsed}s" + " " * 20 + "\n\n")
-            sys.stdout.flush()
 
         spinner_thread = threading.Thread(target=spin, daemon=True)
         spinner_thread.start()
@@ -1810,66 +1814,88 @@ All skills and their workflows are included below in the system context."""
         proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
         first_output = True
 
-        if debug:
-            # Parse stream-json to show tool calls + final answer
-            for line in iter(proc.stdout.readline, b""):
-                decoded = line.decode("utf-8", errors="replace").strip()
-                if not decoded:
-                    continue
-                try:
-                    event = _json.loads(decoded)
-                except _json.JSONDecodeError:
-                    continue
+        # Parse stream-json to show tool calls + final answer
+        for line in iter(proc.stdout.readline, b""):
+            decoded = line.decode("utf-8", errors="replace").strip()
+            if not decoded:
+                continue
+            try:
+                event = _json.loads(decoded)
+            except _json.JSONDecodeError:
+                continue
 
-                etype = event.get("type", "")
+            etype = event.get("type", "")
 
-                # Tool calls are inside assistant message content array
-                if etype == "assistant" and "message" in event:
-                    content = event["message"].get("content", [])
-                    if isinstance(content, list):
-                        for block in content:
-                            if block.get("type") == "tool_use":
-                                if first_output:
-                                    stop_spinner.set()
-                                    spinner_thread.join()
-                                    first_output = False
-                                tool = block.get("name", "?")
-                                inp = block.get("input", {})
-                                if tool == "Bash" and "command" in inp:
-                                    cmd_str = inp["command"]
+            # Tool calls are inside assistant message content array
+            if etype == "assistant" and "message" in event:
+                content = event["message"].get("content", [])
+                if isinstance(content, list):
+                    for block in content:
+                        if block.get("type") == "tool_use":
+                            tool = block.get("name", "?")
+                            inp = block.get("input", {})
+                            if tool == "Bash" and "command" in inp:
+                                cmd_str = inp["command"]
+                                if debug:
+                                    # Stop spinner and print raw command
+                                    if first_output:
+                                        stop_spinner.set()
+                                        spinner_thread.join()
+                                        if spinner_state[1]:
+                                            sys.stdout.write("\n")
+                                        first_output = False
                                     if "cortellis" in cmd_str:
                                         short = cmd_str.split("cortellis", 1)[1].strip()
                                         sys.stdout.write(f"  > cortellis {short}\n")
                                     else:
                                         sys.stdout.write(f"  > {cmd_str[:80]}\n")
+                                    sys.stdout.flush()
                                 else:
-                                    sys.stdout.write(f"  > {tool}\n")
+                                    # Update spinner: commit current line, start new status
+                                    new_status = translate_command(cmd_str)
+                                    if new_status:
+                                        if spinner_state[1]:
+                                            elapsed = int(time.time() - t_start)
+                                            sys.stdout.write(f"\r  {spinner_state[0]}  ({elapsed}s)\n")
+                                            sys.stdout.flush()
+                                            spinner_state[1] = False
+                                        spinner_state[0] = new_status
+                            elif debug:
+                                if first_output:
+                                    stop_spinner.set()
+                                    spinner_thread.join()
+                                    if spinner_state[1]:
+                                        sys.stdout.write("\n")
+                                    first_output = False
+                                sys.stdout.write(f"  > {tool}\n")
                                 sys.stdout.flush()
 
-                elif etype == "result":
-                    if first_output:
-                        stop_spinner.set()
-                        spinner_thread.join()
-                        first_output = False
-                    text = event.get("result", "")
-                    sys.stdout.write(text)
-                    if not text.endswith("\n"):
-                        sys.stdout.write("\n")
+            elif etype == "result":
+                # Stop spinner and print final answer
+                stop_spinner.set()
+                spinner_thread.join()
+                if spinner_state[1]:
+                    elapsed = int(time.time() - t_start)
+                    sys.stdout.write(f"\r  Answered in {elapsed}s" + " " * 40 + "\n\n")
                     sys.stdout.flush()
-        else:
-            # Plain text streaming
-            for line in iter(proc.stdout.readline, b""):
-                if first_output:
-                    stop_spinner.set()
-                    spinner_thread.join()
-                    first_output = False
-                decoded = line.decode("utf-8", errors="replace")
-                sys.stdout.write(decoded)
+                elif first_output:
+                    elapsed = int(time.time() - t_start)
+                    sys.stdout.write(f"  Answered in {elapsed}s\n\n")
+                    sys.stdout.flush()
+                first_output = False
+                text = event.get("result", "")
+                sys.stdout.write(text)
+                if not text.endswith("\n"):
+                    sys.stdout.write("\n")
                 sys.stdout.flush()
 
-        if first_output:
+        if first_output or (not stop_spinner.is_set()):
             stop_spinner.set()
             spinner_thread.join()
+            if spinner_state[1]:
+                elapsed = int(time.time() - t_start)
+                sys.stdout.write(f"\r  Answered in {elapsed}s" + " " * 40 + "\n\n")
+                sys.stdout.flush()
 
         proc.wait()
         click.echo()
