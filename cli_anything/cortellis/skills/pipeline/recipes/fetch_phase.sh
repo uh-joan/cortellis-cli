@@ -27,10 +27,10 @@ while [ $OFFSET -lt $TOTAL ]; do
 
     RESULT=$(cortellis --json drugs search --company "$CID" --phase "$PHASE" --hits $HITS --offset $OFFSET 2>/dev/null)
 
-    # Check for rate limit error
-    if echo "$RESULT" | grep -qi "rate limit\|429\|too many"; then
-        echo "Rate limited — waiting 5s..." >&2
-        sleep 5
+    # Check for rate limit (match only structured error messages, not drug content)
+    if echo "$RESULT" | head -5 | grep -qi "rate limit\|too many requests"; then
+        echo "Rate limited — waiting 10s..." >&2
+        sleep 10
         continue
     fi
 

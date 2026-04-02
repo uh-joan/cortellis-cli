@@ -19,6 +19,19 @@ def read_csv(filename):
         return list(csv.DictReader(f))
 
 
+def read_metadata(phase_code):
+    """Read .meta.json written by fetch_indication_phase.sh."""
+    # Map phase names to file prefixes
+    prefix_map = {"L": "launched", "C3": "phase3", "C2": "phase2",
+                  "C1": "phase1", "DR": "discovery"}
+    prefix = prefix_map.get(phase_code, phase_code)
+    path = os.path.join(landscape_dir, f"{prefix}.meta.json")
+    if os.path.exists(path):
+        with open(path) as f:
+            return json.load(f)
+    return None
+
+
 def bar_chart(data, title, max_width=40, char="█"):
     if not data:
         return ""
@@ -33,17 +46,31 @@ def bar_chart(data, title, max_width=40, char="█"):
     return "\n".join(lines)
 
 
-def drug_table(rows, phase_name):
+def truncation_status(count, phase_code):
+    """Check if phase data was truncated using metadata if available."""
+    meta = read_metadata(phase_code)
+    if meta:
+        total = int(meta.get("totalResults", 0))
+        fetched = int(meta.get("fetched", count))
+        if total > fetched:
+            return f" ⚠️ TRUNCATED ({fetched}/{total})"
+        return ""
+    # No metadata: only warn if count hits exact pagination boundaries
+    if count in (50, 100, 150, 200, 250, 300):
+        return f" ⚠️ possibly truncated (hit {count} limit)"
+    return ""
+
+
+def drug_table(rows, phase_name, phase_code):
     count = len(rows)
-    truncated = count >= 50
-    warning = " ⚠️ TRUNCATED (50 limit)" if truncated else ""
+    warning = truncation_status(count, phase_code)
     lines = [f"### {phase_name} ({count}){warning}", ""]
     lines.append("| Drug | Company | Mechanism |")
     lines.append("|------|---------|-----------|")
     for row in rows:
-        name = row.get("name", "?")[:40]
-        company = row.get("company", "?")[:25]
-        mechanism = row.get("mechanism", "")[:40]
+        name = row.get("name", "?")[:60]
+        company = row.get("company", "?")[:40]
+        mechanism = row.get("mechanism", "")[:50]
         lines.append(f"| {name} | {company} | {mechanism} |")
     return "\n".join(lines)
 
@@ -86,14 +113,14 @@ print(f"**Indication ID:** {indication_id}")
 print()
 
 # Summary
-phase_data = [
-    ("Launched", len(launched)),
-    ("Phase 3", len(phase3)),
-    ("Phase 2", len(phase2)),
-    ("Phase 1", len(phase1)),
-    ("Discovery", len(discovery)),
+phase_info = [
+    ("Launched", len(launched), "L"),
+    ("Phase 3", len(phase3), "C3"),
+    ("Phase 2", len(phase2), "C2"),
+    ("Phase 1", len(phase1), "C1"),
+    ("Discovery", len(discovery), "DR"),
 ]
-total = sum(c for _, c in phase_data)
+total = sum(c for _, c, _ in phase_info)
 
 print("## Market Overview")
 print()
@@ -101,6 +128,7 @@ print(f"**Total drugs:** {total} | **Deals:** {len(deals)} | **Recruiting trials
 print()
 
 # Pipeline chart
+phase_data = [(name, count) for name, count, _ in phase_info]
 print("```")
 print(bar_chart(phase_data, "Pipeline by Phase"))
 print()
@@ -120,17 +148,18 @@ print("## Pipeline Summary")
 print()
 print("| Phase | Count |")
 print("|-------|-------|")
-for phase, count in phase_data:
-    flag = " ⚠️" if count >= 50 else ""
-    print(f"| {phase} | {count}{flag} |")
+for name, count, code in phase_info:
+    flag = truncation_status(count, code)
+    print(f"| {name} | {count}{flag} |")
 print(f"| **Total** | **{total}** |")
 print()
 
 # Drug tables by phase
-for rows, name in [(launched, "Launched"), (phase3, "Phase 3"), (phase2, "Phase 2"),
-                    (phase1, "Phase 1"), (discovery, "Discovery")]:
+for rows, name, code in [(launched, "Launched", "L"), (phase3, "Phase 3", "C3"),
+                          (phase2, "Phase 2", "C2"), (phase1, "Phase 1", "C1"),
+                          (discovery, "Discovery", "DR")]:
     if rows:
-        print(drug_table(rows, name))
+        print(drug_table(rows, name, code))
         print()
 
 # Key companies
@@ -141,7 +170,7 @@ if company_counts:
     print("|---------|-------------|-----------------|")
     for company, count in company_counts[:15]:
         position = "Leader" if count >= 5 else "Active" if count >= 2 else "Emerging"
-        print(f"| {company[:35]} | {count} | {position} |")
+        print(f"| {company[:50]} | {count} | {position} |")
     print()
 
 # Deals
@@ -151,9 +180,9 @@ if deals:
     print("| Deal | Partner | Type | Date |")
     print("|------|---------|------|------|")
     for d in deals[:15]:
-        title = d.get("title", "?")[:45]
-        partner = d.get("partner", "?")[:25]
-        dtype = d.get("type", "?")[:25]
+        title = d.get("title", "?")[:55]
+        partner = d.get("partner", "?")[:35]
+        dtype = d.get("type", "?")[:30]
         date = d.get("date", "?")[:10]
         print(f"| {title} | {partner} | {dtype} | {date} |")
     print()
