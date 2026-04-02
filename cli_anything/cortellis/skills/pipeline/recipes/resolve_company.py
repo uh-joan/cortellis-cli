@@ -38,14 +38,51 @@ def get_name(cid):
     return rec.get("@name", rec.get("CompanyName", "?"))
 
 
-def best_from_search(comps):
+def best_from_search(comps, query_name=""):
     if isinstance(comps, dict):
         comps = [comps]
+    if query_name:
+        q = query_name.lower()
+        # Exact match: return immediately
+        for c in comps:
+            if c.get("@name", "").lower() == q:
+                return c["@id"], int(c.get("Drugs", {}).get("@activeDevelopment", "0"))
+        # Starts-with match: prefer over non-matches, pick highest active among matches
+        starts_with = [c for c in comps if c.get("@name", "").lower().startswith(q)]
+        if starts_with:
+            best = max(starts_with, key=lambda c: int(c.get("Drugs", {}).get("@activeDevelopment", "0")))
+            return best["@id"], int(best.get("Drugs", {}).get("@activeDevelopment", "0"))
     best = max(comps, key=lambda c: int(c.get("Drugs", {}).get("@activeDevelopment", "0")))
     return best["@id"], int(best.get("Drugs", {}).get("@activeDevelopment", "0"))
 
 
+def normalize(s):
+    """Normalize for comparison: lowercase, strip apostrophes/hyphens."""
+    import re
+    s = s.lower().replace("'", "").replace("'", "").replace("-", " ")
+    return re.sub(r"\s+", " ", s).strip()
+
+
+def names_match(query, candidate):
+    nq = normalize(query)
+    nc = normalize(candidate)
+    return nq == nc or nq in nc or nc in nq
+
+
 def resolve(name):
+    # Strategy 0: NER — exact entity match (fastest, most accurate)
+    d = run_cli("ner", "match", name)
+    try:
+        entities = d.get("NamedEntityRecognition", {}).get("Entities", {}).get("Entity", [])
+        if isinstance(entities, dict):
+            entities = [entities]
+        for e in entities:
+            if e.get("@type") == "Company":
+                if names_match(name, e.get("@name", "")):
+                    return e.get("@id", ""), get_active(e["@id"]), "ner"
+    except:
+        pass
+
     # Strategy 1: ontology depth-1 parents
     d = run_cli("ontology", "search", "--term", name, "--category", "company")
     nodes = d.get("ontologyTreeOutput", {}).get("TaxonomyTree", {}).get("Node", [])
@@ -71,7 +108,7 @@ def resolve(name):
     d = run_cli("companies", "search", "--query", f"companyNameDisplay:{name}", "--hits", "50")
     try:
         comps = d["companyResultsOutput"]["SearchResults"]["Company"]
-        pid, active = best_from_search(comps)
+        pid, active = best_from_search(comps, query_name=name)
         if active >= 10:
             return pid, active, "broad"
     except:
@@ -82,7 +119,7 @@ def resolve(name):
         d = run_cli("companies", "search", "--query", f'companyNameDisplay:"{name}{suffix}"', "--hits", "20")
         try:
             comps = d["companyResultsOutput"]["SearchResults"]["Company"]
-            pid, active = best_from_search(comps)
+            pid, active = best_from_search(comps, query_name=name)
             if active >= 10:
                 return pid, active, f"suffix:{suffix.strip()}"
         except:
@@ -92,7 +129,7 @@ def resolve(name):
     d = run_cli("companies", "search", "--query", f"companyNameDisplay:{name}", "--hits", "50")
     try:
         comps = d["companyResultsOutput"]["SearchResults"]["Company"]
-        pid, active = best_from_search(comps)
+        pid, active = best_from_search(comps, query_name=name)
         if active > 0:
             return pid, active, "best-effort"
     except:
