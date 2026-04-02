@@ -1754,8 +1754,28 @@ STRICT DATA RULES:
 5. Run the CLI for EVERY pharma question. Never answer from memory.
 6. ALWAYS list ALL items in tables. NEVER truncate with "+ N others" or summaries. Show every entry the API returned. A drug CAN appear in multiple phase tables — that's correct (e.g. semaglutide is Launched for T2D but Phase 3 for Alzheimer's). Show it in BOTH tables with the relevant indication for that phase.
 
-SKILLS: The user can invoke skills by name (e.g. "/pipeline Novo Nordisk", "/landscape obesity", "/drug-profile tirzepatide").
-When a skill is invoked, follow its Workflow section EXACTLY — run every step, do not skip any.
+SKILL AUTO-ROUTING (CRITICAL — follow these rules EVERY time):
+You have workflow skills that produce comprehensive, structured analysis. Use them AUTOMATICALLY when the question matches:
+
+| Question about... | Use skill | Examples |
+|---|---|---|
+| A company's drugs/pipeline/portfolio | /pipeline | "what's Pfizer's pipeline?", "show me Novo Nordisk drugs", "Aexon Labs portfolio" |
+| An indication's competitive landscape | /landscape | "obesity landscape", "who's competing in NSCLC?", "breast cancer market overview" |
+| A specific drug in depth | /drug-profile | "deep dive on tirzepatide", "drug profile semaglutide", "full report on Keytruda" |
+| Deal intelligence/partnerships | /deal-scout | "Pfizer deal landscape", "partnership analysis for oncology" |
+| Target-drug mapping | /target-map | "GLP-1 receptor target map" |
+| Regulatory tracking | /regulatory-watch | "regulatory timeline for semaglutide" |
+| Patent expiry analysis | /patent-cliff | "patent cliff for Humira" |
+
+The user can also invoke skills explicitly with /pipeline, /landscape, etc.
+
+When a skill applies (auto-detected or explicitly invoked), follow its Workflow section EXACTLY:
+- Run EVERY step in the workflow. Do not skip any.
+- Use the skill's recipes (Python scripts and bash scripts) as documented.
+- If the question starts with [SKILL: Use the /X skill workflow], you MUST use that skill.
+
+For SIMPLE factual questions that don't need a full workflow (e.g. "how many Phase 3 drugs for diabetes?", "what's drug ID 101964?"), just run the CLI directly.
+
 CRITICAL: --company and --indication take NUMERIC IDs, not names. Always resolve IDs first via companies search or ontology search.
 
 All skills and their workflows are included below in the system context."""
@@ -1774,20 +1794,40 @@ All skills and their workflows are included below in the system context."""
             click.echo("  Goodbye!")
             break
 
-        cmd = [claude_bin, "--print", "-p", question,
+        from cli_anything.cortellis.core.status_translator import translate_command
+        from cli_anything.cortellis.core.skill_router import detect_skill
+
+        # Handle explicit /skill invocations — strip the / to prevent
+        # Claude Code from interpreting it as a slash command
+        CORTELLIS_SKILLS = {"pipeline", "landscape", "drug-profile", "deal-scout",
+                            "target-map", "regulatory-watch", "patent-cliff"}
+        if question.startswith("/"):
+            skill_name = question.split()[0][1:].lower()
+            if skill_name in CORTELLIS_SKILLS:
+                args = question[len(skill_name) + 1:].strip()
+                question = f"[SKILL: Use the /{skill_name} skill workflow] {args}"
+
+        # Auto-detect skill and prepend directive for natural language queries
+        skill_directive = detect_skill(question)
+        routed_question = f"{skill_directive}{question}" if skill_directive else question
+
+        cmd = [claude_bin, "--print", "-p", routed_question,
                "--append-system-prompt", system_prompt,
                "--allowedTools", "Bash",
-               "--dangerously-skip-permissions"]
-        if debug:
-            cmd.extend(["--output-format", "stream-json", "--verbose"])
+               "--dangerously-skip-permissions",
+               "--output-format", "stream-json", "--verbose"]
         if not first_turn:
             cmd.append("--continue")
 
-        # Show spinner while waiting for first output
+        # Show spinner while waiting for output; in non-debug mode update status
+        # dynamically as tool calls stream in, printing each status as a new line.
         import threading
         import itertools
         import time
 
+        # [label, needs_newline]
+        # needs_newline: True while spinner is actively overwriting the current line
+        spinner_state = ["Querying Cortellis", False]
         stop_spinner = threading.Event()
 
         t_start = time.time()
@@ -1797,12 +1837,12 @@ All skills and their workflows are included below in the system context."""
             while not stop_spinner.is_set():
                 elapsed = int(time.time() - t_start)
                 d = next(dots)
-                sys.stdout.write(f"\r  Querying Cortellis{d:<3s}  ({elapsed}s)")
+                label = spinner_state[0]
+                line = f"  {label}{d:<3s}  ({elapsed}s)"
+                sys.stdout.write(f"\r{line:<80s}")
                 sys.stdout.flush()
+                spinner_state[1] = True
                 time.sleep(0.4)
-            elapsed = int(time.time() - t_start)
-            sys.stdout.write(f"\r  Answered in {elapsed}s" + " " * 20 + "\n\n")
-            sys.stdout.flush()
 
         spinner_thread = threading.Thread(target=spin, daemon=True)
         spinner_thread.start()
@@ -1810,66 +1850,89 @@ All skills and their workflows are included below in the system context."""
         proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
         first_output = True
 
-        if debug:
-            # Parse stream-json to show tool calls + final answer
-            for line in iter(proc.stdout.readline, b""):
-                decoded = line.decode("utf-8", errors="replace").strip()
-                if not decoded:
-                    continue
-                try:
-                    event = _json.loads(decoded)
-                except _json.JSONDecodeError:
-                    continue
+        # Parse stream-json to show tool calls + final answer
+        for line in iter(proc.stdout.readline, b""):
+            decoded = line.decode("utf-8", errors="replace").strip()
+            if not decoded:
+                continue
+            try:
+                event = _json.loads(decoded)
+            except _json.JSONDecodeError:
+                continue
 
-                etype = event.get("type", "")
+            etype = event.get("type", "")
 
-                # Tool calls are inside assistant message content array
-                if etype == "assistant" and "message" in event:
-                    content = event["message"].get("content", [])
-                    if isinstance(content, list):
-                        for block in content:
-                            if block.get("type") == "tool_use":
-                                if first_output:
-                                    stop_spinner.set()
-                                    spinner_thread.join()
-                                    first_output = False
-                                tool = block.get("name", "?")
-                                inp = block.get("input", {})
-                                if tool == "Bash" and "command" in inp:
-                                    cmd_str = inp["command"]
+            # Tool calls are inside assistant message content array
+            if etype == "assistant" and "message" in event:
+                content = event["message"].get("content", [])
+                if isinstance(content, list):
+                    for block in content:
+                        if block.get("type") == "tool_use":
+                            tool = block.get("name", "?")
+                            inp = block.get("input", {})
+                            if tool == "Bash" and "command" in inp:
+                                cmd_str = inp["command"]
+                                if debug:
+                                    # Stop spinner and print raw command
+                                    if first_output:
+                                        stop_spinner.set()
+                                        spinner_thread.join()
+                                        if spinner_state[1]:
+                                            sys.stdout.write("\n")
+                                        first_output = False
                                     if "cortellis" in cmd_str:
                                         short = cmd_str.split("cortellis", 1)[1].strip()
                                         sys.stdout.write(f"  > cortellis {short}\n")
                                     else:
                                         sys.stdout.write(f"  > {cmd_str[:80]}\n")
+                                    sys.stdout.flush()
                                 else:
-                                    sys.stdout.write(f"  > {tool}\n")
+                                    # Update spinner: commit current line, start new status
+                                    new_status = translate_command(cmd_str)
+                                    if new_status:
+                                        if spinner_state[1]:
+                                            elapsed = int(time.time() - t_start)
+                                            line = f"  {spinner_state[0]}  ({elapsed}s)"
+                                            sys.stdout.write(f"\r{line:<80s}\n")
+                                            sys.stdout.flush()
+                                            spinner_state[1] = False
+                                        spinner_state[0] = new_status
+                            elif debug:
+                                if first_output:
+                                    stop_spinner.set()
+                                    spinner_thread.join()
+                                    if spinner_state[1]:
+                                        sys.stdout.write("\n")
+                                    first_output = False
+                                sys.stdout.write(f"  > {tool}\n")
                                 sys.stdout.flush()
 
-                elif etype == "result":
-                    if first_output:
-                        stop_spinner.set()
-                        spinner_thread.join()
-                        first_output = False
-                    text = event.get("result", "")
-                    sys.stdout.write(text)
-                    if not text.endswith("\n"):
-                        sys.stdout.write("\n")
+            elif etype == "result":
+                # Stop spinner and print final answer
+                stop_spinner.set()
+                spinner_thread.join()
+                if spinner_state[1]:
+                    elapsed = int(time.time() - t_start)
+                    sys.stdout.write(f"\r  Answered in {elapsed}s" + " " * 40 + "\n\n")
                     sys.stdout.flush()
-        else:
-            # Plain text streaming
-            for line in iter(proc.stdout.readline, b""):
-                if first_output:
-                    stop_spinner.set()
-                    spinner_thread.join()
-                    first_output = False
-                decoded = line.decode("utf-8", errors="replace")
-                sys.stdout.write(decoded)
+                elif first_output:
+                    elapsed = int(time.time() - t_start)
+                    sys.stdout.write(f"  Answered in {elapsed}s\n\n")
+                    sys.stdout.flush()
+                first_output = False
+                text = event.get("result", "")
+                sys.stdout.write(text)
+                if not text.endswith("\n"):
+                    sys.stdout.write("\n")
                 sys.stdout.flush()
 
-        if first_output:
+        if first_output or (not stop_spinner.is_set()):
             stop_spinner.set()
             spinner_thread.join()
+            if spinner_state[1]:
+                elapsed = int(time.time() - t_start)
+                sys.stdout.write(f"\r  Answered in {elapsed}s" + " " * 40 + "\n\n")
+                sys.stdout.flush()
 
         proc.wait()
         click.echo()
