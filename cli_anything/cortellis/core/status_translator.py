@@ -28,6 +28,7 @@ _PYTHON_SCRIPTS = {
     "resolve_drug": ("Resolving drug", True),
     "resolve_company": ("Resolving company", True),
     "resolve_phase_indications": ("Resolving phase-indication mapping", False),
+    "catch_missing_drugs": ("Checking for missed drugs", False),
     "ci_drugs_to_csv": ("Processing drug data", False),
     "si_drugs_to_csv": ("Processing drug design data", False),
     "deals_to_csv": ("Processing deals", False),

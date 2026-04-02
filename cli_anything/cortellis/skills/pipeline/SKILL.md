@@ -78,6 +78,15 @@ cortellis --json deals search --principal "<COMPANY>" --hits 20 --sort-by "-deal
 cortellis --json trials search --sponsor "<COMPANY>" --recruitment-status Recruiting --hits 50 --sort-by "-trialDateStart"
 ```
 
+### Step 7: Catch missing drugs (recommended)
+```bash
+python3 $RECIPES/catch_missing_drugs.py <COMPANY_ID> $DIR
+# Fetches ALL drugs (no phase filter), compares against phase CSVs.
+# Writes drugs missed by per-phase search to other.csv.
+# Excludes attrition (discontinued, suspended, no development reported).
+# Catches drugs in phases like "Preclinical" that --phase DR may miss.
+```
+
 ## Merge Rules
 
 - **Phase 1**: merge CI Phase 1 (C1) + Step 4a SI Phase I → deduplicate by name

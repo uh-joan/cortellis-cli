@@ -89,7 +89,16 @@ python3 $RECIPES/trials_phase_summary.py <ID> $DIR/trials_summary.csv
 # Example: "63 total: Ph3=7, Ph2=14, Ph1=4, Ph4=4, Other=34"
 ```
 
-### Step 8: Generate report
+### Step 8: Catch missing drugs (recommended)
+```bash
+python3 $RECIPES/catch_missing_drugs.py <ID> $DIR
+# Fetches ALL drugs (no phase filter), compares against phase CSVs.
+# Writes drugs missed by per-phase search to other.csv.
+# Excludes attrition (discontinued, suspended, no development reported).
+# Catches drugs in phases like "Preclinical" that --phase DR may miss.
+```
+
+### Step 9: Generate report
 ```bash
 python3 $RECIPES/landscape_report_generator.py $DIR "<INDICATION_NAME>" "<INDICATION_ID>" "<USER_INPUT>"
 # Reads .meta.json files for accurate truncation warnings.
