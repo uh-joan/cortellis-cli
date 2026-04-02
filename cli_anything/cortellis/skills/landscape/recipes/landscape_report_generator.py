@@ -9,6 +9,14 @@ from collections import Counter
 landscape_dir = sys.argv[1]
 indication_name = sys.argv[2] if len(sys.argv) > 2 else "Unknown"
 indication_id = sys.argv[3] if len(sys.argv) > 3 else "?"
+user_input = sys.argv[4] if len(sys.argv) > 4 else ""
+
+MAJOR_PHARMA = {
+    "pfizer", "novartis", "roche", "merck", "astrazeneca", "johnson & johnson",
+    "sanofi", "abbvie", "eli lilly", "bristol-myers squibb", "amgen", "gilead",
+    "gsk", "glaxosmithkline", "bayer", "boehringer ingelheim", "takeda",
+    "novo nordisk", "biogen", "regeneron", "vertex",
+}
 
 
 def read_csv(filename):
@@ -75,6 +83,11 @@ def drug_table(rows, phase_name, phase_code):
     return "\n".join(lines)
 
 
+def is_major_pharma(company_name):
+    name_lower = company_name.lower()
+    return any(name_lower.startswith(major) for major in MAJOR_PHARMA)
+
+
 # Read all data
 launched = read_csv("launched.csv")
 phase3 = read_csv("phase3.csv")
@@ -84,8 +97,17 @@ discovery = read_csv("discovery.csv")
 deals = read_csv("deals.csv")
 trials = read_csv("trials.csv")
 companies_csv = read_csv("companies.csv")
+trials_summary = read_csv("trials_summary.csv")
 
 all_drugs = launched + phase3 + phase2 + phase1 + discovery
+
+# Unique drug count (deduplicated by drug ID across phases)
+unique_drug_ids = set()
+for row in all_drugs:
+    drug_id = row.get("id", "").strip()
+    if drug_id:
+        unique_drug_ids.add(drug_id)
+unique_drug_count = len(unique_drug_ids)
 
 # Mechanism distribution
 mechanism_counts = Counter()
@@ -107,8 +129,30 @@ for row in all_drugs:
 company_counts = [(c, len(ids)) for c, ids in company_drugs.items()]
 company_counts.sort(key=lambda x: -x[1])
 
+# Trials summary from trials_summary.csv (phase breakdown)
+# Format: phase,recruiting_trials  with a final "Total,<n>" row
+trials_summary_by_phase = {}
+trials_summary_total = None
+if trials_summary:
+    for row in trials_summary:
+        phase = row.get("phase", "").strip()
+        count_str = row.get("recruiting_trials", "").strip()
+        if phase.lower() == "total":
+            try:
+                trials_summary_total = int(count_str)
+            except ValueError:
+                pass
+        elif phase and count_str:
+            try:
+                trials_summary_by_phase[phase] = int(count_str)
+            except ValueError:
+                pass
+
 # Report
-print(f"# Competitive Landscape: {indication_name}")
+if user_input and user_input.lower() != indication_name.lower():
+    print(f"# Competitive Landscape: {user_input} ({indication_name})")
+else:
+    print(f"# Competitive Landscape: {indication_name}")
 print(f"**Indication ID:** {indication_id}")
 print()
 
@@ -122,9 +166,21 @@ phase_info = [
 ]
 total = sum(c for _, c, _ in phase_info)
 
+# Build total drugs display
+if unique_drug_count != total and unique_drug_count > 0:
+    total_drugs_str = f"{total} ({unique_drug_count} unique)"
+else:
+    total_drugs_str = str(total)
+
+# Build recruiting trials display
+if trials_summary_total is not None:
+    recruiting_trials_str = f"{len(trials):,} of {trials_summary_total:,}"
+else:
+    recruiting_trials_str = str(len(trials))
+
 print("## Market Overview")
 print()
-print(f"**Total drugs:** {total} | **Deals:** {len(deals)} | **Recruiting trials:** {len(trials)}")
+print(f"**Total drugs:** {total_drugs_str} | **Deals:** {len(deals)} | **Recruiting trials:** {recruiting_trials_str}")
 print()
 
 # Pipeline chart
@@ -169,7 +225,14 @@ if company_counts:
     print("| Company | Unique Drugs | Market Position |")
     print("|---------|-------------|-----------------|")
     for company, count in company_counts[:15]:
-        position = "Leader" if count >= 5 else "Active" if count >= 2 else "Emerging"
+        if count >= 5:
+            position = "Leader"
+        elif count >= 2:
+            position = "Active"
+        elif is_major_pharma(company):
+            position = "Active"
+        else:
+            position = "Emerging"
         print(f"| {company[:50]} | {count} | {position} |")
     print()
 
@@ -188,14 +251,44 @@ if deals:
     print()
 
 # Trials summary
-if trials:
-    trial_phases = Counter()
-    for t in trials:
-        trial_phases[t.get("phase", "?")] += 1
-    print(f"## Recruiting Trials ({len(trials)})")
+if trials or trials_summary_by_phase:
+    # Determine phase breakdown source
+    if trials_summary_by_phase:
+        trial_phases = Counter(trials_summary_by_phase)
+    else:
+        trial_phases = Counter()
+        for t in trials:
+            trial_phases[t.get("phase", "?")] += 1
+
+    # Split into interventional vs other
+    non_applicable_keywords = {"phase not applicable", "phase n/a", "n/a", "not applicable", "other"}
+    interventional_phases = {}
+    other_phases = {}
+    for phase, count in trial_phases.items():
+        if phase.lower() in non_applicable_keywords or phase.strip() in ("", "?"):
+            other_phases[phase] = count
+        else:
+            interventional_phases[phase] = count
+
+    total_shown = len(trials) if trials else sum(trial_phases.values())
+    print(f"## Recruiting Trials ({total_shown})")
     print()
-    print("| Phase | Trials |")
-    print("|-------|--------|")
-    for phase, count in trial_phases.most_common():
-        print(f"| {phase} | {count} |")
-    print()
+
+    if interventional_phases:
+        print("**Interventional trials by phase:**")
+        print()
+        print("| Phase | Trials |")
+        print("|-------|--------|")
+        for phase, count in sorted(interventional_phases.items(), key=lambda x: -x[1]):
+            print(f"| {phase} | {count} |")
+        print()
+
+    if other_phases:
+        other_total = sum(other_phases.values())
+        print(f"_Includes {other_total} observational/Phase N/A studies_")
+        print()
+        print("| Phase | Trials |")
+        print("|-------|--------|")
+        for phase, count in sorted(other_phases.items(), key=lambda x: -x[1]):
+            print(f"| {phase} | {count} |")
+        print()
