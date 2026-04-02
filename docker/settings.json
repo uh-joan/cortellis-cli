@@ -1,6 +1,14 @@
 {
   "permissions": {
-    "defaultMode": "acceptEdits"
+    "defaultMode": "acceptEdits",
+    "allow": [
+      "Bash(cortellis *)",
+      "Bash(python3 *)",
+      "Bash(cat *)",
+      "Bash(wc *)",
+      "Bash(head *)",
+      "Bash(tail *)"
+    ]
   },
   "env": {
     "DISABLE_AUTOUPDATER": "1"
