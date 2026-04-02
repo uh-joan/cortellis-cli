@@ -117,17 +117,37 @@ for row in all_drugs:
         if mech:
             mechanism_counts[mech] += 1
 
-# Company distribution (deduplicated)
-company_drugs = {}
-for row in all_drugs:
-    company = row.get("company", "").strip()
-    drug_id = row.get("id", "").strip()
-    if company and drug_id:
-        if company not in company_drugs:
-            company_drugs[company] = set()
-        company_drugs[company].add(drug_id)
+# Company distribution (deduplicated, phase-weighted)
+PHASE_WEIGHTS = {
+    "Launched": 5, "Phase 3": 4, "Phase 2": 3, "Phase 1": 2,
+    "Pre-registration": 4, "Preclinical": 1, "Discovery": 1,
+}
+company_drugs = {}   # company → set of drug IDs
+company_scores = {}  # company → phase-weighted score
+phase_labels = {     # file → phase label
+    "launched.csv": "Launched", "phase3.csv": "Phase 3", "phase2.csv": "Phase 2",
+    "phase1.csv": "Phase 1", "discovery.csv": "Discovery", "other.csv": "Other",
+}
+
+for fname, plabel in phase_labels.items():
+    rows = read_csv(fname)
+    weight = PHASE_WEIGHTS.get(plabel, 1)
+    for row in rows:
+        company = row.get("company", "").strip()
+        drug_id = row.get("id", "").strip()
+        phase = row.get("phase", plabel).strip()
+        if company and drug_id:
+            if company not in company_drugs:
+                company_drugs[company] = set()
+                company_scores[company] = 0
+            if drug_id not in company_drugs[company]:
+                company_drugs[company].add(drug_id)
+                # Use actual phase from CSV if available, fall back to file-based label
+                w = PHASE_WEIGHTS.get(phase, weight)
+                company_scores[company] += w
+
 company_counts = [(c, len(ids)) for c, ids in company_drugs.items()]
-company_counts.sort(key=lambda x: -x[1])
+company_counts.sort(key=lambda x: (-company_scores.get(x[0], 0), -x[1]))
 
 # Trials summary from trials_summary.csv (phase breakdown)
 # Format: phase,recruiting_trials  with a final "Total,<n>" row
@@ -218,22 +238,21 @@ for rows, name, code in [(launched, "Launched", "L"), (phase3, "Phase 3", "C3"),
         print(drug_table(rows, name, code))
         print()
 
-# Key companies
+# Key companies (phase-weighted: Launched=5, P3=4, P2=3, P1=2, Discovery=1)
 if company_counts:
     print("## Key Companies")
     print()
-    print("| Company | Unique Drugs | Market Position |")
-    print("|---------|-------------|-----------------|")
+    print("| Company | Drugs | Score | Market Position |")
+    print("|---------|-------|-------|-----------------|")
     for company, count in company_counts[:15]:
-        if count >= 5:
+        score = company_scores.get(company, 0)
+        if score >= 10:
             position = "Leader"
-        elif count >= 2:
-            position = "Active"
-        elif is_major_pharma(company):
+        elif score >= 4 or is_major_pharma(company):
             position = "Active"
         else:
             position = "Emerging"
-        print(f"| {company[:50]} | {count} | {position} |")
+        print(f"| {company[:50]} | {count} | {score} | {position} |")
     print()
 
 # Deals

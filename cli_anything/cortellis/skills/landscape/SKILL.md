@@ -113,6 +113,11 @@ python3 $RECIPES/landscape_report_generator.py $DIR "<INDICATION_NAME>" "<INDICA
 - Give exact counts from API @totalResults.
 - Show warning only when data is actually truncated (metadata-based).
 - Do not add drugs from training data.
+- Present the report generator output directly. Do not reformat its tables.
+- Company classification uses phase-weighted scoring (Launched=5, Phase 3=4, Phase 2=3, Phase 1=2, Discovery/Preclinical=1):
+  - **Leader**: score >= 10 (e.g. 2 launched drugs, or 1 launched + 2 Phase 3)
+  - **Active**: score >= 4, OR company is major pharma (Pfizer, Novartis, Roche, Merck, AstraZeneca, J&J, Sanofi, AbbVie, Lilly, BMS, Amgen, Gilead, GSK, Bayer, Boehringer, Takeda, Novo Nordisk, Biogen, Regeneron, Vertex)
+  - **Emerging**: score < 4 and not major pharma
 
 ## Output Format
 
