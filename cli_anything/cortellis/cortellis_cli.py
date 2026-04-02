@@ -1780,6 +1780,7 @@ CRITICAL: --company and --indication take NUMERIC IDs, not names. Always resolve
 
 All skills and their workflows are included below in the system context."""
 
+    turn_number = 0
     first_turn = True
     while True:
         try:
@@ -1796,6 +1797,11 @@ All skills and their workflows are included below in the system context."""
 
         from cli_anything.cortellis.core.status_translator import translate_command
         from cli_anything.cortellis.core.skill_router import detect_skill
+        from cli_anything.cortellis.core.context_detector import needs_context
+
+        # Detect context need BEFORE any rewriting (uses original question)
+        turn_number += 1
+        use_context = needs_context(question, turn_number)
 
         # Handle explicit /skill invocations — strip the / to prevent
         # Claude Code from interpreting it as a slash command
@@ -1806,6 +1812,7 @@ All skills and their workflows are included below in the system context."""
             if skill_name in CORTELLIS_SKILLS:
                 args = question[len(skill_name) + 1:].strip()
                 question = f"[SKILL: Use the /{skill_name} skill workflow] {args}"
+                use_context = False  # Explicit skill invocation always starts fresh
 
         # Auto-detect skill and prepend directive for natural language queries
         skill_directive = detect_skill(question)
@@ -1816,7 +1823,7 @@ All skills and their workflows are included below in the system context."""
                "--allowedTools", "Bash",
                "--dangerously-skip-permissions",
                "--output-format", "stream-json", "--verbose"]
-        if not first_turn:
+        if use_context and not first_turn:
             cmd.append("--continue")
 
         # Show spinner while waiting for output; in non-debug mode update status
