@@ -35,9 +35,10 @@ _SKILLS = [
         "name": "drug-profile",
         "triggers": [
             re.compile(r"\bdrug\s*profile\b", re.IGNORECASE),
-            re.compile(r"\bdeep\s*dive\b", re.IGNORECASE),
             re.compile(r"\bdrug\s+dossier\b", re.IGNORECASE),
             re.compile(r"\bfull\s+(?:report|analysis)\b.{0,20}\bdrug\b", re.IGNORECASE),
+            # "deep dive" only when NOT followed by deal/company/pipeline/landscape keywords
+            re.compile(r"\bdeep\s*dive\b(?!.{0,15}\b(?:deal|company|pipeline|landscape|partner|competitor))", re.IGNORECASE),
         ],
         "directive": "/drug-profile",
         "description": "deep drug profile with SWOT, financials, competitive context",
