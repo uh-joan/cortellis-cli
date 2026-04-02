@@ -1803,7 +1803,8 @@ All skills and their workflows are included below in the system context."""
                 elapsed = int(time.time() - t_start)
                 d = next(dots)
                 label = spinner_state[0]
-                sys.stdout.write(f"\r  {label}{d:<3s}  ({elapsed}s)")
+                line = f"  {label}{d:<3s}  ({elapsed}s)"
+                sys.stdout.write(f"\r{line:<80s}")
                 sys.stdout.flush()
                 spinner_state[1] = True
                 time.sleep(0.4)
@@ -1856,7 +1857,8 @@ All skills and their workflows are included below in the system context."""
                                     if new_status:
                                         if spinner_state[1]:
                                             elapsed = int(time.time() - t_start)
-                                            sys.stdout.write(f"\r  {spinner_state[0]}  ({elapsed}s)\n")
+                                            line = f"  {spinner_state[0]}  ({elapsed}s)"
+                                            sys.stdout.write(f"\r{line:<80s}\n")
                                             sys.stdout.flush()
                                             spinner_state[1] = False
                                         spinner_state[0] = new_status
