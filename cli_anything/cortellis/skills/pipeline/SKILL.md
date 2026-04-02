@@ -22,10 +22,8 @@ Analyze a company's full drug development pipeline, merging CI and Drug Design (
 RESULT=$(python3 $RECIPES/resolve_company.py "<COMPANY>")
 # Output: company_id,company_name,active_drugs,method
 ```
-The recipe tries 3 strategies automatically:
-1. Ontology taxonomy (depth-1 parents, name match, highest active drugs)
-2. Broad company search (50 hits, highest active drugs)
-3. Suffix search (Inc, Ltd, SA, plc, Co, AG)
+The recipe handles ALL resolution internally — do NOT call NER or ontology separately.
+Strategies (in order): NER match → ontology depth-1 → broad search → suffix search.
 
 Tested on 50 major pharma companies — 98% success rate.
 
