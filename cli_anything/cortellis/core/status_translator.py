@@ -49,6 +49,7 @@ _PYTHON_SCRIPTS = {
 _BASH_SCRIPTS = {
     "fetch_phase": "Fetching drugs by phase",
     "fetch_indication_phase": "Fetching drugs by phase",
+    "fetch_drugs_paginated": "Fetching drugs by phase",
 }
 
 
