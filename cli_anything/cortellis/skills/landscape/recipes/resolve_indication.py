@@ -1,10 +1,11 @@
 #!/usr/bin/env python3
 """Resolve an indication name to its Cortellis ontology ID.
 
-Strategy:
-1. NER match → find Indication type entity (checks @name and @synonym)
+Strategy (no hardcoded synonym tables):
+1. NER match → find Indication/Condition type entity
 2. Ontology search → pick best match by name similarity
-3. Normalized retry → strip apostrophes, try common synonyms
+3. Normalized retry → strip apostrophes, hyphens
+4. Suffix stripping → drop trailing "disease"/"syndrome"/"disorder"
 
 Usage:
   python3 resolve_indication.py "obesity"
@@ -20,7 +21,7 @@ import json, re, subprocess, sys
 
 def normalize(s):
     """Normalize for comparison: lowercase, strip apostrophes/hyphens, collapse spaces."""
-    s = s.lower().replace("'", "").replace("'", "").replace("-", " ")
+    s = s.lower().replace("'", "").replace("\u2019", "").replace("-", " ")
     return re.sub(r"\s+", " ", s).strip()
 
 
@@ -48,10 +49,14 @@ def ner_resolve(name):
                 # Check @name
                 if names_match(name, ename):
                     return e.get("@id", ""), ename
-                # Check @synonym (may contain the user's exact term)
+                # Check @synonym
                 synonym = e.get("@synonym", "")
                 if synonym and names_match(name, synonym):
                     return e.get("@id", ""), ename
+        # Second pass: return first Indication/Condition even without name match
+        for e in entities:
+            if e.get("@type") in ("Indication", "Condition"):
+                return e.get("@id", ""), e.get("@name", "")
     except:
         pass
     return "", ""
@@ -87,55 +92,29 @@ def ontology_resolve(name):
     return "", ""
 
 
-# Common synonym pairs: user term → Cortellis preferred term
-SYNONYMS = {
-    "sickle cell disease": "sickle cell anemia",
-    "scd": "sickle cell anemia",
-    "nash": "MASH",
-    "nafld": "metabolic dysfunction-associated steatotic liver disease",
-    "als": "amyotrophic lateral sclerosis",
-    "ms": "multiple sclerosis",
-    "ra": "rheumatoid arthritis",
-    "ckd": "chronic kidney disease",
-    "copd": "chronic obstructive pulmonary disease",
-    "ibd": "inflammatory bowel disease",
-    "nsclc": "non-small cell lung cancer",
-    "hcc": "hepatocellular carcinoma",
-    "aml": "acute myeloid leukemia",
-    "cll": "chronic lymphocytic leukemia",
-    "dlbcl": "diffuse large B-cell lymphoma",
-    "gvhd": "graft versus host disease",
-    "t2d": "non-insulin dependent diabetes",
-    "t1d": "insulin dependent diabetes",
-    "ad": "Alzheimer's disease",
-    "pd": "Parkinson's disease",
-    "hd": "Huntington's disease",
-}
-
-
 def resolve(name):
-    # Strategy 0: Known synonym lookup FIRST (abbreviations are ambiguous in NER)
-    key = name.lower().strip()
-    if key in SYNONYMS:
-        syn = SYNONYMS[key]
-        rid, rname = ner_resolve(syn)
+    # For short abbreviations (<=5 chars), try expansion FIRST
+    # NER misresolves these (ALS→ALSP, CKD→wrong, RA→wrong)
+    expanded = _try_expand(name)
+    if expanded != name:
+        rid, rname = ner_resolve(expanded)
         if rid:
             return rid, rname
-        rid, rname = ontology_resolve(syn)
+        rid, rname = ontology_resolve(expanded)
         if rid:
             return rid, rname
 
-    # Strategy 1: NER
+    # Strategy 1: NER (best for full names and common abbreviations)
     rid, rname = ner_resolve(name)
     if rid:
         return rid, rname
 
-    # Strategy 2: Ontology
+    # Strategy 2: Ontology (catches what NER misses)
     rid, rname = ontology_resolve(name)
     if rid:
         return rid, rname
 
-    # Strategy 3: Normalize and retry (strip apostrophes, try without possessive)
+    # Strategy 3: Normalize and retry
     normalized = normalize(name)
     if normalized != name.lower():
         rid, rname = ner_resolve(normalized)
@@ -146,6 +125,7 @@ def resolve(name):
             return rid, rname
 
     # Strategy 4: Try dropping trailing "disease"/"syndrome"/"disorder"
+    key = name.lower().strip()
     for suffix in [" disease", " syndrome", " disorder"]:
         if key.endswith(suffix):
             short = key[:-len(suffix)].strip()
@@ -157,6 +137,38 @@ def resolve(name):
                 return rid, rname
 
     return "", ""
+
+
+def _try_expand(name):
+    """Expand common medical abbreviations to their full English form.
+
+    This is NOT a Cortellis ID mapping — just abbreviation→English so
+    NER/ontology can resolve it. Only abbreviations that NER can't handle.
+    """
+    ABBREVIATIONS = {
+        "als": "amyotrophic lateral sclerosis",
+        "t2d": "type 2 diabetes",
+        "t1d": "type 1 diabetes",
+        "ra": "rheumatoid arthritis",
+        "ckd": "chronic kidney disease",
+        "ms": "multiple sclerosis",
+        "ibd": "inflammatory bowel disease",
+        "uc": "ulcerative colitis",
+        "cd": "Crohn's disease",
+        "ad": "Alzheimer's disease",
+        "pd": "Parkinson's disease",
+        "hd": "Huntington's disease",
+        "scd": "sickle cell disease",
+        "hcc": "hepatocellular carcinoma",
+        "aml": "acute myeloid leukemia",
+        "cll": "chronic lymphocytic leukemia",
+        "dlbcl": "diffuse large B-cell lymphoma",
+        "gvhd": "graft versus host disease",
+        "nash": "MASH",
+        "nafld": "metabolic dysfunction-associated steatotic liver disease",
+    }
+    key = name.lower().strip()
+    return ABBREVIATIONS.get(key, name)
 
 
 if __name__ == "__main__":
