@@ -27,9 +27,10 @@ _SKILLS = [
             re.compile(r"\blandscape\b", re.IGNORECASE),
             re.compile(r"\bcompetitive\s+(?:landscape|analysis|overview)\b", re.IGNORECASE),
             re.compile(r"\bmarket\s+(?:overview|landscape|map)\b", re.IGNORECASE),
+            re.compile(r"--target\b", re.IGNORECASE),
         ],
         "directive": "/landscape",
-        "description": "competitive landscape for an indication",
+        "description": "competitive landscape for an indication or target",
     },
     {
         "name": "drug-profile",
@@ -42,15 +43,6 @@ _SKILLS = [
         ],
         "directive": "/drug-profile",
         "description": "deep drug profile with SWOT, financials, competitive context",
-    },
-    {
-        "name": "target-map",
-        "triggers": [
-            re.compile(r"\btarget\s*map\b", re.IGNORECASE),
-            re.compile(r"\btarget[- ]drug[- ]indication\b", re.IGNORECASE),
-        ],
-        "directive": "/target-map",
-        "description": "target-drug-indication mapping",
     },
 ]
 

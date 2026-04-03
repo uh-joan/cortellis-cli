@@ -9,6 +9,7 @@ Generate a full competitive landscape for a therapeutic indication.
 
 ## Usage
 
+**Indication mode (default):**
 ```
 /landscape obesity
 /landscape "non-small cell lung cancer"
@@ -17,7 +18,68 @@ Generate a full competitive landscape for a therapeutic indication.
 /landscape "sickle cell disease"
 ```
 
-## Workflow
+**Target mode:**
+```
+/landscape --target "GLP-1 receptor"
+/landscape --target "PD-L1"
+/landscape --target "EGFR"
+/landscape --target "CDK4/6"
+```
+
+## Target Mode Workflow
+
+When invoked as `/landscape --target "<TARGET>"`, use the following workflow instead of the indication workflow below.
+
+### Target Setup
+```bash
+RECIPES="cli_anything/cortellis/skills/landscape/recipes"
+PIPELINE_RECIPES="cli_anything/cortellis/skills/pipeline/recipes"
+DIR="/tmp/landscape_target"
+mkdir -p "$DIR"
+```
+
+### Target Step 1: Resolve action name
+```bash
+ACTION_NAME=$(python3 $RECIPES/resolve_target.py "<TARGET>")
+# Output: canonical action name (e.g. "Glucagon-like peptide 1 receptor agonist")
+# Strategies: synonym table → NER → ontology → normalized retry
+# Use this name with --action in all drug searches
+```
+
+### Target Step 2: Drugs by phase (direct API calls — no pagination script)
+```bash
+# fetch_indication_phase.sh uses --indication and cannot be used for target mode.
+# Use direct drugs search with --action instead:
+cortellis --json drugs search --action "$ACTION_NAME" --phase L --hits 50 | python3 $PIPELINE_RECIPES/ci_drugs_to_csv.py > $DIR/launched.csv
+sleep 3
+cortellis --json drugs search --action "$ACTION_NAME" --phase C3 --hits 50 | python3 $PIPELINE_RECIPES/ci_drugs_to_csv.py > $DIR/phase3.csv
+sleep 3
+cortellis --json drugs search --action "$ACTION_NAME" --phase C2 --hits 50 | python3 $PIPELINE_RECIPES/ci_drugs_to_csv.py > $DIR/phase2.csv
+sleep 3
+cortellis --json drugs search --action "$ACTION_NAME" --phase C1 --hits 50 | python3 $PIPELINE_RECIPES/ci_drugs_to_csv.py > $DIR/phase1.csv
+sleep 3
+cortellis --json drugs search --action "$ACTION_NAME" --phase DR --hits 50 | python3 $PIPELINE_RECIPES/ci_drugs_to_csv.py > $DIR/discovery.csv
+sleep 3
+```
+
+### Target Step 3: Key companies
+```bash
+python3 $RECIPES/company_landscape.py $DIR > $DIR/companies.csv
+```
+
+### Target Step 4: Recent deals
+```bash
+cortellis --json deals search --query "dealActionsPrimary:\"$ACTION_NAME\"" --hits 20 --sort-by "-dealDateStart" | python3 $PIPELINE_RECIPES/deals_to_csv.py > $DIR/deals.csv
+```
+
+### Target Step 5: Generate report
+```bash
+python3 $RECIPES/landscape_report_generator.py $DIR "$ACTION_NAME" "" "<TARGET>"
+# Pass empty string for ID (not applicable in target mode)
+# USER_INPUT is the original user-supplied target name
+```
+
+## Indication Workflow
 
 ### Setup
 ```bash
@@ -156,7 +218,7 @@ python3 $RECIPES/landscape_report_generator.py $DIR "<INDICATION_NAME>" "<INDICA
 |-------|--------|
 ```
 
-## Recipes (7 total)
+## Recipes (8 total)
 
 ### resolve_indication.py — Indication ID resolution
 ```bash
@@ -202,6 +264,15 @@ python3 $RECIPES/company_landscape.py $DIR > $DIR/companies.csv
 python3 $RECIPES/trials_phase_summary.py <IND_ID> $DIR/trials_summary.csv
 # Makes per-phase API calls to get accurate totalResults.
 # Shows total recruiting count, not just the top 50.
+```
+
+### resolve_target.py — Target/action name resolution
+```bash
+python3 $RECIPES/resolve_target.py "<TARGET>"
+# 3-strategy resolution: synonym table → NER (Action entities) → ontology → normalized retry
+# Returns canonical action name for use with --action flag in drugs search
+# Handles abbreviations (GLP-1, PD-L1, EGFR, CDK4/6) and full names
+# Example: "GLP-1 receptor" → "Glucagon-like peptide 1 receptor agonist"
 ```
 
 ### landscape_report_generator.py — Report with ASCII charts
