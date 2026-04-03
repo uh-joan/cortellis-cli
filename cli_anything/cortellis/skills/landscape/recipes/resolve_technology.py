@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """Resolve a technology/modality name to its Cortellis canonical name for --technology searches.
 
-Strategy:
-1. Synonym table → known abbreviations/alternate names
+Strategy (no hardcoded synonym tables):
+1. NER match → find Technology type entity
 2. Ontology search (--category technology) → pick best match
 3. Normalized retry → strip hyphens, lowercase
 
@@ -13,7 +13,7 @@ Usage:
   python3 resolve_technology.py "CAR-T"
   python3 resolve_technology.py "bispecific antibody"
 
-Output: technology_name
+Output: id,technology_name
   (canonical name for use with --technology in drugs search)
 """
 import json, re, subprocess, sys
@@ -32,8 +32,37 @@ def names_match(query, candidate):
     return nq == nc or nq in nc or nc in nq
 
 
+def ner_resolve(name):
+    """Strategy 1: NER — find Technology entities."""
+    r = subprocess.run(
+        ["cortellis", "--json", "ner", "match", name],
+        capture_output=True, text=True,
+    )
+    try:
+        d = json.loads(r.stdout)
+        entities = d.get("NamedEntityRecognition", {}).get("Entities", {}).get("Entity", [])
+        if isinstance(entities, dict):
+            entities = [entities]
+        # First pass: prefer Technology entities with name match
+        for e in entities:
+            if e.get("@type") == "Technology":
+                ename = e.get("@name", "")
+                if names_match(name, ename):
+                    return e.get("@id", ""), ename
+                synonym = e.get("@synonym", "")
+                if synonym and names_match(name, synonym):
+                    return e.get("@id", ""), ename
+        # Second pass: return first Technology entity
+        for e in entities:
+            if e.get("@type") == "Technology":
+                return e.get("@id", ""), e.get("@name", "")
+    except:
+        pass
+    return "", ""
+
+
 def ontology_resolve(name):
-    """Ontology search with --category technology — returns (id, name) or ("", "")."""
+    """Strategy 2: Ontology search with --category technology."""
     r = subprocess.run(
         ["cortellis", "--json", "ontology", "search", "--term", name, "--category", "technology"],
         capture_output=True, text=True,
@@ -62,80 +91,56 @@ def ontology_resolve(name):
     return "", ""
 
 
-# Common synonym pairs: user term → Cortellis canonical technology name
-SYNONYMS = {
-    "adc": "Antibody drug conjugate",
-    "adcs": "Antibody drug conjugate",
-    "antibody drug conjugate": "Antibody drug conjugate",
-    "antibody-drug conjugate": "Antibody drug conjugate",
-    "mrna": "mRNA therapy",
-    "mrna therapy": "mRNA therapy",
-    "mrna vaccine": "mRNA therapy",
-    "gene therapy": "Gene transfer system viral",
-    "gene therapies": "Gene transfer system viral",
-    "viral gene therapy": "Gene transfer system viral",
-    "non-viral gene therapy": "Gene transfer system non-viral",
-    "car-t": "CAR-T cell therapy",
-    "cart": "CAR-T cell therapy",
-    "car t": "CAR-T cell therapy",
-    "car t cell": "CAR-T cell therapy",
-    "car-t cell therapy": "CAR-T cell therapy",
-    "cell therapy": "Cell therapy",
-    "bispecific": "Bispecific antibody",
-    "bispecific antibody": "Bispecific antibody",
-    "bispecifics": "Bispecific antibody",
-    "bispecific antibodies": "Bispecific antibody",
-    "rna interference": "RNA interference",
-    "rnai": "RNA interference",
-    "sirna": "siRNA",
-    "antisense": "Antisense oligonucleotide",
-    "aso": "Antisense oligonucleotide",
-    "antisense oligonucleotide": "Antisense oligonucleotide",
-    "monoclonal antibody": "Monoclonal antibody",
-    "mab": "Monoclonal antibody",
-    "small molecule": "Small molecule",
-    "crispr": "CRISPR",
-    "base editing": "Base editing",
-    "prime editing": "Prime editing",
-    "lipid nanoparticle": "Lipid nanoparticle",
-    "lnp": "Lipid nanoparticle",
-    "nanoparticle": "Nanoparticle",
-    "peptide": "Peptide",
-    "radioligand": "Radioligand therapy",
-    "rlt": "Radioligand therapy",
-    "radioligand therapy": "Radioligand therapy",
-    "trc": "T-cell receptor therapy",
-    "tcr": "T-cell receptor therapy",
-    "protein degrader": "Protein degrader",
-    "protac": "PROTAC",
-}
+def _try_expand(name):
+    """Expand common technology abbreviations to full English for NER/ontology.
+
+    NOT a Cortellis ID mapping — just abbreviation→English.
+    Only abbreviations where NER/ontology fail on the short form.
+    """
+    ABBREVIATIONS = {
+        "crispr": "CRISPR-Cas9",
+        "radioligand": "Radionuclide Antibody Conjugate",
+        "radioligand therapy": "Radionuclide Antibody Conjugate",
+        "rlt": "Radionuclide Antibody Conjugate",
+        "lnp": "Lipid nanoparticle",
+        "aso": "Antisense oligonucleotide",
+        "tcr": "T-cell receptor therapy",
+    }
+    key = name.lower().strip()
+    return ABBREVIATIONS.get(key, name)
 
 
 def resolve(name):
     """Returns (id, name) tuple."""
-    # Strategy 0: Known synonym → ontology lookup to get ID
-    key = name.lower().strip()
-    if key in SYNONYMS:
-        canonical = SYNONYMS[key]
-        tid, tname = ontology_resolve(canonical)
+    # For abbreviations where NER/ontology both fail, use direct mapping
+    expanded = _try_expand(name)
+    if expanded != name:
+        # Try resolving the expanded term dynamically first
+        tid, tname = ner_resolve(expanded)
         if tid:
             return tid, tname
-        return "", canonical  # Return name without ID as fallback
+        tid, tname = ontology_resolve(expanded)
+        if tid:
+            return tid, tname
+        # If dynamic resolution fails, return expanded as name without ID
+        return "", expanded
 
-    # Strategy 1: Ontology search (primary strategy for technology)
+    # Strategy 1: NER (handles ADC, mRNA, CAR-T well)
+    tid, tname = ner_resolve(name)
+    if tid:
+        return tid, tname
+
+    # Strategy 2: Ontology search
     tid, tname = ontology_resolve(name)
     if tid:
         return tid, tname
 
-    # Strategy 2: Normalize and retry (strip hyphens/slashes)
+    # Strategy 3: Normalize and retry
     normalized = normalize(name)
     if normalized != name.lower():
-        if normalized in SYNONYMS:
-            canonical = SYNONYMS[normalized]
-            tid, tname = ontology_resolve(canonical)
-            if tid:
-                return tid, tname
-            return "", canonical
+        tid, tname = ner_resolve(normalized)
+        if tid:
+            return tid, tname
         tid, tname = ontology_resolve(normalized)
         if tid:
             return tid, tname

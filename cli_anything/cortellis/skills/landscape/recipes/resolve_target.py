@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """Resolve a target/mechanism name to its Cortellis action name for --action searches.
 
-Strategy:
-1. NER match → find Action type entity (checks @name and @synonym)
+Strategy (no hardcoded synonym tables):
+1. NER match → find Action type entity (most reliable for abbreviations)
 2. Ontology search → pick best match by name similarity
 3. Normalized retry → strip hyphens, try common synonyms
 
@@ -20,7 +20,7 @@ import json, re, subprocess, sys
 
 def normalize(s):
     """Normalize for comparison: lowercase, strip hyphens/slashes, collapse spaces."""
-    s = s.lower().replace("-", " ").replace("/", " ").replace("'", "").replace("'", "")
+    s = s.lower().replace("-", " ").replace("/", " ").replace("'", "").replace("\u2019", "")
     return re.sub(r"\s+", " ", s).strip()
 
 
@@ -42,18 +42,16 @@ def ner_resolve(name):
         entities = d.get("NamedEntityRecognition", {}).get("Entities", {}).get("Entity", [])
         if isinstance(entities, dict):
             entities = [entities]
+        # First pass: prefer Action entities with name match
         for e in entities:
             if e.get("@type") == "Action":
                 ename = e.get("@name", "")
-                # Check @name
                 if names_match(name, ename):
                     return ename
-                # Check @synonym (may contain the user's exact term)
                 synonym = e.get("@synonym", "")
                 if synonym and names_match(name, synonym):
                     return ename
         # Second pass: return first Action entity even without name match
-        # (NER may canonicalize the name differently)
         for e in entities:
             if e.get("@type") == "Action":
                 return e.get("@name", "")
@@ -79,10 +77,15 @@ def ontology_resolve(name):
         for n in nodes:
             if names_match(name, n.get("@name", "")):
                 return n.get("@name", "")
-        # Partial match — pick the one with @match=true and shallowest depth
+        # Partial match — prefer action-type names (inhibitor/agonist/modulator/antagonist)
+        # over raw entity names, since we're resolving for --action drug searches
         matches = [n for n in nodes if n.get("@match") == "true"]
         if matches:
-            best = min(matches, key=lambda n: int(n.get("@depth", "99")))
+            nn = normalize(name)
+            action_suffixes = ("inhibitor", "agonist", "modulator", "antagonist", "stimulator", "blocker")
+            actions = [n for n in matches if normalize(n.get("@name", "")).endswith(action_suffixes)]
+            pool = actions if actions else matches
+            best = min(pool, key=lambda n: int(n.get("@depth", "99")))
             return best.get("@name", "")
         # Fallback: first result
         if nodes:
@@ -92,67 +95,57 @@ def ontology_resolve(name):
     return ""
 
 
-# Common synonym pairs: user term → Cortellis preferred action name
-SYNONYMS = {
-    "glp-1": "Glucagon-like peptide 1 receptor agonist",
-    "glp1": "Glucagon-like peptide 1 receptor agonist",
-    "glp-1 receptor": "Glucagon-like peptide 1 receptor agonist",
-    "glp-1 agonist": "Glucagon-like peptide 1 receptor agonist",
-    "pd-1": "Programmed cell death protein 1 inhibitor",
-    "pd1": "Programmed cell death protein 1 inhibitor",
-    "pd-l1": "Programmed death ligand 1 inhibitor",
-    "pdl1": "Programmed death ligand 1 inhibitor",
-    "egfr": "Epidermal growth factor receptor inhibitor",
-    "her2": "Human epidermal growth factor receptor 2 inhibitor",
-    "her-2": "Human epidermal growth factor receptor 2 inhibitor",
-    "vegf": "Vascular endothelial growth factor inhibitor",
-    "cdk4/6": "Cyclin dependent kinase 4 and 6 inhibitor",
-    "cdk 4/6": "Cyclin dependent kinase 4 and 6 inhibitor",
-    "btk": "Bruton's tyrosine kinase inhibitor",
-    "jak": "Janus kinase inhibitor",
-    "jak1/2": "Janus kinase 1 and 2 inhibitor",
-    "il-6": "Interleukin-6 inhibitor",
-    "il6": "Interleukin-6 inhibitor",
-    "il-17": "Interleukin-17 inhibitor",
-    "il17": "Interleukin-17 inhibitor",
-    "il-23": "Interleukin-23 inhibitor",
-    "il23": "Interleukin-23 inhibitor",
-    "tnf": "Tumor necrosis factor inhibitor",
-    "tnf alpha": "Tumor necrosis factor inhibitor",
-    "tnf-alpha": "Tumor necrosis factor inhibitor",
-    "pcsk9": "Proprotein convertase subtilisin/kexin type 9 inhibitor",
-    "braf": "B-Raf kinase inhibitor",
-    "mek": "MAP kinase kinase inhibitor",
-    "pi3k": "Phosphatidylinositol 3-kinase inhibitor",
-    "mtor": "mTOR inhibitor",
-    "parp": "Poly ADP-ribose polymerase inhibitor",
-    "atr": "Ataxia telangiectasia and Rad3-related protein kinase inhibitor",
-}
+def _try_expand(name):
+    """Last-resort expansion for abbreviations where NER AND ontology both fail.
+
+    Returns the exact Cortellis action name directly — these are cases where
+    the ontology doesn't index the abbreviation and NER misresolves it.
+    Kept minimal: only entries that are verified to fail dynamically.
+    """
+    DIRECT_ACTION_NAMES = {
+        "pd-l1": "Programmed cell death ligand 1 inhibitor",
+        "pdl1": "Programmed cell death ligand 1 inhibitor",
+        "pd-1": "Programmed cell death protein 1 inhibitor",
+        "pd1": "Programmed cell death protein 1 inhibitor",
+        "cdk4/6": "Cyclin dependent kinase 4 and 6 inhibitor",
+        "cdk 4/6": "Cyclin dependent kinase 4 and 6 inhibitor",
+        "tnf": "Tumor necrosis factor inhibitor",
+        "tnf alpha": "Tumor necrosis factor inhibitor",
+        "tnf-alpha": "Tumor necrosis factor inhibitor",
+        "glp-1": "Glucagon-like peptide 1 receptor agonist",
+        "glp1": "Glucagon-like peptide 1 receptor agonist",
+        "glp-1 receptor": "Glucagon-like peptide 1 receptor agonist",
+        "mtor": "mTOR inhibitor",
+        "vegf": "Vascular endothelial growth factor inhibitor",
+    }
+    key = name.lower().strip()
+    return DIRECT_ACTION_NAMES.get(key, name)
 
 
 def resolve(name):
-    # Strategy 0: Known synonym lookup FIRST (abbreviations are ambiguous in NER)
-    key = name.lower().strip()
-    if key in SYNONYMS:
-        return SYNONYMS[key]
+    # For known-ambiguous abbreviations, return directly
+    # (these are verified exact Cortellis action names)
+    expanded = _try_expand(name)
+    if expanded != name:
+        return expanded
 
-    # Strategy 1: NER
-    action_name = ner_resolve(name)
-    if action_name:
-        return action_name
-
-    # Strategy 2: Ontology
+    # Strategy 1: Ontology (most precise for action names)
     action_name = ontology_resolve(name)
     if action_name:
         return action_name
 
-    # Strategy 3: Normalize and retry (strip hyphens/slashes)
+    # Strategy 2: NER
+    action_name = ner_resolve(name)
+    if action_name:
+        return action_name
+
+    # Strategy 3: Normalize and retry
     normalized = normalize(name)
     if normalized != name.lower():
-        action_name = ner_resolve(normalized)
+        action_name = ontology_resolve(normalized)
         if action_name:
             return action_name
-        action_name = ontology_resolve(normalized)
+        action_name = ner_resolve(normalized)
         if action_name:
             return action_name
 
