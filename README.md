@@ -46,7 +46,7 @@ Covers drugs, companies, deals, trials, regulatory, targets, drug design, ontolo
 
 ```bash
 cortellis drugs search --phase L --indication 238 --hits 10
-cortellis --json drugs search --phase L --hits 5 | jq '.drugs[].drugName'
+cortellis --json drugs search --phase L --hits 5 | jq '.drugResultsOutput.SearchResults.Drug[]."@name"'
 cortellis repl    # interactive mode
 ```
 
