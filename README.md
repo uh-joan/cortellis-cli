@@ -21,11 +21,7 @@ The entire Cortellis pharmaceutical intelligence platform in your terminal. Ask 
 ## Quick Start
 
 ```bash
-git clone https://github.com/uh-joan/cortellis-cli.git
-cd cortellis-cli
-python3 -m venv .venv
-source .venv/bin/activate
-pip install -e .
+pip install git+https://github.com/uh-joan/cortellis-cli.git
 cortellis setup
 ```
 
@@ -89,6 +85,73 @@ cortellis chat --debug
 | **Targets** | "targets associated with PD-L1", "gene-disease associations" |
 | **Drug Design** | "pharmacology data for aspirin", "disease briefings for obesity" |
 
+## Direct CLI
+
+Every command works without AI chat. Use `--json` for machine-readable output:
+
+```bash
+# Human-readable tables
+cortellis drugs search --phase L --indication 238 --hits 10
+cortellis companies get 18614
+cortellis deals search --principal "Novo Nordisk" --hits 20
+
+# JSON for scripting and piping
+cortellis --json drugs search --phase L --hits 5 | jq '.drugs[].drugName'
+
+# Interactive REPL
+cortellis repl
+```
+
+17 command groups, 80+ subcommands. Run `cortellis --help` for the full list.
+
+## Skills (AI Workflows)
+
+Four pre-built skills automate multi-step analysis:
+
+| Skill | What it does |
+|-------|-------------|
+| `/cortellis:pipeline` | Full company pipeline report (CI + Drug Design, all phases, deals, trials) |
+| `/cortellis:landscape` | Competitive landscape by indication, target, or technology |
+| `/cortellis:drug-profile` | Deep profile for a single drug (SWOT, financials, history, competitors) |
+| `/cortellis:cortellis-cli` | General-purpose — full 80+ command reference |
+
+These work as slash commands inside [Claude Code](https://docs.anthropic.com/en/docs/claude-code) when working in this repo:
+
+```bash
+cd cortellis-cli
+claude
+> /cortellis:pipeline "Novo Nordisk"
+> /cortellis:landscape obesity
+> /cortellis:drug-profile tirzepatide
+```
+
+## Agent Integration
+
+The CLI is designed to be used by AI agents. Any agent that can run shell commands can:
+
+1. **Discover** — `which cortellis` finds it on `$PATH`
+2. **Learn capabilities** — `cortellis repl` banner shows absolute paths to SKILL.md files
+3. **Execute** — `cortellis --json drugs search --phase L` returns structured JSON
+4. **Handle errors** — errors return `{"error": "...", "type": "...", "details": {...}}` in `--json` mode
+
+## Installation
+
+**For users:**
+```bash
+pip install git+https://github.com/uh-joan/cortellis-cli.git
+cortellis setup
+```
+
+**For developers:**
+```bash
+git clone https://github.com/uh-joan/cortellis-cli.git
+cd cortellis-cli
+python3 -m venv .venv
+source .venv/bin/activate
+pip install -e ".[dev]"
+cortellis setup
+```
+
 ## Configuration
 
 Credentials are stored in a `.env` file. Set them up with:
@@ -98,11 +161,17 @@ cortellis setup    # full wizard (recommended)
 cortellis config   # just credentials
 ```
 
+Or set environment variables directly:
+```bash
+export CORTELLIS_USERNAME="your-username"
+export CORTELLIS_PASSWORD="your-password"
+```
+
 ## Requirements
 
 - Python 3.9+
 - Cortellis API credentials (ask your admin)
-- [Claude Code](https://docs.anthropic.com/en/docs/claude-code) — install with `npm install -g @anthropic-ai/claude-code`, then `claude login`
+- [Claude Code](https://docs.anthropic.com/en/docs/claude-code) (optional) — needed for AI chat mode and slash commands. Install with `npm install -g @anthropic-ai/claude-code`, then `claude login`
 
 ## Development
 
