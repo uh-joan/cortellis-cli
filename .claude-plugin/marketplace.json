@@ -1,0 +1,20 @@
+{
+  "name": "cortellis",
+  "owner": {
+    "name": "cortellis-cli contributors"
+  },
+  "metadata": {
+    "description": "Pharmaceutical intelligence CLI for Cortellis — drugs, companies, deals, trials, regulatory, ontology, and analytics."
+  },
+  "plugins": [
+    {
+      "name": "cortellis",
+      "source": ".",
+      "description": "Query Cortellis pharmaceutical data via CLI with skills for pipeline analysis, competitive landscapes, and drug profiles.",
+      "author": {
+        "name": "cortellis-cli contributors"
+      },
+      "category": "data"
+    }
+  ]
+}

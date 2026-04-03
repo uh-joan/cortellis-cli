@@ -1,0 +1,7 @@
+{
+  "name": "cortellis",
+  "description": "Pharmaceutical intelligence CLI for Cortellis — drugs, companies, deals, trials, regulatory, ontology, and analytics.",
+  "author": {
+    "name": "cortellis-cli contributors"
+  }
+}

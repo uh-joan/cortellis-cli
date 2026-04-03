@@ -4,6 +4,10 @@ setup(
     name="cortellis-cli",
     version="0.1.0",
     packages=find_namespace_packages(include=["cli_anything.*"]),
+    package_data={
+        "cli_anything.cortellis": ["skills/*/SKILL.md"],
+    },
+    include_package_data=True,
     install_requires=[
         "click>=8.1",
         "requests>=2.31",
