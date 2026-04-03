@@ -53,12 +53,14 @@ DIR="/tmp/landscape_tech"
 mkdir -p "$DIR"
 ```
 
-### Technology Step 1: Resolve technology name
+### Technology Step 1: Resolve technology ID and name
 ```bash
-TECH_NAME=$(python3 $RECIPES/resolve_technology.py "<TECH>")
-# Output: canonical technology name (e.g. "Antibody drug conjugate")
+RESULT=$(python3 $RECIPES/resolve_technology.py "<TECH>")
+TECH_ID=$(echo "$RESULT" | cut -d',' -f1)
+TECH_NAME=$(echo "$RESULT" | cut -d',' -f2-)
+# Output: id,name (e.g. "1164,Antibody drug conjugate")
 # Strategies: synonym table → ontology search (--category technology) → normalized retry
-# Use this name with --technology in all drug searches
+# Use TECH_ID with --technology for precise taxonomy matching
 ```
 
 ### Technology Step 2 (combined mode only): Resolve indication ID
@@ -71,19 +73,19 @@ IND_NAME=$(echo "$RESULT" | cut -d',' -f2-)
 
 ### Technology Step 3: Drugs by phase (paginated)
 ```bash
-# Technology-only mode:
-bash $RECIPES/fetch_drugs_paginated.sh L $DIR/launched.csv $PIPELINE_RECIPES --technology "$TECH_NAME"
-bash $RECIPES/fetch_drugs_paginated.sh C3 $DIR/phase3.csv $PIPELINE_RECIPES --technology "$TECH_NAME"
-bash $RECIPES/fetch_drugs_paginated.sh C2 $DIR/phase2.csv $PIPELINE_RECIPES --technology "$TECH_NAME"
-bash $RECIPES/fetch_drugs_paginated.sh C1 $DIR/phase1.csv $PIPELINE_RECIPES --technology "$TECH_NAME"
-bash $RECIPES/fetch_drugs_paginated.sh DR $DIR/discovery.csv $PIPELINE_RECIPES --technology "$TECH_NAME"
+# Technology-only mode (use --phase-highest for "drugs whose highest phase IS X"):
+bash $RECIPES/fetch_drugs_paginated.sh L $DIR/launched.csv $PIPELINE_RECIPES --phase-highest --technology $TECH_ID
+bash $RECIPES/fetch_drugs_paginated.sh C3 $DIR/phase3.csv $PIPELINE_RECIPES --phase-highest --technology $TECH_ID
+bash $RECIPES/fetch_drugs_paginated.sh C2 $DIR/phase2.csv $PIPELINE_RECIPES --phase-highest --technology $TECH_ID
+bash $RECIPES/fetch_drugs_paginated.sh C1 $DIR/phase1.csv $PIPELINE_RECIPES --phase-highest --technology $TECH_ID
+bash $RECIPES/fetch_drugs_paginated.sh DR $DIR/discovery.csv $PIPELINE_RECIPES --phase-highest --technology $TECH_ID
 
 # Combined mode (technology + indication):
-bash $RECIPES/fetch_drugs_paginated.sh L $DIR/launched.csv $PIPELINE_RECIPES --technology "$TECH_NAME" --indication $IND_ID
-bash $RECIPES/fetch_drugs_paginated.sh C3 $DIR/phase3.csv $PIPELINE_RECIPES --technology "$TECH_NAME" --indication $IND_ID
-bash $RECIPES/fetch_drugs_paginated.sh C2 $DIR/phase2.csv $PIPELINE_RECIPES --technology "$TECH_NAME" --indication $IND_ID
-bash $RECIPES/fetch_drugs_paginated.sh C1 $DIR/phase1.csv $PIPELINE_RECIPES --technology "$TECH_NAME" --indication $IND_ID
-bash $RECIPES/fetch_drugs_paginated.sh DR $DIR/discovery.csv $PIPELINE_RECIPES --technology "$TECH_NAME" --indication $IND_ID
+bash $RECIPES/fetch_drugs_paginated.sh L $DIR/launched.csv $PIPELINE_RECIPES --phase-highest --technology $TECH_ID --indication $IND_ID
+bash $RECIPES/fetch_drugs_paginated.sh C3 $DIR/phase3.csv $PIPELINE_RECIPES --phase-highest --technology $TECH_ID --indication $IND_ID
+bash $RECIPES/fetch_drugs_paginated.sh C2 $DIR/phase2.csv $PIPELINE_RECIPES --phase-highest --technology $TECH_ID --indication $IND_ID
+bash $RECIPES/fetch_drugs_paginated.sh C1 $DIR/phase1.csv $PIPELINE_RECIPES --phase-highest --technology $TECH_ID --indication $IND_ID
+bash $RECIPES/fetch_drugs_paginated.sh DR $DIR/discovery.csv $PIPELINE_RECIPES --phase-highest --technology $TECH_ID --indication $IND_ID
 ```
 
 ### Technology Step 4: Key companies
@@ -124,13 +126,13 @@ ACTION_NAME=$(python3 $RECIPES/resolve_target.py "<TARGET>")
 # Use this name with --action in all drug searches
 ```
 
-### Target Step 2: Drugs by phase (paginated)
+### Target Step 2: Drugs by phase (paginated, --phase-highest for "drugs whose highest phase IS X")
 ```bash
-bash $RECIPES/fetch_drugs_paginated.sh L $DIR/launched.csv $PIPELINE_RECIPES --action "$ACTION_NAME"
-bash $RECIPES/fetch_drugs_paginated.sh C3 $DIR/phase3.csv $PIPELINE_RECIPES --action "$ACTION_NAME"
-bash $RECIPES/fetch_drugs_paginated.sh C2 $DIR/phase2.csv $PIPELINE_RECIPES --action "$ACTION_NAME"
-bash $RECIPES/fetch_drugs_paginated.sh C1 $DIR/phase1.csv $PIPELINE_RECIPES --action "$ACTION_NAME"
-bash $RECIPES/fetch_drugs_paginated.sh DR $DIR/discovery.csv $PIPELINE_RECIPES --action "$ACTION_NAME"
+bash $RECIPES/fetch_drugs_paginated.sh L $DIR/launched.csv $PIPELINE_RECIPES --phase-highest --action "$ACTION_NAME"
+bash $RECIPES/fetch_drugs_paginated.sh C3 $DIR/phase3.csv $PIPELINE_RECIPES --phase-highest --action "$ACTION_NAME"
+bash $RECIPES/fetch_drugs_paginated.sh C2 $DIR/phase2.csv $PIPELINE_RECIPES --phase-highest --action "$ACTION_NAME"
+bash $RECIPES/fetch_drugs_paginated.sh C1 $DIR/phase1.csv $PIPELINE_RECIPES --phase-highest --action "$ACTION_NAME"
+bash $RECIPES/fetch_drugs_paginated.sh DR $DIR/discovery.csv $PIPELINE_RECIPES --phase-highest --action "$ACTION_NAME"
 ```
 
 ### Target Step 3: Key companies

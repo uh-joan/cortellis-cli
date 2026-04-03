@@ -112,11 +112,13 @@ def drugs(ctx: click.Context) -> None:
               help="Use historic development status fields.")
 @click.option("--status-date", default=None, help="Filter by status date (YYYY-MM-DD).")
 @click.option("--phase-terminated", default=None, help="Filter by terminated phase.")
+@click.option("--phase-highest", is_flag=True, default=False,
+              help="Use phaseHighest field instead of LINKED phase (matches drugs where this IS the highest phase).")
 @click.option("--return-filter-count", is_flag=True, default=False, help="Return filter counts in the response.")
 @click.pass_context
 def drugs_search(ctx, query, company, indication, action, phase, technology,
                  drug_name, country, offset, hits, sort_by, historic, status_date,
-                 phase_terminated, return_filter_count):
+                 phase_terminated, phase_highest, return_filter_count):
     """Search the drug database."""
     data = _drugs.search(
         _client(ctx),
@@ -134,6 +136,7 @@ def drugs_search(ctx, query, company, indication, action, phase, technology,
         historic=historic,
         status_date=status_date,
         phase_terminated=phase_terminated,
+        phase_highest=phase_highest,
         return_filter_count=return_filter_count if return_filter_count else None,
     )
     print_output(ctx, data)

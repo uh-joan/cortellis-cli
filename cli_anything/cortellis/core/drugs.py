@@ -25,6 +25,7 @@ def search(
     status_date: Optional[str] = None,
     phase_terminated: Optional[str] = None,
     return_filter_count: Optional[bool] = None,
+    phase_highest: bool = False,
 ) -> Any:
     """Search drugs in the Cortellis database.
 
@@ -44,6 +45,7 @@ def search(
         historic: If True, use historic development status fields.
         status_date: Filter by status date (inside LINKED block).
         phase_terminated: Filter by terminated phase.
+        phase_highest: If True, use phaseHighest field instead of LINKED phase.
 
     Returns:
         Parsed JSON response dict.
@@ -60,6 +62,7 @@ def search(
         historic=historic,
         status_date=status_date,
         phase_terminated=phase_terminated,
+        phase_highest=phase_highest,
     )
 
     params: dict = {"offset": offset, "hits": hits, "fmt": "json", "filtersEnabled": "false"}

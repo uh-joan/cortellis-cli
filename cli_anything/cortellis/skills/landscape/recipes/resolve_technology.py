@@ -33,7 +33,7 @@ def names_match(query, candidate):
 
 
 def ontology_resolve(name):
-    """Strategy 2: Ontology search with --category technology — pick best match."""
+    """Ontology search with --category technology — returns (id, name) or ("", "")."""
     r = subprocess.run(
         ["cortellis", "--json", "ontology", "search", "--term", name, "--category", "technology"],
         capture_output=True, text=True,
@@ -48,18 +48,18 @@ def ontology_resolve(name):
         # Exact match first
         for n in nodes:
             if names_match(name, n.get("@name", "")):
-                return n.get("@name", "")
+                return n.get("@id", ""), n.get("@name", "")
         # Partial match — pick @match=true with shallowest depth
         matches = [n for n in nodes if n.get("@match") == "true"]
         if matches:
             best = min(matches, key=lambda n: int(n.get("@depth", "99")))
-            return best.get("@name", "")
+            return best.get("@id", ""), best.get("@name", "")
         # Fallback: first result
         if nodes:
-            return nodes[0].get("@name", "")
+            return nodes[0].get("@id", ""), nodes[0].get("@name", "")
     except Exception:
         pass
-    return ""
+    return "", ""
 
 
 # Common synonym pairs: user term → Cortellis canonical technology name
@@ -112,27 +112,35 @@ SYNONYMS = {
 
 
 def resolve(name):
-    # Strategy 0: Known synonym lookup FIRST (abbreviations are ambiguous in ontology)
+    """Returns (id, name) tuple."""
+    # Strategy 0: Known synonym → ontology lookup to get ID
     key = name.lower().strip()
     if key in SYNONYMS:
-        return SYNONYMS[key]
+        canonical = SYNONYMS[key]
+        tid, tname = ontology_resolve(canonical)
+        if tid:
+            return tid, tname
+        return "", canonical  # Return name without ID as fallback
 
     # Strategy 1: Ontology search (primary strategy for technology)
-    tech_name = ontology_resolve(name)
-    if tech_name:
-        return tech_name
+    tid, tname = ontology_resolve(name)
+    if tid:
+        return tid, tname
 
     # Strategy 2: Normalize and retry (strip hyphens/slashes)
     normalized = normalize(name)
     if normalized != name.lower():
-        # Check normalized against synonyms
         if normalized in SYNONYMS:
-            return SYNONYMS[normalized]
-        tech_name = ontology_resolve(normalized)
-        if tech_name:
-            return tech_name
+            canonical = SYNONYMS[normalized]
+            tid, tname = ontology_resolve(canonical)
+            if tid:
+                return tid, tname
+            return "", canonical
+        tid, tname = ontology_resolve(normalized)
+        if tid:
+            return tid, tname
 
-    return ""
+    return "", ""
 
 
 if __name__ == "__main__":
@@ -141,9 +149,9 @@ if __name__ == "__main__":
         print("Usage: python3 resolve_technology.py <technology_name>", file=sys.stderr)
         sys.exit(1)
 
-    tech_name = resolve(name)
-    if tech_name:
-        print(tech_name)
+    tid, tname = resolve(name)
+    if tname:
+        print(f"{tid},{tname}")
     else:
         print(f"ERROR: could not resolve technology '{name}'", file=sys.stderr)
         sys.exit(1)
