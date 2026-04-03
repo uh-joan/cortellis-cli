@@ -118,6 +118,7 @@ SYNONYMS = {
     "il-23": "Interleukin-23 inhibitor",
     "il23": "Interleukin-23 inhibitor",
     "tnf": "Tumor necrosis factor inhibitor",
+    "tnf alpha": "Tumor necrosis factor inhibitor",
     "tnf-alpha": "Tumor necrosis factor inhibitor",
     "pcsk9": "Proprotein convertase subtilisin/kexin type 9 inhibitor",
     "braf": "B-Raf kinase inhibitor",
