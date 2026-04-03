@@ -26,6 +26,94 @@ Generate a full competitive landscape for a therapeutic indication.
 /landscape --target "CDK4/6"
 ```
 
+**Technology mode:**
+```
+/landscape --technology "ADC"
+/landscape --technology "mRNA"
+/landscape --technology "gene therapy"
+/landscape --technology "CAR-T"
+```
+
+**Combined mode (technology + indication):**
+```
+/landscape --technology "ADC" --indication "cancer"
+/landscape --technology "mRNA" --indication "cancer"
+/landscape --technology "gene therapy" --indication "sickle cell disease"
+```
+
+## Technology Mode Workflow
+
+When invoked as `/landscape --technology "<TECH>"` (optionally with `--indication "<IND>"`), use the following workflow.
+
+### Technology Setup
+```bash
+RECIPES="cli_anything/cortellis/skills/landscape/recipes"
+PIPELINE_RECIPES="cli_anything/cortellis/skills/pipeline/recipes"
+DIR="/tmp/landscape_tech"
+mkdir -p "$DIR"
+```
+
+### Technology Step 1: Resolve technology name
+```bash
+TECH_NAME=$(python3 $RECIPES/resolve_technology.py "<TECH>")
+# Output: canonical technology name (e.g. "Antibody drug conjugate")
+# Strategies: synonym table → ontology search (--category technology) → normalized retry
+# Use this name with --technology in all drug searches
+```
+
+### Technology Step 2 (combined mode only): Resolve indication ID
+```bash
+# Only needed when --indication is also provided:
+RESULT=$(python3 $RECIPES/resolve_indication.py "<INDICATION>")
+IND_ID=$(echo "$RESULT" | cut -d',' -f1)
+IND_NAME=$(echo "$RESULT" | cut -d',' -f2-)
+```
+
+### Technology Step 3: Drugs by phase
+```bash
+# Technology-only mode:
+cortellis --json drugs search --technology "$TECH_NAME" --phase L --hits 50 | python3 $PIPELINE_RECIPES/ci_drugs_to_csv.py > $DIR/launched.csv
+sleep 3
+cortellis --json drugs search --technology "$TECH_NAME" --phase C3 --hits 50 | python3 $PIPELINE_RECIPES/ci_drugs_to_csv.py > $DIR/phase3.csv
+sleep 3
+cortellis --json drugs search --technology "$TECH_NAME" --phase C2 --hits 50 | python3 $PIPELINE_RECIPES/ci_drugs_to_csv.py > $DIR/phase2.csv
+sleep 3
+cortellis --json drugs search --technology "$TECH_NAME" --phase C1 --hits 50 | python3 $PIPELINE_RECIPES/ci_drugs_to_csv.py > $DIR/phase1.csv
+sleep 3
+cortellis --json drugs search --technology "$TECH_NAME" --phase DR --hits 50 | python3 $PIPELINE_RECIPES/ci_drugs_to_csv.py > $DIR/discovery.csv
+sleep 3
+
+# Combined mode (technology + indication — narrows to e.g. "ADC drugs for cancer"):
+cortellis --json drugs search --technology "$TECH_NAME" --indication $IND_ID --phase L --hits 50 | python3 $PIPELINE_RECIPES/ci_drugs_to_csv.py > $DIR/launched.csv
+sleep 3
+cortellis --json drugs search --technology "$TECH_NAME" --indication $IND_ID --phase C3 --hits 50 | python3 $PIPELINE_RECIPES/ci_drugs_to_csv.py > $DIR/phase3.csv
+sleep 3
+cortellis --json drugs search --technology "$TECH_NAME" --indication $IND_ID --phase C2 --hits 50 | python3 $PIPELINE_RECIPES/ci_drugs_to_csv.py > $DIR/phase2.csv
+sleep 3
+cortellis --json drugs search --technology "$TECH_NAME" --indication $IND_ID --phase C1 --hits 50 | python3 $PIPELINE_RECIPES/ci_drugs_to_csv.py > $DIR/phase1.csv
+sleep 3
+cortellis --json drugs search --technology "$TECH_NAME" --indication $IND_ID --phase DR --hits 50 | python3 $PIPELINE_RECIPES/ci_drugs_to_csv.py > $DIR/discovery.csv
+sleep 3
+```
+
+### Technology Step 4: Key companies
+```bash
+python3 $RECIPES/company_landscape.py $DIR > $DIR/companies.csv
+```
+
+### Technology Step 5: Recent deals
+```bash
+cortellis --json deals search --query "dealTechnologies:\"$TECH_NAME\"" --hits 20 --sort-by "-dealDateStart" | python3 $PIPELINE_RECIPES/deals_to_csv.py > $DIR/deals.csv
+```
+
+### Technology Step 6: Generate report
+```bash
+python3 $RECIPES/landscape_report_generator.py $DIR "$TECH_NAME" "" "<TECH>"
+# Pass empty string for ID (not applicable in technology mode)
+# For combined mode: python3 $RECIPES/landscape_report_generator.py $DIR "$TECH_NAME ($IND_NAME)" "" "<TECH> + <IND>"
+# USER_INPUT is the original user-supplied technology (and indication) name
+```
+
 ## Target Mode Workflow
 
 When invoked as `/landscape --target "<TARGET>"`, use the following workflow instead of the indication workflow below.
@@ -273,6 +361,16 @@ python3 $RECIPES/resolve_target.py "<TARGET>"
 # Returns canonical action name for use with --action flag in drugs search
 # Handles abbreviations (GLP-1, PD-L1, EGFR, CDK4/6) and full names
 # Example: "GLP-1 receptor" → "Glucagon-like peptide 1 receptor agonist"
+```
+
+### resolve_technology.py — Technology/modality name resolution
+```bash
+python3 $RECIPES/resolve_technology.py "<TECH>"
+# 2-strategy resolution: synonym table → ontology (--category technology) → normalized retry
+# Returns canonical technology name for use with --technology flag in drugs search
+# Handles abbreviations (ADC, mRNA, CAR-T) and alternate spellings
+# Example: "ADC" → "Antibody drug conjugate", "mRNA" → "mRNA therapy"
+# Example: "gene therapy" → "Gene transfer system viral"
 ```
 
 ### landscape_report_generator.py — Report with ASCII charts

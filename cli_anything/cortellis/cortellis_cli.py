@@ -1762,6 +1762,7 @@ You have workflow skills that produce comprehensive, structured analysis. Use th
 | A company's drugs/pipeline/portfolio | /pipeline | "what's Pfizer's pipeline?", "show me Novo Nordisk drugs", "Aexon Labs portfolio" |
 | An indication's competitive landscape | /landscape | "obesity landscape", "who's competing in NSCLC?", "breast cancer market overview" |
 | A target/mechanism landscape | /landscape --target | "/landscape --target GLP-1 receptor", "landscape --target PD-L1", "EGFR competitive landscape" |
+| Technology/modality landscape | /landscape --technology | "ADC landscape", "mRNA competitive landscape", "gene therapy market overview" |
 | A specific drug in depth | /drug-profile | "deep dive on tirzepatide", "drug profile semaglutide", "full report on Keytruda" |
 
 The user can also invoke skills explicitly with /pipeline, /landscape, etc.
