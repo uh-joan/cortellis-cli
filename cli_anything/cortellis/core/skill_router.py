@@ -44,16 +44,6 @@ _SKILLS = [
         "description": "deep drug profile with SWOT, financials, competitive context",
     },
     {
-        "name": "deal-scout",
-        "triggers": [
-            re.compile(r"\bdeal\s*scout\b", re.IGNORECASE),
-            re.compile(r"\bdeal\s+landscape\b", re.IGNORECASE),
-            re.compile(r"\bpartnership\s+(?:analysis|landscape|overview)\b", re.IGNORECASE),
-        ],
-        "directive": "/deal-scout",
-        "description": "deal intelligence and partnership analysis",
-    },
-    {
         "name": "target-map",
         "triggers": [
             re.compile(r"\btarget\s*map\b", re.IGNORECASE),
@@ -61,25 +51,6 @@ _SKILLS = [
         ],
         "directive": "/target-map",
         "description": "target-drug-indication mapping",
-    },
-    {
-        "name": "regulatory-watch",
-        "triggers": [
-            re.compile(r"\bregulatory\s*watch\b", re.IGNORECASE),
-            re.compile(r"\bregulatory\s+(?:timeline|tracker|overview)\b", re.IGNORECASE),
-        ],
-        "directive": "/regulatory-watch",
-        "description": "regulatory event tracking",
-    },
-    {
-        "name": "patent-cliff",
-        "triggers": [
-            re.compile(r"\bpatent\s*cliff\b", re.IGNORECASE),
-            re.compile(r"\bpatent\s+expir", re.IGNORECASE),
-            re.compile(r"\bgeneric\s+entry\b", re.IGNORECASE),
-        ],
-        "directive": "/patent-cliff",
-        "description": "patent expiry and generic entry analysis",
     },
 ]
 
