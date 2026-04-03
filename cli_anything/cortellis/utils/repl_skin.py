@@ -91,12 +91,23 @@ _PROMPT_STYLE = Style.from_dict(
 def _print_banner(banner: str = None) -> None:
     if banner:
         click.echo(banner)
+
+    # Auto-detect SKILL.md path for agent discoverability
+    from pathlib import Path
+    skills_dir = Path(__file__).resolve().parent.parent / "skills"
+    skill_files = sorted(skills_dir.glob("*/SKILL.md")) if skills_dir.is_dir() else []
+
     click.echo(
         "  Interactive mode  —  type a command (e.g. drugs search --phase L)\n"
         "  Commands: drugs  companies  deals  trials  regulations  ontology\n"
         "            analytics  literature  press-releases  conferences  ner\n"
-        "  Type 'exit' or press Ctrl-D to quit.\n"
     )
+    if skill_files:
+        click.echo("  Skills:")
+        for sf in skill_files:
+            click.echo(f"    \u25c7 {sf}")
+        click.echo()
+    click.echo("  Type 'exit' or press Ctrl-D to quit.\n")
 
 
 _HISTORY_FILE = "~/.cortellis_cli_history"
