@@ -62,6 +62,16 @@ def or_(*expressions: str) -> str:
     return " OR ".join(parts)
 
 
+_PHASE_HIGHEST_MAP = {
+    "L": "Launched",
+    "C3": "Phase 3 Clinical",
+    "C2": "Phase 2 Clinical",
+    "C1": "Phase 1 Clinical",
+    "DR": "Discovery",
+    "PC": "Preclinical",
+}
+
+
 def build_drug_query(
     query: Optional[str] = None,
     company: Optional[str] = None,
@@ -74,6 +84,7 @@ def build_drug_query(
     historic: bool = False,
     phase_terminated: Optional[str] = None,
     status_date: Optional[str] = None,
+    phase_highest: bool = False,
 ) -> Optional[str]:
     """Build a Cortellis drug search query string from CLI options.
 
@@ -89,7 +100,14 @@ def build_drug_query(
     if action:
         parts.append(text("actionsPrimary", action))
     if technology:
-        parts.append(text("technologies", technology))
+        if str(technology).isdigit():
+            parts.append(f"technologiesAncestors::OR({technology})")
+        else:
+            parts.append(text("technologies", technology))
+    if phase_highest and phase:
+        label = _PHASE_HIGHEST_MAP.get(phase.upper(), phase)
+        parts.append(f'phaseHighest:"{label}"')
+        phase = None  # Don't also add to LINKED block
     if phase_terminated:
         # Support OR/AND between multiple phase codes (e.g. "DX OR NDR")
         tokens = re.split(r'\s+(OR|AND)\s+', phase_terminated)

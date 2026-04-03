@@ -2,18 +2,29 @@
 # Fetch all drugs with automatic pagination for ANY search parameter.
 # Replaces fetch_indication_phase.sh with a generic version.
 #
-# Usage: ./fetch_drugs_paginated.sh <phase_code> <output_csv> <pipeline_recipes_dir> [search_params...]
+# Usage: ./fetch_drugs_paginated.sh <phase_code> <output_csv> <pipeline_recipes_dir> [--phase-highest] [search_params...]
 # Example:
 #   ./fetch_drugs_paginated.sh L /tmp/launched.csv ../pipeline/recipes --indication 238
-#   ./fetch_drugs_paginated.sh C3 /tmp/phase3.csv ../pipeline/recipes --technology "Antibody drug conjugate"
+#   ./fetch_drugs_paginated.sh C3 /tmp/phase3.csv ../pipeline/recipes --phase-highest --technology 1164
 #   ./fetch_drugs_paginated.sh L /tmp/launched.csv ../pipeline/recipes --action "GLP-1 receptor agonist"
-#   ./fetch_drugs_paginated.sh DR /tmp/discovery.csv ../pipeline/recipes --technology "mRNA therapy" --indication 88
+#   ./fetch_drugs_paginated.sh DR /tmp/discovery.csv ../pipeline/recipes --phase-highest --technology 1164 --indication 88
 
 PHASE="$1"
 OUTPUT="$2"
 PIPELINE_RECIPES="$3"
 shift 3
-SEARCH_PARAMS=("$@")
+
+# Check for --phase-highest flag
+USE_PHASE_HIGHEST=false
+REMAINING=()
+for arg in "$@"; do
+    if [ "$arg" = "--phase-highest" ]; then
+        USE_PHASE_HIGHEST=true
+    else
+        REMAINING+=("$arg")
+    fi
+done
+SEARCH_PARAMS=("${REMAINING[@]}")
 HEADER="name,id,phase,indication,mechanism,company,source"
 
 # Auto-detect venv if cortellis not on PATH
@@ -42,7 +53,11 @@ while [ $OFFSET -lt $TOTAL ]; do
         sleep 3
     fi
 
-    RESULT=$(cortellis --json drugs search "${SEARCH_PARAMS[@]}" --phase "$PHASE" --hits $HITS --offset $OFFSET 2>/dev/null)
+    if [ "$USE_PHASE_HIGHEST" = true ]; then
+        RESULT=$(cortellis --json drugs search "${SEARCH_PARAMS[@]}" --phase "$PHASE" --phase-highest --hits $HITS --offset $OFFSET 2>/dev/null)
+    else
+        RESULT=$(cortellis --json drugs search "${SEARCH_PARAMS[@]}" --phase "$PHASE" --hits $HITS --offset $OFFSET 2>/dev/null)
+    fi
 
     # Guard: empty result means command failed
     if [ -z "$RESULT" ]; then
