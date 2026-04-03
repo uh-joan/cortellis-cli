@@ -69,31 +69,21 @@ IND_ID=$(echo "$RESULT" | cut -d',' -f1)
 IND_NAME=$(echo "$RESULT" | cut -d',' -f2-)
 ```
 
-### Technology Step 3: Drugs by phase
+### Technology Step 3: Drugs by phase (paginated)
 ```bash
 # Technology-only mode:
-cortellis --json drugs search --technology "$TECH_NAME" --phase L --hits 50 | python3 $PIPELINE_RECIPES/ci_drugs_to_csv.py > $DIR/launched.csv
-sleep 3
-cortellis --json drugs search --technology "$TECH_NAME" --phase C3 --hits 50 | python3 $PIPELINE_RECIPES/ci_drugs_to_csv.py > $DIR/phase3.csv
-sleep 3
-cortellis --json drugs search --technology "$TECH_NAME" --phase C2 --hits 50 | python3 $PIPELINE_RECIPES/ci_drugs_to_csv.py > $DIR/phase2.csv
-sleep 3
-cortellis --json drugs search --technology "$TECH_NAME" --phase C1 --hits 50 | python3 $PIPELINE_RECIPES/ci_drugs_to_csv.py > $DIR/phase1.csv
-sleep 3
-cortellis --json drugs search --technology "$TECH_NAME" --phase DR --hits 50 | python3 $PIPELINE_RECIPES/ci_drugs_to_csv.py > $DIR/discovery.csv
-sleep 3
+bash $RECIPES/fetch_drugs_paginated.sh L $DIR/launched.csv $PIPELINE_RECIPES --technology "$TECH_NAME"
+bash $RECIPES/fetch_drugs_paginated.sh C3 $DIR/phase3.csv $PIPELINE_RECIPES --technology "$TECH_NAME"
+bash $RECIPES/fetch_drugs_paginated.sh C2 $DIR/phase2.csv $PIPELINE_RECIPES --technology "$TECH_NAME"
+bash $RECIPES/fetch_drugs_paginated.sh C1 $DIR/phase1.csv $PIPELINE_RECIPES --technology "$TECH_NAME"
+bash $RECIPES/fetch_drugs_paginated.sh DR $DIR/discovery.csv $PIPELINE_RECIPES --technology "$TECH_NAME"
 
-# Combined mode (technology + indication — narrows to e.g. "ADC drugs for cancer"):
-cortellis --json drugs search --technology "$TECH_NAME" --indication $IND_ID --phase L --hits 50 | python3 $PIPELINE_RECIPES/ci_drugs_to_csv.py > $DIR/launched.csv
-sleep 3
-cortellis --json drugs search --technology "$TECH_NAME" --indication $IND_ID --phase C3 --hits 50 | python3 $PIPELINE_RECIPES/ci_drugs_to_csv.py > $DIR/phase3.csv
-sleep 3
-cortellis --json drugs search --technology "$TECH_NAME" --indication $IND_ID --phase C2 --hits 50 | python3 $PIPELINE_RECIPES/ci_drugs_to_csv.py > $DIR/phase2.csv
-sleep 3
-cortellis --json drugs search --technology "$TECH_NAME" --indication $IND_ID --phase C1 --hits 50 | python3 $PIPELINE_RECIPES/ci_drugs_to_csv.py > $DIR/phase1.csv
-sleep 3
-cortellis --json drugs search --technology "$TECH_NAME" --indication $IND_ID --phase DR --hits 50 | python3 $PIPELINE_RECIPES/ci_drugs_to_csv.py > $DIR/discovery.csv
-sleep 3
+# Combined mode (technology + indication):
+bash $RECIPES/fetch_drugs_paginated.sh L $DIR/launched.csv $PIPELINE_RECIPES --technology "$TECH_NAME" --indication $IND_ID
+bash $RECIPES/fetch_drugs_paginated.sh C3 $DIR/phase3.csv $PIPELINE_RECIPES --technology "$TECH_NAME" --indication $IND_ID
+bash $RECIPES/fetch_drugs_paginated.sh C2 $DIR/phase2.csv $PIPELINE_RECIPES --technology "$TECH_NAME" --indication $IND_ID
+bash $RECIPES/fetch_drugs_paginated.sh C1 $DIR/phase1.csv $PIPELINE_RECIPES --technology "$TECH_NAME" --indication $IND_ID
+bash $RECIPES/fetch_drugs_paginated.sh DR $DIR/discovery.csv $PIPELINE_RECIPES --technology "$TECH_NAME" --indication $IND_ID
 ```
 
 ### Technology Step 4: Key companies
@@ -134,20 +124,13 @@ ACTION_NAME=$(python3 $RECIPES/resolve_target.py "<TARGET>")
 # Use this name with --action in all drug searches
 ```
 
-### Target Step 2: Drugs by phase (direct API calls — no pagination script)
+### Target Step 2: Drugs by phase (paginated)
 ```bash
-# fetch_indication_phase.sh uses --indication and cannot be used for target mode.
-# Use direct drugs search with --action instead:
-cortellis --json drugs search --action "$ACTION_NAME" --phase L --hits 50 | python3 $PIPELINE_RECIPES/ci_drugs_to_csv.py > $DIR/launched.csv
-sleep 3
-cortellis --json drugs search --action "$ACTION_NAME" --phase C3 --hits 50 | python3 $PIPELINE_RECIPES/ci_drugs_to_csv.py > $DIR/phase3.csv
-sleep 3
-cortellis --json drugs search --action "$ACTION_NAME" --phase C2 --hits 50 | python3 $PIPELINE_RECIPES/ci_drugs_to_csv.py > $DIR/phase2.csv
-sleep 3
-cortellis --json drugs search --action "$ACTION_NAME" --phase C1 --hits 50 | python3 $PIPELINE_RECIPES/ci_drugs_to_csv.py > $DIR/phase1.csv
-sleep 3
-cortellis --json drugs search --action "$ACTION_NAME" --phase DR --hits 50 | python3 $PIPELINE_RECIPES/ci_drugs_to_csv.py > $DIR/discovery.csv
-sleep 3
+bash $RECIPES/fetch_drugs_paginated.sh L $DIR/launched.csv $PIPELINE_RECIPES --action "$ACTION_NAME"
+bash $RECIPES/fetch_drugs_paginated.sh C3 $DIR/phase3.csv $PIPELINE_RECIPES --action "$ACTION_NAME"
+bash $RECIPES/fetch_drugs_paginated.sh C2 $DIR/phase2.csv $PIPELINE_RECIPES --action "$ACTION_NAME"
+bash $RECIPES/fetch_drugs_paginated.sh C1 $DIR/phase1.csv $PIPELINE_RECIPES --action "$ACTION_NAME"
+bash $RECIPES/fetch_drugs_paginated.sh DR $DIR/discovery.csv $PIPELINE_RECIPES --action "$ACTION_NAME"
 ```
 
 ### Target Step 3: Key companies
