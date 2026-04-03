@@ -110,16 +110,25 @@ Four pre-built skills automate multi-step analysis:
 
 | Skill | What it does |
 |-------|-------------|
-| `/cortellis:pipeline` | Full company pipeline report (CI + Drug Design, all phases, deals, trials) |
-| `/cortellis:landscape` | Competitive landscape by indication, target, or technology |
-| `/cortellis:drug-profile` | Deep profile for a single drug (SWOT, financials, history, competitors) |
-| `/cortellis:cortellis-cli` | General-purpose — full 80+ command reference |
+| `/pipeline` | Full company pipeline report (CI + Drug Design, all phases, deals, trials) |
+| `/landscape` | Competitive landscape by indication, target, or technology |
+| `/drug-profile` | Deep profile for a single drug (SWOT, financials, history, competitors) |
 
-These work as slash commands inside [Claude Code](https://docs.anthropic.com/en/docs/claude-code) when working in this repo:
+These work as slash commands inside [Claude Code](https://docs.anthropic.com/en/docs/claude-code):
 
+**If you cloned the repo (working inside it):**
 ```bash
 cd cortellis-cli
 claude
+> /pipeline "Novo Nordisk"
+> /landscape obesity
+> /drug-profile tirzepatide
+```
+
+**From any directory (plugin mode):**
+```bash
+git clone https://github.com/uh-joan/cortellis-cli.git
+claude --plugin-dir ./cortellis-cli
 > /cortellis:pipeline "Novo Nordisk"
 > /cortellis:landscape obesity
 > /cortellis:drug-profile tirzepatide
