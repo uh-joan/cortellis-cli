@@ -1762,10 +1762,7 @@ You have workflow skills that produce comprehensive, structured analysis. Use th
 | A company's drugs/pipeline/portfolio | /pipeline | "what's Pfizer's pipeline?", "show me Novo Nordisk drugs", "Aexon Labs portfolio" |
 | An indication's competitive landscape | /landscape | "obesity landscape", "who's competing in NSCLC?", "breast cancer market overview" |
 | A specific drug in depth | /drug-profile | "deep dive on tirzepatide", "drug profile semaglutide", "full report on Keytruda" |
-| Deal intelligence/partnerships | /deal-scout | "Pfizer deal landscape", "partnership analysis for oncology" |
 | Target-drug mapping | /target-map | "GLP-1 receptor target map" |
-| Regulatory tracking | /regulatory-watch | "regulatory timeline for semaglutide" |
-| Patent expiry analysis | /patent-cliff | "patent cliff for Humira" |
 
 The user can also invoke skills explicitly with /pipeline, /landscape, etc.
 
@@ -1805,8 +1802,7 @@ All skills and their workflows are included below in the system context."""
 
         # Handle explicit /skill invocations — strip the / to prevent
         # Claude Code from interpreting it as a slash command
-        CORTELLIS_SKILLS = {"pipeline", "landscape", "drug-profile", "deal-scout",
-                            "target-map", "regulatory-watch", "patent-cliff"}
+        CORTELLIS_SKILLS = {"pipeline", "landscape", "drug-profile", "target-map"}
         if question.startswith("/"):
             skill_name = question.split()[0][1:].lower()
             if skill_name in CORTELLIS_SKILLS:
