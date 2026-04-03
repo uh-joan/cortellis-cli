@@ -28,9 +28,11 @@ _SKILLS = [
             re.compile(r"\bcompetitive\s+(?:landscape|analysis|overview)\b", re.IGNORECASE),
             re.compile(r"\bmarket\s+(?:overview|landscape|map)\b", re.IGNORECASE),
             re.compile(r"--target\b", re.IGNORECASE),
+            re.compile(r"--technology\b", re.IGNORECASE),
+            re.compile(r"\b(ADC|mRNA|CAR-T|gene\s+therapy|cell\s+therapy|bispecific)\s+landscape\b", re.IGNORECASE),
         ],
         "directive": "/landscape",
-        "description": "competitive landscape for an indication or target",
+        "description": "competitive landscape for an indication, target, or technology/modality",
     },
     {
         "name": "drug-profile",
