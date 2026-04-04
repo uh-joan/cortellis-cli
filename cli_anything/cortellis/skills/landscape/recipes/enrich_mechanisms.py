@@ -43,7 +43,7 @@ def get_si_mechanism(drug_name):
         return ""
 
 
-def enrich_file(path, max_lookups=20):
+def enrich_file(path, max_lookups=50):
     """Enrich a single CSV file with SI mechanism data.
 
     Searches SI by drug name for each drug with empty mechanism.
@@ -102,13 +102,26 @@ if __name__ == "__main__":
     total_enriched = 0
 
     if os.path.isdir(target):
+        per_phase = {}
         for phase in ["launched.csv", "phase3.csv", "phase2.csv", "phase1.csv", "discovery.csv"]:
             path = os.path.join(target, phase)
             empty, enriched = enrich_file(path)
             if empty > 0:
                 print(f"{phase}: {enriched}/{empty} mechanisms enriched from SI", file=sys.stderr)
+            per_phase[phase] = {"empty": empty, "enriched": enriched}
             total_empty += empty
             total_enriched += enriched
+
+        fill_rate = (total_enriched / total_empty) if total_empty > 0 else 0.0
+        meta = {
+            "total_empty": total_empty,
+            "total_enriched": total_enriched,
+            "fill_rate": fill_rate,
+            "per_phase": per_phase,
+        }
+        meta_path = os.path.join(target, "enrichment.meta.json")
+        with open(meta_path, "w") as f:
+            json.dump(meta, f, indent=2)
     else:
         total_empty, total_enriched = enrich_file(target)
 
