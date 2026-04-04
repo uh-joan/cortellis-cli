@@ -37,11 +37,15 @@ If user provides a numeric ID, skip this step.
 cortellis --json drugs get <DRUG_ID> --category report --include-sources > $DIR/record.json
 ```
 
-### Step 3: SWOT analysis
+### Step 3: SWOT data collection
+Fetch inputs for the AI-generated strategic SWOT (editorial SWOT used as reference only):
 ```bash
 cortellis --json drugs swots <DRUG_ID> > $DIR/swot.json
+cortellis --json company-analytics query-drugs drugPatentProductExpiry --id-list <DRUG_ID> > $DIR/patent_expiry.json
+cortellis --json drugs search --drug-name "<DRUG_NAME> biosimilar" --hits 10 > $DIR/biosimilars.json
+cortellis --json drugs search --action "<PRIMARY_ACTION>" --phase C3 --hits 15 > $DIR/competitors_p3.json
 ```
-May be empty for niche/early-stage drugs — skip section if empty.
+The SWOT section is synthesized from ALL collected data (record, financials, trials, deals, patents, competitors) — not just the editorial SWOT.
 
 ### Step 4: Financial data
 ```bash
@@ -56,17 +60,17 @@ cortellis --json drugs history <DRUG_ID> > $DIR/history.json
 
 ### Step 6: Related deals
 ```bash
-cortellis --json deals search --drug "<DRUG_NAME>" --hits 10 --sort-by "-dealDateStart" > $DIR/deals.json
+cortellis --json deals search --drug "<DRUG_NAME>" --hits 50 --sort-by "-dealDateStart" > $DIR/deals.json
 ```
 
 ### Step 7: Active trials
 ```bash
-cortellis --json trials search --query "trialInterventionsPrimaryAloneNameDisplay:<DRUG_NAME>" --hits 10 --sort-by "-trialDateStart" > $DIR/trials.json
+cortellis --json trials search --query "trialInterventionsPrimaryAloneNameDisplay:<DRUG_NAME>" --hits 50 --sort-by "-trialDateStart" > $DIR/trials.json
 ```
 
 ### Step 8: Regulatory status
 ```bash
-cortellis --json regulations search --query "<DRUG_NAME>" --hits 10 --sort-by "-regulatoryDateSort" > $DIR/regulatory.json
+cortellis --json regulations search --query "<DRUG_NAME>" --hits 30 --sort-by "-regulatoryDateSort" > $DIR/regulatory.json
 ```
 
 ### Step 9: Competitive landscape (drugs with same primary mechanism)
@@ -75,13 +79,13 @@ Extract the primary action from the drug record, then search for other drugs wit
 cortellis --json drugs search --action "<PRIMARY_ACTION>" --phase L --hits 15 > $DIR/competitors.json
 ```
 
-### Step 10: Drug Design (SI) enrichment (for early-stage drugs)
-If the drug is Phase 1 or Preclinical:
+### Step 10: Drug Design (SI) enrichment
+For any drug, optionally enrich with pharmacology data:
 ```bash
-cortellis --json drug-design search-drugs --query "<DRUG_NAME>" --hits 1
-cortellis --json drug-design pharmacology --query "<DRUG_NAME>" --hits 5
+cortellis --json drug-design search-drugs --query "<DRUG_NAME>" --hits 1 > $DIR/si_drug.json
+cortellis --json drug-design pharmacology --query "<DRUG_NAME>" --hits 10 > $DIR/pharmacology.json
 ```
-Adds: research codes, pharmacology records, biologic flag, SI phase.
+Adds: research codes, pharmacology records (targets, assays, PK data), biologic flag, SI phase.
 
 ### Generate report
 ```bash
@@ -114,8 +118,8 @@ python3 $RECIPES/drug_report_generator.py $DIR
 ## Development Timeline
 (ASCII timeline from history — key milestones with dates)
 
-## SWOT Analysis (if available)
-### Strengths / Weaknesses / Opportunities / Threats
+## Strategic SWOT Analysis
+(AI-generated from live data: financials, trials, deals, patents, competitors)
 
 ## Financial Data (if available)
 Sales and forecast commentary.
@@ -151,7 +155,9 @@ python3 $RECIPES/resolve_drug.py "<DRUG_NAME>"
 ```bash
 python3 $RECIPES/drug_report_generator.py $DIR
 # Reads: record.json, swot.json, financials.json, history.json,
-#         deals.json, trials.json, regulatory.json, competitors.json
-# Outputs: formatted markdown with ASCII timeline, tables, charts
+#         deals.json, trials.json, regulatory.json, competitors.json,
+#         patent_expiry.json, biosimilars.json, competitors_p3.json
+# SWOT section: calls drug-swot/recipes/swot_data_collector.py to
+# synthesize a strategic SWOT from ALL collected data
 # Skips empty sections automatically
 ```
