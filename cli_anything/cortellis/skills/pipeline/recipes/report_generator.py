@@ -13,6 +13,7 @@ pipeline_dir = sys.argv[1]
 company_name = sys.argv[2] if len(sys.argv) > 2 else "Unknown"
 company_id = sys.argv[3] if len(sys.argv) > 3 else ""
 active_drugs = sys.argv[4] if len(sys.argv) > 4 else "?"
+total_trials = sys.argv[5] if len(sys.argv) > 5 else None
 
 
 def read_csv(filename):
@@ -41,8 +42,8 @@ def bar_chart(data, title, max_width=40, char="█"):
 def drug_table(rows, phase_name):
     """Generate markdown table from CSV rows."""
     count = len(rows)
-    truncated = count >= 50
-    warning = " ⚠️ TRUNCATED (50 limit)" if truncated else ""
+    truncated = count >= 150
+    warning = " ⚠️ TRUNCATED (150 pagination limit)" if truncated else ""
     lines = [f"## {phase_name} ({count}){warning}", ""]
     lines.append("| Drug | Indication | Mechanism |")
     lines.append("|------|-----------|-----------|")
@@ -70,7 +71,7 @@ def deals_table(rows):
     return "\n".join(lines)
 
 
-def trials_summary(rows):
+def trials_summary(rows, total=None):
     """Generate trials summary by indication."""
     if not rows:
         return "## Recruiting Trials\n\nNo recruiting trials found."
@@ -82,13 +83,15 @@ def trials_summary(rows):
             ind = ind.strip()
             if ind:
                 counts[ind] += 1
-    total_line = ""
-    # Check stderr file for total
-    lines = [f"## Recruiting Trials ({len(rows)} fetched)", ""]
+    display_total = total if total else str(len(rows))
+    lines = [f"## Recruiting Trials ({display_total} total, {len(rows)} fetched)", ""]
     lines.append("| Indication | Trials |")
     lines.append("|-----------|--------|")
-    for ind, count in counts.most_common(15):
+    top_indications = counts.most_common(20)
+    for ind, count in top_indications:
         lines.append(f"| {ind} | {count} |")
+    if len(counts) > 20:
+        lines.append(f"\n*+ {len(counts) - 20} more indications not shown*")
     return "\n".join(lines)
 
 
@@ -138,7 +141,7 @@ print()
 print("| Phase | Count |")
 print("|-------|-------|")
 for phase, count in phase_data:
-    flag = " ⚠️" if count >= 50 else ""
+    flag = " ⚠️" if count >= 150 else ""
     print(f"| {phase} | {count}{flag} |")
 total = sum(c for _, c in phase_data)
 print(f"| **Total** | **{total}** |")
@@ -151,9 +154,32 @@ for rows, name in [(launched, "Launched"), (phase3, "Phase 3"), (phase2, "Phase 
         print(drug_table(rows, name))
         print()
 
+# Attrition Summary
+attrited = read_csv("attrition.csv")
+if attrited:
+    attrition_counts = Counter(row.get("phase", "Unknown") for row in attrited)
+    print(f"## Attrition Summary ({len(attrited)} drugs)")
+    print()
+    attrition_chart_data = attrition_counts.most_common(10)
+    print("```")
+    print(bar_chart(attrition_chart_data, "Attrition by Status"))
+    print("```")
+    print()
+    print("| Drug | Last Phase | Indication | Mechanism |")
+    print("|------|-----------|-----------|-----------|")
+    for row in attrited[:20]:
+        name = row.get("name", "?")
+        phase = row.get("phase", "")
+        indication = row.get("indication", "")[:80]
+        mechanism = row.get("mechanism", "")[:60]
+        print(f"| {name} | {phase} | {indication} | {mechanism} |")
+    if len(attrited) > 20:
+        print(f"\n*+ {len(attrited) - 20} more attrited drugs not shown*")
+    print()
+
 # Deals
 print(deals_table(deals))
 print()
 
 # Trials
-print(trials_summary(trials))
+print(trials_summary(trials, total=total_trials))
