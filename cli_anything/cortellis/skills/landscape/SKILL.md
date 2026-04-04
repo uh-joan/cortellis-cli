@@ -182,7 +182,7 @@ bash $RECIPES/fetch_indication_phase.sh <ID> C3 $DIR/phase3.csv $PIPELINE_RECIPE
 bash $RECIPES/fetch_indication_phase.sh <ID> C2 $DIR/phase2.csv $PIPELINE_RECIPES
 bash $RECIPES/fetch_indication_phase.sh <ID> C1 $DIR/phase1.csv $PIPELINE_RECIPES
 bash $RECIPES/fetch_indication_phase.sh <ID> DR $DIR/discovery.csv $PIPELINE_RECIPES
-# Auto-paginates up to 300 drugs per phase. Writes .meta.json with totalResults.
+# Auto-paginates until ALL drugs fetched. Writes .meta.json with totalResults.
 # Rate limit protection: 3s between pages, 10s retry on rate limit.
 ```
 
@@ -206,6 +206,12 @@ python3 $RECIPES/group_biosimilars.py $DIR
 python3 $RECIPES/company_landscape.py $DIR > $DIR/companies.csv
 ```
 Outputs deduplicated company counts with phase breakdown.
+
+### Step 5b: Enrich company sizes (recommended)
+```bash
+python3 $RECIPES/enrich_company_sizes.py $DIR
+```
+Resolves top 20 companies via NER → batch-fetches `@companySize` (Large/Medium/Small) from Cortellis company-analytics. Writes `company_sizes.json`. Used by report generator for dynamic company classification (no hardcoded pharma lists).
 
 ### Step 6: Recent deals
 ```bash
@@ -249,10 +255,11 @@ python3 $RECIPES/landscape_report_generator.py $DIR "<INDICATION_NAME>" "<INDICA
 - Show warning only when data is actually truncated (metadata-based).
 - Do not add drugs from training data.
 - Present the report generator output directly. Do not reformat its tables.
-- Company classification uses phase-weighted scoring (Launched=5, Phase 3=4, Phase 2=3, Phase 1=2, Discovery/Preclinical=1):
-  - **Leader**: score >= 10 (e.g. 2 launched drugs, or 1 launched + 2 Phase 3)
-  - **Active**: score >= 4, OR company is major pharma (Pfizer, Novartis, Roche, Merck, AstraZeneca, J&J, Sanofi, AbbVie, Lilly, BMS, Amgen, Gilead, GSK, Bayer, Boehringer, Takeda, Novo Nordisk, Biogen, Regeneron, Vertex)
-  - **Emerging**: score < 4 and not major pharma
+- Company classification uses Cortellis `@companySize` + phase-weighted scoring (no hardcoded pharma lists):
+  - Phase-weighted scoring: Launched=5, Phase 3=4, Phase 2=3, Phase 1=2, Discovery/Preclinical=1
+  - **Leader**: score >= 10, OR (Large company AND score >= 4)
+  - **Active**: score >= 4, OR Large company (from Cortellis company-analytics)
+  - **Emerging**: everything else
 
 ## Output Format
 
