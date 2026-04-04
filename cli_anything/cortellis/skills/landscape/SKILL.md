@@ -49,9 +49,10 @@ When invoked as `/landscape --technology "<TECH>"` (optionally with `--indicatio
 ```bash
 RECIPES="cli_anything/cortellis/skills/landscape/recipes"
 PIPELINE_RECIPES="cli_anything/cortellis/skills/pipeline/recipes"
-DIR="/tmp/landscape_tech"
+DIR="raw/<TECH_SLUG>"
 mkdir -p "$DIR"
 ```
+Use a slug derived from the technology name (e.g., `raw/adc`, `raw/mrna`, `raw/gene-therapy`).
 
 ### Technology Step 1: Resolve technology ID and name
 ```bash
@@ -100,10 +101,11 @@ cortellis --json deals search --query "dealTechnologies:\"$TECH_NAME\"" --hits 2
 
 ### Technology Step 6: Generate report
 ```bash
-python3 $RECIPES/landscape_report_generator.py $DIR "$TECH_NAME" "" "<TECH>"
+python3 $RECIPES/landscape_report_generator.py $DIR "$TECH_NAME" "" "<TECH>" | tee $DIR/report.md
 # Pass empty string for ID (not applicable in technology mode)
-# For combined mode: python3 $RECIPES/landscape_report_generator.py $DIR "$TECH_NAME ($IND_NAME)" "" "<TECH> + <IND>"
+# For combined mode: python3 $RECIPES/landscape_report_generator.py $DIR "$TECH_NAME ($IND_NAME)" "" "<TECH> + <IND>" | tee $DIR/report.md
 # USER_INPUT is the original user-supplied technology (and indication) name
+# Report saved to $DIR/report.md
 ```
 
 ## Target Mode Workflow
@@ -114,9 +116,10 @@ When invoked as `/landscape --target "<TARGET>"`, use the following workflow ins
 ```bash
 RECIPES="cli_anything/cortellis/skills/landscape/recipes"
 PIPELINE_RECIPES="cli_anything/cortellis/skills/pipeline/recipes"
-DIR="/tmp/landscape_target"
+DIR="raw/<TARGET_SLUG>"
 mkdir -p "$DIR"
 ```
+Use a slug derived from the target name (e.g., `raw/glp-1-receptor`, `raw/pd-l1`, `raw/egfr`).
 
 ### Target Step 1: Resolve action name
 ```bash
@@ -147,9 +150,10 @@ cortellis --json deals search --query "dealActionsPrimary:\"$ACTION_NAME\"" --hi
 
 ### Target Step 5: Generate report
 ```bash
-python3 $RECIPES/landscape_report_generator.py $DIR "$ACTION_NAME" "" "<TARGET>"
+python3 $RECIPES/landscape_report_generator.py $DIR "$ACTION_NAME" "" "<TARGET>" | tee $DIR/report.md
 # Pass empty string for ID (not applicable in target mode)
 # USER_INPUT is the original user-supplied target name
+# Report saved to $DIR/report.md
 ```
 
 ## Indication Workflow
@@ -158,10 +162,11 @@ python3 $RECIPES/landscape_report_generator.py $DIR "$ACTION_NAME" "" "<TARGET>"
 ```bash
 RECIPES="cli_anything/cortellis/skills/landscape/recipes"
 PIPELINE_RECIPES="cli_anything/cortellis/skills/pipeline/recipes"
-DIR="/tmp/landscape"
+DIR="raw/<INDICATION_SLUG>"
 mkdir -p "$DIR"
 HEADER="name,id,phase,indication,mechanism,company,source"
 ```
+Use a slug derived from the indication name (e.g., `raw/obesity`, `raw/nsclc`, `raw/mash`, `raw/huntingtons-disease`). Lowercase, hyphens for spaces, no apostrophes.
 
 ### Step 1: Resolve indication ID
 ```bash
@@ -241,11 +246,12 @@ python3 $RECIPES/catch_missing_drugs.py <ID> $DIR
 
 ### Step 9: Generate report
 ```bash
-python3 $RECIPES/landscape_report_generator.py $DIR "<INDICATION_NAME>" "<INDICATION_ID>" "<USER_INPUT>"
+python3 $RECIPES/landscape_report_generator.py $DIR "<INDICATION_NAME>" "<INDICATION_ID>" "<USER_INPUT>" | tee $DIR/report.md
 # Reads .meta.json files for accurate truncation warnings.
 # Pipeline chart, mechanism density chart, top companies chart.
 # Drug tables per phase, company ranking, deals, trials summary.
 # USER_INPUT is the original user query; shown in header when it differs from resolved name.
+# Report saved to $DIR/report.md for future reference.
 ```
 
 ## Output Rules
