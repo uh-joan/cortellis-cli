@@ -96,8 +96,7 @@ python3 $RECIPES/company_landscape.py $DIR > $DIR/companies.csv
 
 ### Technology Step 5: Recent deals
 ```bash
-DATE_2Y_AGO=$(python3 -c "from datetime import date, timedelta; print((date.today() - timedelta(days=730)).isoformat())")
-cortellis --json deals search --query "dealTechnologies:\"$TECH_NAME\"" --date-start "$DATE_2Y_AGO" --hits 50 --sort-by "-dealDateStart" | python3 $PIPELINE_RECIPES/deals_to_csv.py > $DIR/deals.csv
+cortellis --json deals search --query "dealTechnologies:\"$TECH_NAME\"" --hits 50 --sort-by "-dealDateStart" | python3 $PIPELINE_RECIPES/deals_to_csv.py > $DIR/deals.csv
 cortellis --json deals search --query "dealTechnologies:\"$TECH_NAME\"" --hits 0 | python3 -c "import json,sys; d=json.load(sys.stdin); print(json.dumps({'totalResults': d.get('dealResultsOutput',{}).get('@totalResults','0')}))" > $DIR/deals.meta.json
 ```
 
@@ -147,8 +146,7 @@ python3 $RECIPES/company_landscape.py $DIR > $DIR/companies.csv
 
 ### Target Step 4: Recent deals
 ```bash
-DATE_2Y_AGO=$(python3 -c "from datetime import date, timedelta; print((date.today() - timedelta(days=730)).isoformat())")
-cortellis --json deals search --query "dealActionsPrimary:\"$ACTION_NAME\"" --date-start "$DATE_2Y_AGO" --hits 50 --sort-by "-dealDateStart" | python3 $PIPELINE_RECIPES/deals_to_csv.py > $DIR/deals.csv
+cortellis --json deals search --query "dealActionsPrimary:\"$ACTION_NAME\"" --hits 50 --sort-by "-dealDateStart" | python3 $PIPELINE_RECIPES/deals_to_csv.py > $DIR/deals.csv
 cortellis --json deals search --query "dealActionsPrimary:\"$ACTION_NAME\"" --hits 0 | python3 -c "import json,sys; d=json.load(sys.stdin); print(json.dumps({'totalResults': d.get('dealResultsOutput',{}).get('@totalResults','0')}))" > $DIR/deals.meta.json
 ```
 
@@ -224,8 +222,7 @@ Resolves top 20 companies via NER → batch-fetches `@companySize` (Large/Medium
 
 ### Step 6: Recent deals
 ```bash
-DATE_2Y_AGO=$(python3 -c "from datetime import date, timedelta; print((date.today() - timedelta(days=730)).isoformat())")
-cortellis --json deals search --indication "<INDICATION>" --date-start "$DATE_2Y_AGO" --hits 50 --sort-by "-dealDateStart" | python3 $PIPELINE_RECIPES/deals_to_csv.py > $DIR/deals.csv
+cortellis --json deals search --indication "<INDICATION>" --hits 50 --sort-by "-dealDateStart" | python3 $PIPELINE_RECIPES/deals_to_csv.py > $DIR/deals.csv
 cortellis --json deals search --indication "<INDICATION>" --hits 0 | python3 -c "import json,sys; d=json.load(sys.stdin); print(json.dumps({'totalResults': d.get('dealResultsOutput',{}).get('@totalResults','0')}))" > $DIR/deals.meta.json
 ```
 

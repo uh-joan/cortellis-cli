@@ -309,7 +309,7 @@ if deals:
     deals_meta = load_json("deals.meta.json")
     total_deals = int(deals_meta.get("totalResults", 0)) if deals_meta and isinstance(deals_meta, dict) else len(deals)
     if total_deals > len(deals):
-        print(f"## Recent Deals ({len(deals)} shown of {total_deals} total, last 2 years)")
+        print(f"## Recent Deals ({len(deals)} most recent of {total_deals} total)")
     else:
         print(f"## Recent Deals ({len(deals)})")
     print()
