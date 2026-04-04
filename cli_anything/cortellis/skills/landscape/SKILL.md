@@ -94,10 +94,10 @@ bash $RECIPES/fetch_drugs_paginated.sh DR $DIR/discovery.csv $PIPELINE_RECIPES -
 python3 $RECIPES/company_landscape.py $DIR > $DIR/companies.csv
 ```
 
-### Technology Step 5: Recent deals
+### Technology Step 5: Recent deals (paginated)
 ```bash
-cortellis --json deals search --query "dealTechnologies:\"$TECH_NAME\"" --hits 50 --sort-by "-dealDateStart" | python3 $PIPELINE_RECIPES/deals_to_csv.py > $DIR/deals.csv
-cortellis --json deals search --query "dealTechnologies:\"$TECH_NAME\"" --hits 0 | python3 -c "import json,sys; d=json.load(sys.stdin); print(json.dumps({'totalResults': d.get('dealResultsOutput',{}).get('@totalResults','0')}))" > $DIR/deals.meta.json
+bash $RECIPES/fetch_deals_paginated.sh '--query "dealTechnologies:\"$TECH_NAME\""' $DIR/deals.csv $PIPELINE_RECIPES
+python3 $RECIPES/deals_analytics.py $DIR/deals.csv $DIR/deals.meta.json | tee $DIR/deals_analytics.md
 ```
 
 ### Technology Step 6: Generate report
@@ -144,10 +144,10 @@ bash $RECIPES/fetch_drugs_paginated.sh DR $DIR/discovery.csv $PIPELINE_RECIPES -
 python3 $RECIPES/company_landscape.py $DIR > $DIR/companies.csv
 ```
 
-### Target Step 4: Recent deals
+### Target Step 4: Recent deals (paginated)
 ```bash
-cortellis --json deals search --query "dealActionsPrimary:\"$ACTION_NAME\"" --hits 50 --sort-by "-dealDateStart" | python3 $PIPELINE_RECIPES/deals_to_csv.py > $DIR/deals.csv
-cortellis --json deals search --query "dealActionsPrimary:\"$ACTION_NAME\"" --hits 0 | python3 -c "import json,sys; d=json.load(sys.stdin); print(json.dumps({'totalResults': d.get('dealResultsOutput',{}).get('@totalResults','0')}))" > $DIR/deals.meta.json
+bash $RECIPES/fetch_deals_paginated.sh '--query "dealActionsPrimary:\"$ACTION_NAME\""' $DIR/deals.csv $PIPELINE_RECIPES
+python3 $RECIPES/deals_analytics.py $DIR/deals.csv $DIR/deals.meta.json | tee $DIR/deals_analytics.md
 ```
 
 ### Target Step 5: Generate report
@@ -220,11 +220,18 @@ python3 $RECIPES/enrich_company_sizes.py $DIR
 ```
 Resolves top 20 companies via NER → batch-fetches `@companySize` (Large/Medium/Small) from Cortellis company-analytics. Writes `company_sizes.json`. Used by report generator for dynamic company classification (no hardcoded pharma lists).
 
-### Step 6: Recent deals
+### Step 6: Recent deals (paginated, up to 200)
 ```bash
-cortellis --json deals search --indication "<INDICATION>" --hits 50 --sort-by "-dealDateStart" | python3 $PIPELINE_RECIPES/deals_to_csv.py > $DIR/deals.csv
-cortellis --json deals search --indication "<INDICATION>" --hits 0 | python3 -c "import json,sys; d=json.load(sys.stdin); print(json.dumps({'totalResults': d.get('dealResultsOutput',{}).get('@totalResults','0')}))" > $DIR/deals.meta.json
+bash $RECIPES/fetch_deals_paginated.sh '--indication "<INDICATION>"' $DIR/deals.csv $PIPELINE_RECIPES
 ```
+Fetches up to 200 deals (4 pages of 50), sorted newest first. Writes `deals.meta.json` with totalResults.
+Typically covers ~18 months of deal activity.
+
+### Step 6b: Deal analytics
+```bash
+python3 $RECIPES/deals_analytics.py $DIR/deals.csv $DIR/deals.meta.json | tee $DIR/deals_analytics.md
+```
+Produces: deal type breakdown chart, top deal-makers table, deal velocity by quarter, summary stats.
 
 ### Step 7: Trial activity summary
 ```bash
