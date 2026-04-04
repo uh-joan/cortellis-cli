@@ -33,7 +33,7 @@ pytestmark = pytest.mark.skipif(_NO_CREDS, reason=_SKIP_REASON)
 
 @pytest.fixture(scope="module")
 def runner() -> CliRunner:
-    return CliRunner(mix_stderr=False)
+    return CliRunner()
 
 
 def _invoke(runner: CliRunner, args: list) -> tuple:
@@ -51,12 +51,10 @@ def test_drugs_search_returns_results(runner):
     result = _invoke(runner, ["--json", "drugs", "search", "--phase", "L", "--hits", "5"])
     assert result.exit_code == 0, result.output
     data = json.loads(result.output)
-    # Cortellis search responses contain a hits/totalHits key or similar
     assert isinstance(data, dict)
-    # Accept either "drugs" list or a top-level hits structure
-    assert any(k in data for k in ("drugs", "hits", "totalHits", "data", "results")), (
-        f"Unexpected response keys: {list(data.keys())}"
-    )
+    assert "drugResultsOutput" in data, f"Unexpected response keys: {list(data.keys())}"
+    total = int(data["drugResultsOutput"].get("@totalResults", "0"))
+    assert total > 0, "Expected at least one drug result"
 
 
 def test_drugs_get_tirzepatide(runner):
@@ -65,28 +63,25 @@ def test_drugs_get_tirzepatide(runner):
     assert result.exit_code == 0, result.output
     data = json.loads(result.output)
     assert isinstance(data, dict)
-    # Should contain some drug-level fields
-    assert any(k in data for k in ("drugId", "id", "drugName", "name", "drug")), (
-        f"Unexpected response keys: {list(data.keys())}"
-    )
+    assert "drugRecordOutput" in data, f"Unexpected response keys: {list(data.keys())}"
 
 
 def test_companies_search(runner):
-    """companies search --hits 3 should return at least one company."""
-    result = _invoke(runner, ["--json", "companies", "search", "--hits", "3"])
+    """companies search --query should return at least one company."""
+    result = _invoke(runner, ["--json", "companies", "search",
+                              "--query", "companyNameDisplay:Pfizer", "--hits", "3"])
     assert result.exit_code == 0, result.output
     data = json.loads(result.output)
     assert isinstance(data, dict)
-    assert any(k in data for k in ("companies", "hits", "totalHits", "data", "results")), (
-        f"Unexpected response keys: {list(data.keys())}"
-    )
+    assert "companyResultsOutput" in data, f"Unexpected response keys: {list(data.keys())}"
+    total = int(data["companyResultsOutput"].get("@totalResults", "0"))
+    assert total > 0, "Expected at least one company result"
 
 
 def test_json_output_mode(runner):
     """--json flag should produce valid JSON output."""
-    result = _invoke(runner, ["--json", "drugs", "search", "--hits", "1"])
+    result = _invoke(runner, ["--json", "drugs", "search", "--phase", "L", "--hits", "1"])
     assert result.exit_code == 0, result.output
-    # Must parse without raising
     data = json.loads(result.output)
     assert isinstance(data, (dict, list))
 
@@ -113,19 +108,18 @@ def test_help_shows_all_groups(runner):
 
 
 def test_ontology_top_level(runner):
-    """ontology top-level should return a non-empty response."""
-    result = _invoke(runner, ["--json", "ontology", "top-level"])
+    """ontology top-level --category indication should return taxonomy tree."""
+    result = _invoke(runner, ["--json", "ontology", "top-level", "--category", "indication"])
     assert result.exit_code == 0, result.output
     data = json.loads(result.output)
-    assert isinstance(data, (dict, list))
-    if isinstance(data, dict):
-        assert len(data) > 0, "Expected non-empty ontology top-level response"
+    assert isinstance(data, dict)
+    assert "ontologyTreeOutput" in data, f"Unexpected response keys: {list(data.keys())}"
 
 
-def test_analytics_run(runner):
-    """analytics run with a basic query name should not error."""
-    # "drugsByPhase" is a commonly available Cortellis analytics query
-    result = _invoke(runner, ["--json", "analytics", "run", "drugsByPhase"])
+def test_ner_match(runner):
+    """ner match should recognize a drug entity."""
+    result = _invoke(runner, ["--json", "ner", "match", "semaglutide"])
     assert result.exit_code == 0, result.output
     data = json.loads(result.output)
-    assert isinstance(data, (dict, list))
+    assert isinstance(data, dict)
+    assert "NamedEntityRecognition" in data, f"Unexpected response keys: {list(data.keys())}"

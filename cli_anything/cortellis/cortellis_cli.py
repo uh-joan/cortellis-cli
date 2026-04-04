@@ -1806,7 +1806,11 @@ All skills and their workflows are included below in the system context."""
 
         # Handle explicit /skill invocations — strip the / to prevent
         # Claude Code from interpreting it as a slash command
-        CORTELLIS_SKILLS = {"pipeline", "landscape", "drug-profile"}
+        CORTELLIS_SKILLS = {
+            d.name for d in skills_dir.iterdir()
+            if d.is_dir() and (d / "SKILL.md").exists()
+            and d.name != "cortellis-cli"
+        }
         if question.startswith("/"):
             skill_name = question.split()[0][1:].lower()
             if skill_name in CORTELLIS_SKILLS:
