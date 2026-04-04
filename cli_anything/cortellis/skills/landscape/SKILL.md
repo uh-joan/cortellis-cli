@@ -105,6 +105,7 @@ python3 $RECIPES/deals_analytics.py $DIR/deals.csv $DIR/deals.meta.json | tee $D
 python3 $RECIPES/landscape_report_generator.py $DIR "$TECH_NAME" "" "<TECH>" | tee $DIR/report.md
 python3 $RECIPES/strategic_scoring.py $DIR | tee $DIR/strategic_scores.md
 python3 $RECIPES/opportunity_matrix.py $DIR | tee $DIR/opportunity_analysis.md
+python3 $RECIPES/strategic_narrative.py $DIR "$TECH_NAME" | tee $DIR/strategic_briefing.md
 # Pass empty string for ID (not applicable in technology mode)
 # For combined mode: python3 $RECIPES/landscape_report_generator.py $DIR "$TECH_NAME ($IND_NAME)" "" "<TECH> + <IND>" | tee $DIR/report.md
 # USER_INPUT is the original user-supplied technology (and indication) name
@@ -157,6 +158,7 @@ python3 $RECIPES/deals_analytics.py $DIR/deals.csv $DIR/deals.meta.json | tee $D
 python3 $RECIPES/landscape_report_generator.py $DIR "$ACTION_NAME" "" "<TARGET>" | tee $DIR/report.md
 python3 $RECIPES/strategic_scoring.py $DIR | tee $DIR/strategic_scores.md
 python3 $RECIPES/opportunity_matrix.py $DIR | tee $DIR/opportunity_analysis.md
+python3 $RECIPES/strategic_narrative.py $DIR "$ACTION_NAME" | tee $DIR/strategic_briefing.md
 # Pass empty string for ID (not applicable in target mode)
 # USER_INPUT is the original user-supplied target name
 # Report saved to $DIR/report.md
@@ -279,6 +281,17 @@ python3 $RECIPES/opportunity_matrix.py $DIR | tee $DIR/opportunity_analysis.md
 # Classifies mechanisms: Mature, Crowded Pipeline, Emerging, White Space, Active
 ```
 
+### Step 12: Strategic narrative (executive briefing)
+```bash
+python3 $RECIPES/strategic_narrative.py $DIR "<INDICATION_NAME>" | tee $DIR/strategic_briefing.md
+# Produces 2-page executive briefing from scored data:
+# - Executive Summary (5 key bullets)
+# - Company 2x2 Matrix (Leaders/Fading Giants/Rising Challengers/Struggling)
+# - Scenario Analysis (what if top company exits?)
+# - Strategic Implications for 4 executive decisions
+# Pure computation — no LLM calls. Every claim backed by a number.
+```
+
 ## Output Rules
 
 - ALWAYS list ALL drugs in tables. NEVER truncate with "+ N others".
@@ -337,7 +350,7 @@ python3 $RECIPES/opportunity_matrix.py $DIR | tee $DIR/opportunity_analysis.md
 - Risk Zones (high attrition mechanisms to avoid)
 ```
 
-## Recipes (10 total)
+## Recipes (13 total)
 
 ### resolve_indication.py — Indication ID resolution
 ```bash
@@ -422,6 +435,16 @@ python3 $RECIPES/strategic_scoring.py $DIR
 # Computes deal momentum (recent 6m vs prior 6m velocity)
 # Outputs: strategic_scores.csv, mechanism_scores.csv + markdown to stdout
 # Pure computation — no LLM calls
+```
+
+### strategic_narrative.py — Executive Briefing + Scenario Analysis
+```bash
+python3 $RECIPES/strategic_narrative.py $DIR "<INDICATION_NAME>"
+# 2-page executive briefing from scored data
+# Company 2x2 matrix: Leaders / Fading Giants / Rising Challengers / Struggling
+# Scenario analysis: what if top company exits? Who benefits?
+# Strategic implications for 4 decisions: enter, partner, cut, differentiate
+# Every claim backed by a computed number — no LLM inference
 ```
 
 ### opportunity_matrix.py — Mechanism x Phase Heatmap + White Space
