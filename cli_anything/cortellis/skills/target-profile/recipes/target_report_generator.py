@@ -5,9 +5,11 @@ Usage: python3 target_report_generator.py /tmp/target_profile/
 """
 import json, sys, os
 from collections import Counter
+from datetime import datetime
 
 
 data_dir = sys.argv[1] if len(sys.argv) > 1 else "/tmp/target_profile"
+resolution_method = sys.argv[2] if len(sys.argv) > 2 else ""
 
 
 def load_json(filename):
@@ -43,6 +45,15 @@ interactions = load_json("interactions.json")
 drugs_pipeline = load_json("drugs_pipeline.json")
 pharmacology = load_json("pharmacology.json")
 briefings = load_json("briefings.json")
+
+# Coverage tracking variables (populated as sections are rendered)
+disease_total = None
+gene_total = None
+pipeline_shown = None
+pipeline_total = None
+interaction_total = None
+interaction_filtered = 0
+pharm_total = None
 
 # Parse target record
 target_name = "Unknown"
@@ -97,6 +108,7 @@ print()
 print(f"**ID:** {target_id} | **Organism:** {organism or 'Human'} | **Family:** {family or 'N/A'}")
 if synonyms:
     print(f"**Synonyms:** {', '.join(synonyms)}")
+print(f"**Generated:** {datetime.now().strftime('%Y-%m-%d %H:%M UTC')}")
 print()
 
 # Biology
@@ -142,8 +154,12 @@ if condition_drugs:
 
         # Sort by total drugs descending
         disease_data.sort(key=lambda x: -x[1])
+        disease_total = len(disease_data)
 
-        print(f"## Disease Associations ({len(disease_data)} diseases)")
+        if disease_total > 25:
+            print(f"## Disease Associations (showing 25 of {disease_total} diseases)")
+        else:
+            print(f"## Disease Associations ({disease_total} diseases)")
         print()
         print("| Disease | Total Drugs | Active | Highest Phase |")
         print("|---------|-------------|--------|---------------|")
@@ -160,7 +176,11 @@ if condition_genes:
     if isinstance(gene_assocs, dict):
         gene_assocs = [gene_assocs]
     if gene_assocs:
-        print(f"## Genetic Evidence ({len(gene_assocs)} associations)")
+        gene_total = len(gene_assocs)
+        if gene_total > 15:
+            print(f"## Genetic Evidence (showing 15 of {gene_total} associations)")
+        else:
+            print(f"## Genetic Evidence ({gene_total} associations)")
         print()
         print("| Disease | Evidence Sources |")
         print("|---------|-----------------|")
@@ -184,6 +204,8 @@ if drugs_pipeline:
         drug_list = [drug_list]
 
     if drug_list:
+        pipeline_shown = len(drug_list)
+        pipeline_total = total
         # Phase distribution
         phase_counts = Counter()
         for d in drug_list:
@@ -194,7 +216,13 @@ if drugs_pipeline:
             if phase_counts.get(p, 0) > 0:
                 phase_data.append((p, phase_counts[p]))
 
-        print(f"## Drug Pipeline ({total} total)")
+        try:
+            if int(total) > pipeline_shown:
+                print(f"## Drug Pipeline (showing {pipeline_shown} of {total})")
+            else:
+                print(f"## Drug Pipeline ({total} total)")
+        except (ValueError, TypeError):
+            print(f"## Drug Pipeline ({total} total)")
         print()
         print("```")
         print(bar_chart(phase_data, "Pipeline by Phase"))
@@ -229,11 +257,22 @@ if interactions:
     if isinstance(inter_list, dict):
         inter_list = [inter_list]
     if inter_list:
+        interaction_total = len(inter_list)
         # Filter to meaningful interactions (skip long chemical names)
         meaningful = [i for i in inter_list if len(i.get("CounterpartObject", {}).get("$", "")) < 60]
+        interaction_filtered = interaction_total - len(meaningful)
         if not meaningful:
             meaningful = inter_list
-        print(f"## Protein Interactions ({len(inter_list)} total)")
+            interaction_filtered = 0
+        displayed = min(len(meaningful), 20)
+        header_parts = []
+        if len(meaningful) > 20 or interaction_filtered > 0:
+            header_parts.append(f"showing {displayed} of {interaction_total} total")
+            if interaction_filtered > 0:
+                header_parts.append(f"{interaction_filtered} chemical names filtered")
+            print(f"## Protein Interactions ({'; '.join(header_parts)})")
+        else:
+            print(f"## Protein Interactions ({interaction_total} total)")
         print()
         print("| Partner | Direction | Effect | Mechanism |")
         print("|---------|-----------|--------|-----------|")
@@ -252,7 +291,11 @@ if pharmacology:
     if isinstance(pharm_list, dict):
         pharm_list = [pharm_list]
     if pharm_list:
-        print(f"## Pharmacology ({len(pharm_list)} records)")
+        pharm_total = len(pharm_list)
+        if pharm_total > 20:
+            print(f"## Pharmacology (showing 20 of {pharm_total} records)")
+        else:
+            print(f"## Pharmacology ({pharm_total} records)")
         print()
         print("| Compound | Assay | Value | Unit |")
         print("|----------|-------|-------|------|")
@@ -269,6 +312,7 @@ if pharmacology:
         print()
 
 # Disease briefings
+brief_list = []
 if briefings:
     brief_results = briefings.get("drugDesignResultsOutput", {}).get("SearchResults", {})
     brief_list = brief_results.get("DiseaseBriefing", [])
@@ -282,3 +326,76 @@ if briefings:
             bid = b.get("@id", "?")
             print(f"- **{bname}** (ID: {bid})")
         print()
+
+if not briefings or not brief_list:
+    if os.path.exists(os.path.join(data_dir, "briefings.json")):
+        print("_Disease briefings: data unavailable (API returned no results)_")
+        print()
+
+# Data Coverage footer
+print("## Data Coverage")
+print()
+print("| Metric | Value |")
+print("|--------|-------|")
+
+# Drug pipeline row
+if pipeline_shown is not None:
+    try:
+        if int(pipeline_total) > pipeline_shown:
+            print(f"| Drug pipeline | showing {pipeline_shown} of {pipeline_total} |")
+        else:
+            print(f"| Drug pipeline | complete ({pipeline_shown}) |")
+    except (ValueError, TypeError):
+        print(f"| Drug pipeline | {pipeline_shown} drugs |")
+else:
+    print("| Drug pipeline | no data |")
+
+# Disease associations row
+if disease_total is not None:
+    if disease_total > 25:
+        print(f"| Disease associations | showing 25 of {disease_total} |")
+    else:
+        print(f"| Disease associations | {disease_total} diseases |")
+else:
+    print("| Disease associations | no data |")
+
+# Genetic evidence row
+if gene_total is not None:
+    if gene_total > 15:
+        print(f"| Genetic evidence | showing 15 of {gene_total} |")
+    else:
+        print(f"| Genetic evidence | {gene_total} associations |")
+else:
+    print("| Genetic evidence | no data |")
+
+# Interactions row
+if interaction_total is not None:
+    if interaction_filtered > 0:
+        print(f"| Protein interactions | {interaction_total} total ({interaction_filtered} chemical names filtered) |")
+    else:
+        print(f"| Protein interactions | {interaction_total} total |")
+else:
+    print("| Protein interactions | no data |")
+
+# Pharmacology row
+if pharm_total is not None:
+    if pharm_total > 20:
+        print(f"| Pharmacology | showing 20 of {pharm_total} |")
+    else:
+        print(f"| Pharmacology | {pharm_total} records |")
+else:
+    print("| Pharmacology | no data |")
+
+# Resolution method row
+if resolution_method:
+    confidence_map = {
+        "NER": "high confidence",
+        "direct": "medium confidence",
+        "normalized": "low confidence — verify target",
+    }
+    confidence = confidence_map.get(resolution_method, resolution_method)
+    print(f"| Resolution | {confidence} |")
+
+# Timestamp row
+print(f"| Generated | {datetime.now().strftime('%Y-%m-%d %H:%M UTC')} |")
+print()
