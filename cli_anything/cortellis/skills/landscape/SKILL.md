@@ -100,9 +100,11 @@ bash $RECIPES/fetch_deals_paginated.sh '--query "dealTechnologies:\"$TECH_NAME\"
 python3 $RECIPES/deals_analytics.py $DIR/deals.csv $DIR/deals.meta.json | tee $DIR/deals_analytics.md
 ```
 
-### Technology Step 6: Generate report
+### Technology Step 6: Generate report + strategic analysis
 ```bash
 python3 $RECIPES/landscape_report_generator.py $DIR "$TECH_NAME" "" "<TECH>" | tee $DIR/report.md
+python3 $RECIPES/strategic_scoring.py $DIR | tee $DIR/strategic_scores.md
+python3 $RECIPES/opportunity_matrix.py $DIR | tee $DIR/opportunity_analysis.md
 # Pass empty string for ID (not applicable in technology mode)
 # For combined mode: python3 $RECIPES/landscape_report_generator.py $DIR "$TECH_NAME ($IND_NAME)" "" "<TECH> + <IND>" | tee $DIR/report.md
 # USER_INPUT is the original user-supplied technology (and indication) name
@@ -150,9 +152,11 @@ bash $RECIPES/fetch_deals_paginated.sh '--query "dealActionsPrimary:\"$ACTION_NA
 python3 $RECIPES/deals_analytics.py $DIR/deals.csv $DIR/deals.meta.json | tee $DIR/deals_analytics.md
 ```
 
-### Target Step 5: Generate report
+### Target Step 5: Generate report + strategic analysis
 ```bash
 python3 $RECIPES/landscape_report_generator.py $DIR "$ACTION_NAME" "" "<TARGET>" | tee $DIR/report.md
+python3 $RECIPES/strategic_scoring.py $DIR | tee $DIR/strategic_scores.md
+python3 $RECIPES/opportunity_matrix.py $DIR | tee $DIR/opportunity_analysis.md
 # Pass empty string for ID (not applicable in target mode)
 # USER_INPUT is the original user-supplied target name
 # Report saved to $DIR/report.md
@@ -259,6 +263,22 @@ python3 $RECIPES/landscape_report_generator.py $DIR "<INDICATION_NAME>" "<INDICA
 # Report saved to $DIR/report.md for future reference.
 ```
 
+### Step 10: Strategic scoring
+```bash
+python3 $RECIPES/strategic_scoring.py $DIR | tee $DIR/strategic_scores.md
+# Computes: Competitive Position Index, mechanism crowding, momentum indicators
+# Outputs: strategic_scores.csv, mechanism_scores.csv + markdown to stdout
+# Pure computation — no LLM calls. Deterministic and reproducible.
+```
+
+### Step 11: Opportunity analysis
+```bash
+python3 $RECIPES/opportunity_matrix.py $DIR | tee $DIR/opportunity_analysis.md
+# Computes: mechanism x phase heatmap, white space identification, attrition-adjusted opportunity
+# Outputs: opportunity_matrix.csv + markdown to stdout
+# Classifies mechanisms: Mature, Crowded Pipeline, Emerging, White Space, Active
+```
+
 ## Output Rules
 
 - ALWAYS list ALL drugs in tables. NEVER truncate with "+ N others".
@@ -307,9 +327,17 @@ python3 $RECIPES/landscape_report_generator.py $DIR "<INDICATION_NAME>" "<INDICA
 ## Recruiting Trials
 | Phase | Trials |
 |-------|--------|
+
+## Strategic Intelligence (from strategic_scoring.py + opportunity_matrix.py)
+- Competitive Position Index (ranked companies with CPI scores)
+- Mechanism Crowding Analysis (crowding index per mechanism)
+- Momentum Signals (deal velocity trends)
+- Opportunity Heatmap (mechanism x phase matrix)
+- White Space Identification (underserved mechanism-phase combinations)
+- Risk Zones (high attrition mechanisms to avoid)
 ```
 
-## Recipes (8 total)
+## Recipes (10 total)
 
 ### resolve_indication.py — Indication ID resolution
 ```bash
@@ -383,6 +411,27 @@ python3 $RECIPES/landscape_report_generator.py $DIR "<NAME>" "<ID>" "<USER_INPUT
 # Pipeline chart, mechanism density chart, top companies chart.
 # Wider table columns: drug (60), company (40), mechanism (50).
 # USER_INPUT shown in header when it differs from resolved indication name.
+```
+
+### strategic_scoring.py — Competitive Position Index + Mechanism Crowding
+```bash
+python3 $RECIPES/strategic_scoring.py $DIR
+# Computes CPI per company (weighted: pipeline breadth 20%, phase score 30%,
+#   mechanism diversity 20%, deal activity 15%, trial intensity 15%)
+# Computes mechanism crowding index (active_count * company_count)
+# Computes deal momentum (recent 6m vs prior 6m velocity)
+# Outputs: strategic_scores.csv, mechanism_scores.csv + markdown to stdout
+# Pure computation — no LLM calls
+```
+
+### opportunity_matrix.py — Mechanism x Phase Heatmap + White Space
+```bash
+python3 $RECIPES/opportunity_matrix.py $DIR
+# Builds mechanism x phase matrix from all drug CSVs
+# Classifies mechanisms: Mature, Crowded Pipeline, Emerging, White Space, Active
+# Computes attrition-adjusted opportunity score per mechanism
+# Identifies top 5 strategic opportunities + risk zones (graveyard mechanisms)
+# Outputs: opportunity_matrix.csv + markdown to stdout
 ```
 
 NOTE: This skill reuses pipeline recipes for CSV conversion:
