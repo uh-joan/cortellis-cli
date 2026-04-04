@@ -4,7 +4,7 @@
 Strategy (no hardcoded synonym tables):
 1. NER match → find Target entity → use canonical name for targets search
 2. Targets search → search by targetSynonyms, score results by match quality
-3. Action name → use landscape's resolve_target.py for the action name (drugs search)
+3. Action name → inline NER/ontology resolution (no landscape dependency)
 4. Normalized retry → strip hyphens/slashes, retry
 
 Usage:
@@ -14,7 +14,7 @@ Usage:
 
 Output: target_id,target_name,gene_symbol,action_name
 """
-import json, os, re, subprocess, sys
+import json, re, subprocess, sys
 
 
 def normalize(s):
@@ -122,35 +122,124 @@ def ner_resolve_target(name):
     return ""
 
 
+def _action_expand(name):
+    """Last-resort expansion for abbreviations where NER AND ontology both fail."""
+    DIRECT_ACTION_NAMES = {
+        "pd-l1": "Programmed cell death ligand 1 inhibitor",
+        "pdl1": "Programmed cell death ligand 1 inhibitor",
+        "pd-1": "Programmed cell death protein 1 inhibitor",
+        "pd1": "Programmed cell death protein 1 inhibitor",
+        "cdk4/6": "Cyclin dependent kinase 4 and 6 inhibitor",
+        "cdk 4/6": "Cyclin dependent kinase 4 and 6 inhibitor",
+        "tnf": "Tumor necrosis factor inhibitor",
+        "tnf alpha": "Tumor necrosis factor inhibitor",
+        "tnf-alpha": "Tumor necrosis factor inhibitor",
+        "glp-1": "Glucagon-like peptide 1 receptor agonist",
+        "glp1": "Glucagon-like peptide 1 receptor agonist",
+        "glp-1 receptor": "Glucagon-like peptide 1 receptor agonist",
+        "mtor": "mTOR inhibitor",
+        "vegf": "Vascular endothelial growth factor inhibitor",
+    }
+    key = name.lower().strip()
+    return DIRECT_ACTION_NAMES.get(key, "")
+
+
+def _action_ner_resolve(name):
+    """Use NER to find Action entities."""
+    d = run_cmd(["cortellis", "--json", "ner", "match", name])
+    try:
+        entities = d.get("NamedEntityRecognition", {}).get("Entities", {}).get("Entity", [])
+        if isinstance(entities, dict):
+            entities = [entities]
+        nq = normalize(name)
+        for e in entities:
+            if e.get("@type") == "Action":
+                ename = e.get("@name", "")
+                if nq == normalize(ename) or nq in normalize(ename) or normalize(ename) in nq:
+                    return ename
+                synonym = e.get("@synonym", "")
+                if synonym and (nq in normalize(synonym) or normalize(synonym) in nq):
+                    return ename
+        for e in entities:
+            if e.get("@type") == "Action":
+                return e.get("@name", "")
+    except:
+        pass
+    return ""
+
+
+def _action_ontology_resolve(name):
+    """Use ontology search to find action name."""
+    d = run_cmd(["cortellis", "--json", "ontology", "search", "--query", name, "--category", "action", "--hits", "5"])
+    try:
+        nodes = d.get("ontologyTreeOutput", {}).get("TaxonomyTree", {}).get("Node", [])
+        if isinstance(nodes, dict):
+            nodes = [nodes]
+        if isinstance(nodes, str):
+            nodes = []
+        nq = normalize(name)
+        for n in nodes:
+            if normalize(n.get("@name", "")) == nq:
+                return n.get("@name", "")
+        matches = [n for n in nodes if n.get("@match") == "true"]
+        if matches:
+            action_suffixes = ("inhibitor", "agonist", "modulator", "antagonist", "stimulator", "blocker")
+            actions = [n for n in matches if normalize(n.get("@name", "")).endswith(action_suffixes)]
+            pool = actions if actions else matches
+            best = min(pool, key=lambda n: int(n.get("@depth", "99")))
+            return best.get("@name", "")
+        if nodes:
+            return nodes[0].get("@name", "")
+    except:
+        pass
+    return ""
+
+
 def resolve_action_name(name):
-    """Resolve action name using landscape's resolve_target.py (handles its own synonyms)."""
-    recipes_dir = os.path.join(os.path.dirname(__file__), "..", "..", "landscape", "recipes")
-    script = os.path.join(recipes_dir, "resolve_target.py")
-    if not os.path.exists(script):
-        return ""
-    r = subprocess.run(
-        [sys.executable, script, name],
-        capture_output=True, text=True,
-    )
-    if r.returncode == 0:
-        return r.stdout.strip()
+    """Resolve action name inline without depending on the landscape skill."""
+    # Strategy 1: known abbreviations
+    expanded = _action_expand(name)
+    if expanded:
+        return expanded
+
+    # Strategy 2: NER
+    action_name = _action_ner_resolve(name)
+    if action_name:
+        return action_name
+
+    # Strategy 3: Ontology search
+    action_name = _action_ontology_resolve(name)
+    if action_name:
+        return action_name
+
+    # Strategy 4: Normalize and retry
+    normalized = normalize(name)
+    if normalized != name.lower().strip():
+        action_name = _action_ner_resolve(normalized)
+        if action_name:
+            return action_name
+        action_name = _action_ontology_resolve(normalized)
+        if action_name:
+            return action_name
+
+    print(f"WARNING: could not resolve action name for '{name}'", file=sys.stderr)
     return ""
 
 
 def resolve(name):
-    # Strategy 1: NER → get canonical target name → targets search
+    # Strategy 1: NER
     ner_name = ner_resolve_target(name)
     if ner_name:
         result = targets_search(ner_name)
         if result:
             action_name = resolve_action_name(name)
-            return (*result, action_name)
+            return (*result, action_name, "NER")
 
-    # Strategy 2: Direct targets search with user input
+    # Strategy 2: Direct search
     result = targets_search(name)
     if result:
         action_name = resolve_action_name(name)
-        return (*result, action_name)
+        return (*result, action_name, "direct")
 
     # Strategy 3: Normalized retry
     normalized = normalize(name)
@@ -158,7 +247,7 @@ def resolve(name):
         result = targets_search(normalized)
         if result:
             action_name = resolve_action_name(name)
-            return (*result, action_name)
+            return (*result, action_name, "normalized")
 
     return None
 
@@ -171,7 +260,27 @@ if __name__ == "__main__":
 
     result = resolve(name)
     if result:
+        target_id, target_name, gene_symbol, action_name, resolution_method = result
+        if resolution_method == "normalized":
+            print(f"WARNING: target resolved via normalization — verify '{name}' → '{target_name}' is correct", file=sys.stderr)
         print(",".join(str(x) for x in result))
     else:
-        print(f"ERROR: could not resolve target '{name}'", file=sys.stderr)
+        d = run_cmd(["cortellis", "--json", "targets", "search", "--query", f"targetSynonyms:{name}", "--hits", "5"])
+        try:
+            results = d.get("TargetResultsOutput", {}).get("SearchResults", {}).get("TargetResult", [])
+            if isinstance(results, dict):
+                results = [results]
+            if results:
+                print(f"ERROR: could not resolve target '{name}'. Did you mean:", file=sys.stderr)
+                for r in results[:5]:
+                    tid = r.get("@Id", "?")
+                    tname = r.get("NameMain", "?")
+                    syns = r.get("Synonyms", {}).get("Synonym", [])
+                    if isinstance(syns, str): syns = [syns]
+                    syn_str = ", ".join(s for s in syns[:3] if isinstance(s, str))
+                    print(f"  - {tname} (ID: {tid}) — synonyms: {syn_str}", file=sys.stderr)
+            else:
+                print(f"ERROR: could not resolve target '{name}'. No matches found.", file=sys.stderr)
+        except:
+            print(f"ERROR: could not resolve target '{name}'", file=sys.stderr)
         sys.exit(1)
