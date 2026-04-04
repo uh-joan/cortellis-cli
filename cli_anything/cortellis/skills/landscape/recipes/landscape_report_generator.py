@@ -28,6 +28,14 @@ def read_csv(filename):
         return list(csv.DictReader(f))
 
 
+def load_json(filename):
+    path = os.path.join(landscape_dir, filename)
+    if not os.path.exists(path):
+        return None
+    with open(path) as f:
+        return json.load(f)
+
+
 def read_company_sizes():
     """Read company_sizes.json from enrich_company_sizes.py."""
     path = os.path.join(landscape_dir, "company_sizes.json")
@@ -210,7 +218,7 @@ else:
 
 # Build recruiting trials display
 if trials_summary_total is not None:
-    recruiting_trials_str = f"{len(trials):,} of {trials_summary_total:,}"
+    recruiting_trials_str = f"{trials_summary_total:,}"
 else:
     recruiting_trials_str = str(len(trials))
 
@@ -291,11 +299,19 @@ if company_counts:
         else:
             size_label = "—"
         print(f"| {company[:50]} | {count} | {score} | {size_label} | {position} |")
+    if len(company_counts) > 15:
+        remaining = len(company_counts) - 15
+        print(f"\n*+ {remaining} additional companies with smaller portfolios (not shown)*")
     print()
 
 # Deals
 if deals:
-    print(f"## Recent Deals ({len(deals)})")
+    deals_meta = load_json("deals.meta.json")
+    total_deals = int(deals_meta.get("totalResults", 0)) if deals_meta and isinstance(deals_meta, dict) else len(deals)
+    if total_deals > len(deals):
+        print(f"## Recent Deals ({len(deals)} shown of {total_deals} total, last 2 years)")
+    else:
+        print(f"## Recent Deals ({len(deals)})")
     print()
     print("| Deal | Partner | Type | Date |")
     print("|------|---------|------|------|")
@@ -349,6 +365,27 @@ if trials or trials_summary_by_phase:
         for phase, count in sorted(other_phases.items(), key=lambda x: -x[1]):
             print(f"| {phase} | {count} |")
         print()
+
+# Trial activity by sponsor
+sponsor_trials = []
+sponsor_path = os.path.join(landscape_dir, "trials_by_sponsor.csv")
+if os.path.exists(sponsor_path):
+    with open(sponsor_path) as f:
+        sponsor_trials = list(csv.DictReader(f))
+
+if sponsor_trials:
+    print("### Trial Activity by Company")
+    print()
+    print("| Company | Phase 2 | Phase 3 | Total |")
+    print("|---------|---------|---------|-------|")
+    for row in sponsor_trials:
+        co = row.get("company", "?")[:35]
+        p2 = row.get("phase2", "0")
+        p3 = row.get("phase3", "0")
+        total = row.get("total", "0")
+        if int(total) > 0:
+            print(f"| {co} | {p2} | {p3} | {total} |")
+    print()
 
 # Data Coverage footer
 print("## Data Coverage")

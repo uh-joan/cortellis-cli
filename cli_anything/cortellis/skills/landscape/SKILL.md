@@ -96,7 +96,9 @@ python3 $RECIPES/company_landscape.py $DIR > $DIR/companies.csv
 
 ### Technology Step 5: Recent deals
 ```bash
-cortellis --json deals search --query "dealTechnologies:\"$TECH_NAME\"" --hits 20 --sort-by "-dealDateStart" | python3 $PIPELINE_RECIPES/deals_to_csv.py > $DIR/deals.csv
+DATE_2Y_AGO=$(python3 -c "from datetime import date, timedelta; print((date.today() - timedelta(days=730)).isoformat())")
+cortellis --json deals search --query "dealTechnologies:\"$TECH_NAME\"" --date-start "$DATE_2Y_AGO" --hits 50 --sort-by "-dealDateStart" | python3 $PIPELINE_RECIPES/deals_to_csv.py > $DIR/deals.csv
+cortellis --json deals search --query "dealTechnologies:\"$TECH_NAME\"" --hits 0 | python3 -c "import json,sys; d=json.load(sys.stdin); print(json.dumps({'totalResults': d.get('dealResultsOutput',{}).get('@totalResults','0')}))" > $DIR/deals.meta.json
 ```
 
 ### Technology Step 6: Generate report
@@ -145,7 +147,9 @@ python3 $RECIPES/company_landscape.py $DIR > $DIR/companies.csv
 
 ### Target Step 4: Recent deals
 ```bash
-cortellis --json deals search --query "dealActionsPrimary:\"$ACTION_NAME\"" --hits 20 --sort-by "-dealDateStart" | python3 $PIPELINE_RECIPES/deals_to_csv.py > $DIR/deals.csv
+DATE_2Y_AGO=$(python3 -c "from datetime import date, timedelta; print((date.today() - timedelta(days=730)).isoformat())")
+cortellis --json deals search --query "dealActionsPrimary:\"$ACTION_NAME\"" --date-start "$DATE_2Y_AGO" --hits 50 --sort-by "-dealDateStart" | python3 $PIPELINE_RECIPES/deals_to_csv.py > $DIR/deals.csv
+cortellis --json deals search --query "dealActionsPrimary:\"$ACTION_NAME\"" --hits 0 | python3 -c "import json,sys; d=json.load(sys.stdin); print(json.dumps({'totalResults': d.get('dealResultsOutput',{}).get('@totalResults','0')}))" > $DIR/deals.meta.json
 ```
 
 ### Target Step 5: Generate report
@@ -220,19 +224,16 @@ Resolves top 20 companies via NER → batch-fetches `@companySize` (Large/Medium
 
 ### Step 6: Recent deals
 ```bash
-cortellis --json deals search --indication "<INDICATION>" --hits 20 --sort-by "-dealDateStart" | python3 $PIPELINE_RECIPES/deals_to_csv.py > $DIR/deals.csv
+DATE_2Y_AGO=$(python3 -c "from datetime import date, timedelta; print((date.today() - timedelta(days=730)).isoformat())")
+cortellis --json deals search --indication "<INDICATION>" --date-start "$DATE_2Y_AGO" --hits 50 --sort-by "-dealDateStart" | python3 $PIPELINE_RECIPES/deals_to_csv.py > $DIR/deals.csv
+cortellis --json deals search --indication "<INDICATION>" --hits 0 | python3 -c "import json,sys; d=json.load(sys.stdin); print(json.dumps({'totalResults': d.get('dealResultsOutput',{}).get('@totalResults','0')}))" > $DIR/deals.meta.json
 ```
 
-### Step 7: Recruiting trials
+### Step 7: Trial activity summary
 ```bash
-cortellis --json trials search --indication <ID> --recruitment-status Recruiting --hits 50 --sort-by "-trialDateStart" | python3 $PIPELINE_RECIPES/trials_to_csv.py > $DIR/trials.csv
-```
-
-### Step 7b: Trial phase summary (optional, shows total counts)
-```bash
-python3 $RECIPES/trials_phase_summary.py <ID> $DIR/trials_summary.csv
-# Shows total recruiting trials per phase (not just top 50).
-# Example: "63 total: Ph3=7, Ph2=14, Ph1=4, Ph4=4, Other=34"
+python3 $RECIPES/trials_phase_summary.py <ID> $DIR/trials_summary.csv $DIR/companies.csv
+# Shows total recruiting trials per phase + per-sponsor breakdown for top companies.
+# Outputs: trials_summary.csv (phase counts) + trials_by_sponsor.csv (company x phase matrix)
 ```
 
 ### Step 8: Catch missing drugs (recommended)
