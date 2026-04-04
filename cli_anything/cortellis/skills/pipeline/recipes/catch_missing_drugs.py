@@ -9,6 +9,7 @@ Usage: python3 catch_missing_drugs.py <company_id> <pipeline_dir>
 Requires cortellis CLI on PATH.
 """
 import csv, json, os, subprocess, sys, time
+from collections import Counter
 
 
 def fetch_all_drugs(company_id, hits=200):
@@ -35,7 +36,11 @@ def fetch_all_drugs(company_id, hits=200):
             if offset >= total:
                 break
             time.sleep(3)
-        except:
+        except json.JSONDecodeError:
+            print(f"Warning: Failed to parse API response at offset {offset}", file=sys.stderr)
+            break
+        except Exception as e:
+            print(f"Warning: API error at offset {offset}: {e}", file=sys.stderr)
             break
     return all_drugs
 
@@ -43,7 +48,9 @@ def fetch_all_drugs(company_id, hits=200):
 def read_existing_ids(pipeline_dir):
     """Read drug IDs already captured in phase CSVs."""
     existing = set()
-    for filename in ["launched.csv", "phase3.csv", "phase2.csv", "phase1.csv", "discovery.csv"]:
+    for filename in ["launched.csv", "phase3.csv", "phase2.csv",
+                     "phase1_ci.csv", "phase1_merged.csv",
+                     "discovery_ci.csv", "preclinical_merged.csv"]:
         path = os.path.join(pipeline_dir, filename)
         if not os.path.exists(path):
             continue
@@ -79,16 +86,16 @@ if __name__ == "__main__":
 
     # Find missing (exclude attrition)
     missing = []
-    excluded = 0
+    attrited = []
     for d in all_drugs:
         if d.get("@id", "") in existing_ids:
             continue
         phase = d.get("@phaseHighest", "").strip()
         if phase.lower() in EXCLUDE_PHASES:
-            excluded += 1
+            attrited.append(d)
             continue
         missing.append(d)
-    print(f"Missing from phase CSVs: {len(missing)} ({excluded} excluded as attrition)", file=sys.stderr)
+    print(f"Missing from phase CSVs: {len(missing)} ({len(attrited)} attrited)", file=sys.stderr)
 
     if not missing:
         sys.exit(0)
@@ -111,8 +118,30 @@ if __name__ == "__main__":
             company = d.get("CompanyOriginator", "")
             writer.writerow([name, did, phase, indics, actions, company, "CI"])
 
+    # Write attrited drugs to attrition.csv
+    if attrited:
+        attrition_output = os.path.join(pipeline_dir, "attrition.csv")
+        with open(attrition_output, "w", newline="") as f:
+            writer = csv.writer(f)
+            writer.writerow(["name", "id", "phase", "indication", "mechanism", "company", "source"])
+            for d in attrited:
+                name = d.get("@name", "")
+                did = d.get("@id", "")
+                phase = d.get("@phaseHighest", "")
+                indics = d.get("IndicationsPrimary", {}).get("Indication", "")
+                if isinstance(indics, list):
+                    indics = "; ".join(indics[:5])
+                actions = d.get("ActionsPrimary", {}).get("Action", "")
+                if isinstance(actions, list):
+                    actions = "; ".join(actions[:3])
+                company = d.get("CompanyOriginator", "")
+                writer.writerow([name, did, phase, indics, actions, company, "CI"])
+        attrition_counts = Counter(d.get("@phaseHighest", "Unknown") for d in attrited)
+        print(f"Attrition ({len(attrited)} drugs):", file=sys.stderr)
+        for phase, count in attrition_counts.most_common():
+            print(f"  {phase}: {count}", file=sys.stderr)
+
     # Log by phase
-    from collections import Counter
     phase_counts = Counter(d.get("@phaseHighest", "Unknown") for d in missing)
     for phase, count in phase_counts.most_common():
         print(f"  {phase}: {count}", file=sys.stderr)

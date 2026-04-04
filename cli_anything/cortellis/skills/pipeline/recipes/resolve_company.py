@@ -145,5 +145,11 @@ if __name__ == "__main__":
         sys.exit(1)
 
     pid, active, method = resolve(name)
+    if method == "FAIL":
+        print(f"ERROR: Could not resolve company '{name}'. Check spelling or try the company ID directly.", file=sys.stderr)
+        print(f",{name},0,FAIL")
+        sys.exit(1)
+    if method == "best-effort":
+        print(f"WARNING: Low-confidence match for '{name}' (method=best-effort, active_drugs={active}). Verify this is the correct company.", file=sys.stderr)
     cname = get_name(pid) if pid else ""
     print(f"{pid},{cname},{active},{method}")
