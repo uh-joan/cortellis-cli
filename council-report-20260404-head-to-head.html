@@ -1,0 +1,190 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>LLM Council Report — Head-to-Head Skill</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; background: #fff; color: #1a1a1a; line-height: 1.6; max-width: 900px; margin: 0 auto; padding: 2rem 1.5rem; }
+  h1 { font-size: 1.8rem; font-weight: 700; margin-bottom: 0.25rem; }
+  h2 { font-size: 1.3rem; font-weight: 600; margin: 2rem 0 0.75rem; color: #111; border-bottom: 2px solid #e5e5e5; padding-bottom: 0.4rem; }
+  p, li { font-size: 0.95rem; margin-bottom: 0.5rem; }
+  ul { padding-left: 1.5rem; }
+  .meta { color: #666; font-size: 0.85rem; margin-bottom: 2rem; }
+  .question-box { background: #f7f7f7; border-left: 4px solid #333; padding: 1rem 1.25rem; margin: 1.5rem 0; border-radius: 0 6px 6px 0; }
+  .question-box p { font-style: italic; font-size: 1rem; margin: 0; }
+  .verdict-card { background: #fffbeb; border: 1px solid #f5e6a3; border-radius: 8px; padding: 1.5rem; margin: 1.5rem 0; }
+  .verdict-card h2 { border: none; margin-top: 0; color: #92400e; font-size: 1.15rem; }
+  .first-step { background: #ecfdf5; border: 1px solid #a7f3d0; border-radius: 8px; padding: 1.25rem; margin: 1.5rem 0; }
+  .first-step h2 { border: none; margin-top: 0; color: #065f46; font-size: 1.15rem; }
+  .agreement-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin: 1.5rem 0; }
+  .agree-box, .clash-box { border-radius: 8px; padding: 1rem 1.25rem; }
+  .agree-box { background: #f0fdf4; border: 1px solid #bbf7d0; }
+  .clash-box { background: #fff7ed; border: 1px solid #fed7aa; }
+  .agree-box h3, .clash-box h3 { font-size: 0.9rem; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 0.5rem; }
+  .agree-box h3 { color: #166534; }
+  .clash-box h3 { color: #9a3412; }
+  .advisor-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 0.5rem; margin: 1.25rem 0; }
+  .advisor-chip { text-align: center; padding: 0.5rem 0.25rem; border-radius: 6px; font-size: 0.75rem; font-weight: 600; }
+  .chip-green { background: #f0fdf4; border: 1px solid #bbf7d0; color: #166534; }
+  .chip-orange { background: #fff7ed; border: 1px solid #fed7aa; color: #9a3412; }
+  .chip-red { background: #fef2f2; border: 1px solid #fecaca; color: #991b1b; }
+  .chip-blue { background: #eff6ff; border: 1px solid #bfdbfe; color: #1e40af; }
+  .p0-table { margin: 1.5rem 0; }
+  .p0-table table { width: 100%; border-collapse: collapse; font-size: 0.9rem; }
+  .p0-table th { background: #fef2f2; text-align: left; padding: 0.5rem 0.75rem; border-bottom: 2px solid #fecaca; color: #991b1b; }
+  .p0-table td { padding: 0.5rem 0.75rem; border-bottom: 1px solid #f0f0f0; }
+  .blind-spot { background: #faf5ff; border: 1px solid #e9d5ff; border-radius: 8px; padding: 1.25rem; margin: 1rem 0; }
+  .blind-spot h3 { color: #6b21a8; font-size: 0.95rem; }
+  details { border: 1px solid #e5e5e5; border-radius: 6px; margin: 0.75rem 0; }
+  summary { cursor: pointer; padding: 0.75rem 1rem; font-weight: 600; font-size: 0.95rem; background: #fafafa; border-radius: 6px; }
+  summary:hover { background: #f0f0f0; }
+  details[open] summary { border-bottom: 1px solid #e5e5e5; border-radius: 6px 6px 0 0; }
+  .detail-body { padding: 1rem 1.25rem; font-size: 0.9rem; }
+  .detail-body p { margin-bottom: 0.75rem; }
+  .footer { margin-top: 3rem; padding-top: 1rem; border-top: 1px solid #e5e5e5; color: #999; font-size: 0.8rem; text-align: center; }
+</style>
+</head>
+<body>
+
+<h1>LLM Council Report</h1>
+<p class="meta">2026-04-04 &middot; Head-to-Head Skill Assessment &middot; 5 advisors, 5 peer reviews</p>
+
+<div class="question-box">
+  <p>Is the <code>/head-to-head</code> skill complete enough for production use? What gaps exist?</p>
+</div>
+
+<div class="verdict-card">
+  <h2>The Recommendation</h2>
+  <p><strong>Do not ship today. Ship after a focused half-day of P0 work.</strong></p>
+  <p>A skill called "head-to-head" that only fetches launched drugs from a single phase endpoint produces <strong>silently incomplete comparisons</strong> for any company pair where the pipeline matters &mdash; which is most of them. That is not a missing feature; it is a correctness defect.</p>
+</div>
+
+<div class="first-step">
+  <h2>The One Thing to Do First</h2>
+  <p><strong>Expand the fetch logic to call all four phase endpoints</strong> (Launched, Phase 3, Phase 2, Phase 1), then add a completeness indicator when any endpoint hits the pagination ceiling. This converts "silently wrong answers" to "substantially correct answers with known limitations."</p>
+</div>
+
+<h2>P0 Fix List (~half day)</h2>
+
+<div class="p0-table">
+<table>
+  <tr><th>Item</th><th>Rationale</th><th>Effort</th></tr>
+  <tr><td>Fetch all 4 phases (4 API calls per company)</td><td>Completeness &mdash; without this, results mislead</td><td>1 hr</td></tr>
+  <tr><td>Fix load_json / credential check</td><td>Shared infra, but skill crashes without it</td><td>30 min</td></tr>
+  <tr><td>Resolution error handling</td><td>Unhappy path currently unhandled</td><td>30 min</td></tr>
+  <tr><td>Truncation indicator</td><td>User must know data is incomplete</td><td>15 min</td></tr>
+  <tr><td>Pipeline Depth by Phase section</td><td>Core value &mdash; side-by-side phase ladder</td><td>1 hr</td></tr>
+  <tr><td>Cross-skill hints</td><td>/pipeline, /company-peers navigation</td><td>15 min</td></tr>
+</table>
+</div>
+
+<h2>Advisor Positions</h2>
+
+<div class="advisor-grid">
+  <div class="advisor-chip chip-green">Contrarian<br>Ship w/ 1 fix</div>
+  <div class="advisor-chip chip-red">First Principles<br>Missing Leg</div>
+  <div class="advisor-chip chip-orange">Expansionist<br>60% Done</div>
+  <div class="advisor-chip chip-orange">Outsider<br>Wrong Name</div>
+  <div class="advisor-chip chip-blue">Executor<br>Half Day</div>
+</div>
+
+<div class="agreement-grid">
+  <div class="agree-box">
+    <h3>Converged On</h3>
+    <ul>
+      <li>Not production-ready as-is (unanimous)</li>
+      <li>20-drug fetch limit silently truncates</li>
+      <li>Core architecture (overlap matrices, side-by-side) is sound</li>
+      <li>Multi-phase pipeline comparison is the critical missing piece</li>
+    </ul>
+  </div>
+  <div class="clash-box">
+    <h3>Disagreed On</h3>
+    <ul>
+      <li>Ship scope: commercial-only vs full competitive</li>
+      <li>Pipeline comparison: v1 must-have vs v2 enhancement</li>
+      <li>Is the "head-to-head" name misleading in pharma?</li>
+    </ul>
+  </div>
+</div>
+
+<h2>Blind Spots the Council Caught</h2>
+
+<div class="blind-spot">
+  <h3>Asymmetric Data Quality</h3>
+  <p>When Company A has rich Cortellis data and Company B does not, the comparison is structurally unfair with no user warning.</p>
+</div>
+
+<div class="blind-spot">
+  <h3>Overlap Matrix Edge Cases</h3>
+  <p>Correctness degrades when drug-indication mappings are ambiguous or multi-mapped. Analytical correctness of the core output is unexamined.</p>
+</div>
+
+<div class="blind-spot">
+  <h3>No Test Strategy</h3>
+  <p>Production readiness discussed without defining how to verify it. No test coverage, no test data, no smoke test.</p>
+</div>
+
+<div class="blind-spot">
+  <h3>Error UX on Unhappy Paths</h3>
+  <p>What the user sees when company resolution fails, credentials expire, or API times out is untested.</p>
+</div>
+
+<h2>Advisor Responses</h2>
+
+<details>
+  <summary>The Contrarian</summary>
+  <div class="detail-body">
+    <p>Closer to ready than the gap list suggests. Launched-only is fine for BD executives comparing commercial portfolios. 20-drug cap covers 80% of mid-cap comparisons. Core value (overlap matrices, side-by-side, ASCII charts) is underappreciated. Ship with single fix (raise limit to 100) + scope label. Pipeline comparison is v2.</p>
+  </div>
+</details>
+
+<details>
+  <summary>The First Principles Thinker</summary>
+  <div class="detail-body">
+    <p>Must answer "who has stronger position now and future?" Three legs: commercial strength, pipeline depth, strategic positioning. Current skill covers commercial + strategic, completely fails on pipeline depth &mdash; a missing leg of a three-legged stool. Without multi-phase pipeline comparison, answers the wrong question.</p>
+  </div>
+</details>
+
+<details>
+  <summary>The Expansionist</summary>
+  <div class="detail-body">
+    <p>Natural integration hub. Needs: all-phase pipeline, shared indications battle map, partnership network integration, trial counts, patent expiry windows. Emit structured JSON alongside markdown. Skill is 60% complete &mdash; missing 40% is the most strategically valuable part.</p>
+  </div>
+</details>
+
+<details>
+  <summary>The Outsider</summary>
+  <div class="detail-body">
+    <p>"Head-to-head" in pharma means clinical trial comparison &mdash; naming creates expectation confusion. 20 drugs is a fetch limit not display limit &mdash; analysis itself incomplete. Need fetch-complete-then-summarize + data completeness indicator.</p>
+  </div>
+</details>
+
+<details>
+  <summary>The Executor</summary>
+  <div class="detail-body">
+    <p>P0 (1-2hr): 4 phase calls per company, fix load_json, credential check, resolution error handling. P1 (1-2hr): Pipeline Depth by Phase section, truncation footnotes, cross-skill hints. P2 (defer): trials, patents, rename. Half a day total to production.</p>
+  </div>
+</details>
+
+<details>
+  <summary>Peer Review Highlights</summary>
+  <div class="detail-body">
+    <ul>
+      <li>Asymmetric data quality between companies is the most likely real-world failure mode</li>
+      <li>Overlap matrix correctness on edge cases is unexamined</li>
+      <li>No test strategy for production readiness</li>
+      <li>Error UX on unhappy paths untested</li>
+      <li>Prompt engineering quality for LLM synthesis step unreviewed</li>
+    </ul>
+  </div>
+</details>
+
+<div class="footer">
+  LLM Council &middot; 2026-04-04 &middot; Counciled: /head-to-head skill completeness
+</div>
+
+</body>
+</html>

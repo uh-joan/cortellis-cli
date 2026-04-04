@@ -1,0 +1,186 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>LLM Council Report — Disease Briefing Skill</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; background: #fff; color: #1a1a1a; line-height: 1.6; max-width: 900px; margin: 0 auto; padding: 2rem 1.5rem; }
+  h1 { font-size: 1.8rem; font-weight: 700; margin-bottom: 0.25rem; }
+  h2 { font-size: 1.3rem; font-weight: 600; margin: 2rem 0 0.75rem; color: #111; border-bottom: 2px solid #e5e5e5; padding-bottom: 0.4rem; }
+  p, li { font-size: 0.95rem; margin-bottom: 0.5rem; }
+  ul { padding-left: 1.5rem; }
+  .meta { color: #666; font-size: 0.85rem; margin-bottom: 2rem; }
+  .question-box { background: #f7f7f7; border-left: 4px solid #333; padding: 1rem 1.25rem; margin: 1.5rem 0; border-radius: 0 6px 6px 0; }
+  .question-box p { font-style: italic; font-size: 1rem; margin: 0; }
+  .verdict-card { background: #fffbeb; border: 1px solid #f5e6a3; border-radius: 8px; padding: 1.5rem; margin: 1.5rem 0; }
+  .verdict-card h2 { border: none; margin-top: 0; color: #92400e; font-size: 1.15rem; }
+  .first-step { background: #ecfdf5; border: 1px solid #a7f3d0; border-radius: 8px; padding: 1.25rem; margin: 1.5rem 0; }
+  .first-step h2 { border: none; margin-top: 0; color: #065f46; font-size: 1.15rem; }
+  .agreement-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin: 1.5rem 0; }
+  .agree-box, .clash-box { border-radius: 8px; padding: 1rem 1.25rem; }
+  .agree-box { background: #f0fdf4; border: 1px solid #bbf7d0; }
+  .clash-box { background: #fff7ed; border: 1px solid #fed7aa; }
+  .agree-box h3, .clash-box h3 { font-size: 0.9rem; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 0.5rem; }
+  .agree-box h3 { color: #166534; }
+  .clash-box h3 { color: #9a3412; }
+  .advisor-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 0.5rem; margin: 1.25rem 0; }
+  .advisor-chip { text-align: center; padding: 0.5rem 0.25rem; border-radius: 6px; font-size: 0.75rem; font-weight: 600; }
+  .chip-green { background: #f0fdf4; border: 1px solid #bbf7d0; color: #166534; }
+  .chip-orange { background: #fff7ed; border: 1px solid #fed7aa; color: #9a3412; }
+  .chip-red { background: #fef2f2; border: 1px solid #fecaca; color: #991b1b; }
+  .chip-blue { background: #eff6ff; border: 1px solid #bfdbfe; color: #1e40af; }
+  .p0-box { background: #fef2f2; border: 1px solid #fecaca; border-radius: 8px; padding: 1.25rem; margin: 1rem 0; }
+  .p0-box h3 { color: #991b1b; font-size: 0.95rem; margin-bottom: 0.5rem; }
+  .blind-spot { background: #faf5ff; border: 1px solid #e9d5ff; border-radius: 8px; padding: 1.25rem; margin: 1rem 0; }
+  .blind-spot h3 { color: #6b21a8; font-size: 0.95rem; }
+  details { border: 1px solid #e5e5e5; border-radius: 6px; margin: 0.75rem 0; }
+  summary { cursor: pointer; padding: 0.75rem 1rem; font-weight: 600; font-size: 0.95rem; background: #fafafa; border-radius: 6px; }
+  summary:hover { background: #f0f0f0; }
+  details[open] summary { border-bottom: 1px solid #e5e5e5; border-radius: 6px 6px 0 0; }
+  .detail-body { padding: 1rem 1.25rem; font-size: 0.9rem; }
+  .detail-body p { margin-bottom: 0.75rem; }
+  .footer { margin-top: 3rem; padding-top: 1rem; border-top: 1px solid #e5e5e5; color: #999; font-size: 0.8rem; text-align: center; }
+</style>
+</head>
+<body>
+
+<h1>LLM Council Report</h1>
+<p class="meta">2026-04-04 &middot; Disease Briefing Skill Assessment &middot; 5 advisors, 5 peer reviews</p>
+
+<div class="question-box">
+  <p>Is the <code>/disease-briefing</code> skill complete enough for production use? What gaps exist?</p>
+</div>
+
+<div class="verdict-card">
+  <h2>The Recommendation</h2>
+  <p><strong>Not production-ready. Ship in two weeks, not today.</strong></p>
+  <p>Three P0 defects would generate immediate user complaints or silent data loss. These are not architectural problems &mdash; the Executor estimates ~2 hours for all three. Fix the P0s, declare the scope (triage tool vs analysis tool), and ship.</p>
+</div>
+
+<div class="first-step">
+  <h2>The One Thing to Do First</h2>
+  <p><strong>Add a subscription pre-check at Step 1 with an explicit early exit and clear error message.</strong> This is the highest-severity user-facing failure. Users without premium accounts burn 30+ seconds before discovering they can't access the content.</p>
+</div>
+
+<h2>P0 Fixes (~2 hours total)</h2>
+
+<div class="p0-box">
+  <h3>1. Subscription Pre-Check</h3>
+  <p>Premium feature doesn't check subscription upfront. User waits 30+ seconds then gets nothing. Add early exit at Step 1 if search returns error/empty.</p>
+</div>
+
+<div class="p0-box">
+  <h3>2. Section ID Extraction Undocumented</h3>
+  <p>SKILL.md doesn't explain how to get section IDs from Step 2 for use in Step 3. Silent failure produces incomplete report with no signal. Add explicit extraction instructions.</p>
+</div>
+
+<div class="p0-box">
+  <h3>3. 500-Character Truncation Hardcoded</h3>
+  <p>Delivers ~5% of actual briefing content. No override option. Parameterize the limit (default 5000, configurable). 3-line code change.</p>
+</div>
+
+<h2>Advisor Positions</h2>
+
+<div class="advisor-grid">
+  <div class="advisor-chip chip-green">Contrarian<br>Ship MVP</div>
+  <div class="advisor-chip chip-red">First Principles<br>5% Content</div>
+  <div class="advisor-chip chip-orange">Expansionist<br>Missed Opp</div>
+  <div class="advisor-chip chip-orange">Outsider<br>UX Broken</div>
+  <div class="advisor-chip chip-blue">Executor<br>2hr Fix</div>
+</div>
+
+<div class="agreement-grid">
+  <div class="agree-box">
+    <h3>Converged On</h3>
+    <ul>
+      <li>The skill runs and produces output (functional MVP)</li>
+      <li>30+ second wait before subscription error is unacceptable</li>
+      <li>Section ID extraction between steps is undocumented</li>
+    </ul>
+  </div>
+  <div class="clash-box">
+    <h3>Disagreed On</h3>
+    <ul>
+      <li>Is 500-char truncation deliberate design or a bug?</li>
+      <li>Is this a triage tool or an analysis tool?</li>
+      <li>Ship now vs. expand API coverage first</li>
+    </ul>
+  </div>
+</div>
+
+<h2>Blind Spots the Council Caught</h2>
+
+<div class="blind-spot">
+  <h3>Cascade Failure</h3>
+  <p>If Step 2 section ID extraction fails silently, Step 3 runs on garbage, and the user receives an incomplete briefing with no error signal.</p>
+</div>
+
+<div class="blind-spot">
+  <h3>No Testability</h3>
+  <p>No mock path, no fixture, no dry-run. The skill cannot be validated without a live premium account.</p>
+</div>
+
+<div class="blind-spot">
+  <h3>User Task Undefined</h3>
+  <p>The skill doesn't declare whether it's for triage (500 chars fine) or analysis (500 chars broken). Both user types will be disappointed differently.</p>
+</div>
+
+<h2>Advisor Responses</h2>
+
+<details>
+  <summary>The Contrarian</summary>
+  <div class="detail-body">
+    <p>Most gaps are nice-to-haves. The 500-char truncation is deliberate for scannability. No disease name resolution needed &mdash; API does fuzzy matching. Cross-skill hints are sugar. Multimedia irrelevant for CLI. Ship the MVP &mdash; how many users even have premium subscriptions?</p>
+  </div>
+</details>
+
+<details>
+  <summary>The First Principles Thinker</summary>
+  <div class="detail-body">
+    <p>The skill delivers ~5% of actual briefing content (500 chars x 9 sections = 4,500 chars vs tens of thousands). No relevance validation on search results. Undocumented section ID extraction between steps. This is a teaser, not a briefing. Fix: full text or user-selected section expansion.</p>
+  </div>
+</details>
+
+<details>
+  <summary>The Expansionist</summary>
+  <div class="detail-body">
+    <p>Missed opportunity on premium API. Uses 1 of 4 Drug Design endpoints. Needs: full text option, CSV export, manifest, subscription pre-check, multimedia metadata, cross-reference with indication-deep-dive, compare mode, temporal tracking. Premium users pay for full API surface.</p>
+  </div>
+</details>
+
+<details>
+  <summary>The Outsider</summary>
+  <div class="detail-body">
+    <p>Premium feature doesn't check subscription upfront &mdash; 30+ seconds wasted. File naming convention undocumented &mdash; silent missing sections. 500-char truncation serves developer convenience, not user workflow. Works mechanically but not experientially.</p>
+  </div>
+</details>
+
+<details>
+  <summary>The Executor</summary>
+  <div class="detail-body">
+    <p>3 P0 fixes (~2 hours): (1) Parameterize truncation (3-line change), (2) Document section ID extraction, (3) Subscription check at Step 1. P1: fix load_json, manifest, cross-skill hints. P2: CSV, multimedia, compare mode.</p>
+  </div>
+</details>
+
+<details>
+  <summary>Peer Review Highlights</summary>
+  <div class="detail-body">
+    <p><strong>Key insights:</strong></p>
+    <ul>
+      <li>User task definition missing &mdash; triage vs analysis determines whether 500 chars is fine or broken</li>
+      <li>Cascade failure if Step 2 fails silently</li>
+      <li>No testability without live premium account</li>
+      <li>Output destination unspecified (terminal vs file vs LLM pipeline)</li>
+      <li>No observability &mdash; 30-second silent process looks like a hang</li>
+    </ul>
+  </div>
+</details>
+
+<div class="footer">
+  LLM Council &middot; 2026-04-04 &middot; Counciled: /disease-briefing skill completeness
+</div>
+
+</body>
+</html>

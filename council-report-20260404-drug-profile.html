@@ -1,0 +1,181 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>LLM Council Report — Drug Profile Skill</title>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #f8f9fa; color: #1a1a2e; line-height: 1.6; padding: 2rem; max-width: 900px; margin: 0 auto; }
+h1 { font-size: 1.5rem; color: #1a1a2e; margin-bottom: 0.5rem; }
+h2 { font-size: 1.2rem; color: #2d3436; margin: 1.5rem 0 0.75rem; border-bottom: 2px solid #dfe6e9; padding-bottom: 0.3rem; }
+h3 { font-size: 1rem; color: #636e72; margin: 1rem 0 0.5rem; }
+p, li { font-size: 0.95rem; margin-bottom: 0.5rem; }
+ul { padding-left: 1.5rem; }
+.header { background: #1a1a2e; color: white; padding: 1.5rem 2rem; border-radius: 8px; margin-bottom: 2rem; }
+.header h1 { color: white; font-size: 1.3rem; }
+.header .question { color: #b2bec3; font-size: 0.9rem; margin-top: 0.5rem; font-style: italic; }
+.header .meta { color: #636e72; font-size: 0.8rem; margin-top: 0.75rem; }
+.verdict { background: white; border: 1px solid #dfe6e9; border-radius: 8px; padding: 1.5rem 2rem; margin-bottom: 1.5rem; box-shadow: 0 1px 3px rgba(0,0,0,0.05); }
+.verdict-tag { display: inline-block; background: #d63031; color: white; font-size: 0.75rem; font-weight: 700; padding: 0.2rem 0.6rem; border-radius: 3px; margin-bottom: 0.75rem; letter-spacing: 0.05em; }
+.agreement { background: white; border-left: 4px solid #00b894; border-radius: 0 8px 8px 0; padding: 1.25rem 1.5rem; margin-bottom: 1rem; }
+.clash { background: white; border-left: 4px solid #fdcb6e; border-radius: 0 8px 8px 0; padding: 1.25rem 1.5rem; margin-bottom: 1rem; }
+.blindspot { background: white; border-left: 4px solid #e17055; border-radius: 0 8px 8px 0; padding: 1.25rem 1.5rem; margin-bottom: 1rem; }
+.recommendation { background: #fff3f3; border: 2px solid #d63031; border-radius: 8px; padding: 1.25rem 1.5rem; margin-bottom: 1rem; }
+.first-step { background: #f0fff4; border: 2px solid #00b894; border-radius: 8px; padding: 1.25rem 1.5rem; margin-bottom: 1.5rem; }
+.grid { display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem; margin: 1rem 0; }
+.grid-item { background: #f8f9fa; border: 1px solid #dfe6e9; border-radius: 6px; padding: 0.75rem 1rem; font-size: 0.85rem; }
+.grid-item .label { font-weight: 600; color: #2d3436; }
+.grid-item .stance { color: #636e72; font-size: 0.8rem; margin-top: 0.25rem; }
+.align-yes { border-left: 3px solid #d63031; }
+.align-partial { border-left: 3px solid #fdcb6e; }
+.align-no { border-left: 3px solid #00b894; }
+details { background: white; border: 1px solid #dfe6e9; border-radius: 8px; margin-bottom: 0.75rem; }
+details summary { padding: 0.75rem 1rem; cursor: pointer; font-weight: 600; font-size: 0.9rem; color: #2d3436; }
+details summary:hover { background: #f8f9fa; }
+details .content { padding: 0.75rem 1.5rem 1rem; font-size: 0.9rem; border-top: 1px solid #f0f0f0; }
+.advisor-tag { display: inline-block; font-size: 0.7rem; font-weight: 700; padding: 0.15rem 0.5rem; border-radius: 3px; margin-right: 0.5rem; }
+.tag-contrarian { background: #ffeaa7; color: #6c5ce7; }
+.tag-fp { background: #dfe6e9; color: #2d3436; }
+.tag-expansionist { background: #c8f7c5; color: #27ae60; }
+.tag-outsider { background: #a29bfe; color: white; }
+.tag-executor { background: #fd79a8; color: white; }
+.footer { text-align: center; color: #b2bec3; font-size: 0.75rem; margin-top: 2rem; padding-top: 1rem; border-top: 1px solid #dfe6e9; }
+strong { color: #2d3436; }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <h1>LLM Council Report</h1>
+  <div class="question">"Is the /drug-profile skill complete enough for production use, or does it have meaningful gaps?"</div>
+  <div class="meta">5 advisors &bull; 3 peer reviews &bull; 1 chairman synthesis &bull; April 4, 2026</div>
+</div>
+
+<div class="verdict">
+  <span class="verdict-tag">NOT PRODUCTION-READY</span>
+  <p><strong>The skill produces reports that look authoritative but silently omit data, truncate against their own stated rules, ignore fetched competitor pipelines, discard drug design enrichment, and misrepresent regulatory documents as approval history.</strong></p>
+  <p style="margin-top: 0.5rem; color: #636e72; font-size: 0.9rem;">The bones are solid (resolver, SWOT delegation, 10-endpoint scope). The problems are all in the last mile &mdash; how collected data becomes the output report. Fixable without rearchitecting.</p>
+</div>
+
+<h2>Advisor Alignment</h2>
+<div class="grid">
+  <div class="grid-item align-yes">
+    <div class="label"><span class="advisor-tag tag-contrarian">Contrarian</span> Not ready</div>
+    <div class="stance">Truncation contradicts own rules. Regulatory section queries wrong endpoint. Financial section delivers prose not numbers.</div>
+  </div>
+  <div class="grid-item align-yes">
+    <div class="label"><span class="advisor-tag tag-fp">First Principles</span> Not ready</div>
+    <div class="stance">It's three skills wearing one coat. Fails at deal eval, positioning, AND investment use cases for different reasons.</div>
+  </div>
+  <div class="grid-item align-partial">
+    <div class="label"><span class="advisor-tag tag-expansionist">Expansionist</span> Basic-ready</div>
+    <div class="stance">Production-ready for basic use but under-exploiting its infrastructure. Limits are feature requests.</div>
+  </div>
+  <div class="grid-item align-yes">
+    <div class="label"><span class="advisor-tag tag-outsider">Outsider</span> Not ready</div>
+    <div class="stance">Silent truncation, narrow competitors, empty timeline. These cause wrong calls.</div>
+  </div>
+  <div class="grid-item align-yes">
+    <div class="label"><span class="advisor-tag tag-executor">Executor</span> Not ready</div>
+    <div class="stance">5 concrete blockers. Bare except silences errors. Drug Design enrichment is dead code. Prioritized fix order provided.</div>
+  </div>
+</div>
+
+<div class="agreement">
+  <h2 style="border: none; margin-top: 0;">Where the Council Agrees</h2>
+  <ul>
+    <li><strong>Truncation contradicts the skill's own rules.</strong> SKILL.md says "ALWAYS list ALL items. No truncation." Code hardcodes [:10], [:15], [:5] limits. Headers show totals like "Deals (47 total)" while tables show 10. Four of five advisors flagged this independently.</li>
+    <li><strong>The competitive landscape is blind to the pipeline.</strong> Only launched drugs shown. Phase 3 competitor data is fetched (competitors_p3.json) but never rendered. For early-stage drugs: zero competitive context.</li>
+    <li><strong>Drug Design enrichment is dead code.</strong> Step 10 runs, writes files, report generator never reads them. The Executor caught this; the Expansionist praised it as "brilliant" without verifying.</li>
+  </ul>
+</div>
+
+<div class="clash">
+  <h2 style="border: none; margin-top: 0;">Where the Council Clashes</h2>
+  <ul>
+    <li><strong>Is this one skill or three?</strong> First Principles says split by use case (deal eval, positioning, investment). Executor/Contrarian say fix the shared foundation first. Pragmatic answer: fix the common problems before considering a split.</li>
+    <li><strong>Are limits bugs or features?</strong> Expansionist frames caps as future features. Everyone else: when your docs promise no truncation and your code truncates, that's a bug. Peer reviews unanimously sided against the Expansionist.</li>
+  </ul>
+</div>
+
+<div class="blindspot">
+  <h2 style="border: none; margin-top: 0;">Blind Spots the Council Caught</h2>
+  <ul>
+    <li><strong>Silent partial failure is the worst outcome.</strong> All three peer reviews converged: <code>load_json</code> uses bare <code>except:</code> that returns None. When API calls fail, user receives a report that looks complete but is missing sections. No error logging, no incompleteness signal. More dangerous than a hard failure.</li>
+    <li><strong>The regulatory query is semantically wrong.</strong> The Contrarian caught that <code>regulations search</code> returns documents/news, not drug approval status. Section heading implies approval landscape; data is press clippings.</li>
+  </ul>
+</div>
+
+<div class="recommendation">
+  <h2 style="border: none; margin-top: 0;">The Recommendation</h2>
+  <p><strong>Do not ship this for production decision-making.</strong> A confident-looking but incomplete report is actively harmful for deal evaluation and investment decisions. The problems are all in the last mile &mdash; fixable without rearchitecting.</p>
+</div>
+
+<div class="first-step">
+  <h2 style="border: none; margin-top: 0;">The One Thing to Do First</h2>
+  <p><strong>Replace the bare <code>except:</code> in <code>load_json</code> with proper error logging and add a "Data Completeness" header</strong> to the report output that lists which API calls succeeded and which failed. A partial report labeled as partial is safe. A partial report labeled as complete is a liability.</p>
+</div>
+
+<h2>Advisor Responses</h2>
+
+<details>
+  <summary><span class="advisor-tag tag-contrarian">Contrarian</span> "Built for a demo, not production"</summary>
+  <div class="content">
+    <p><strong>1. Truncation lies.</strong> Output rule says "ALWAYS list ALL items. No truncation." Code hardcodes [:10] everywhere. For semaglutide with dozens of trials, a user gets 10 rows and no indication they're missing the rest.</p>
+    <p><strong>2. Regulatory section is mislabeled.</strong> Queries <code>regulations search</code> (documents/news endpoint), not drug approval status. Someone reads "3 regulatory documents" and thinks they understand the approval landscape. They won't.</p>
+    <p><strong>3. Financial section truncates to 500 chars of prose.</strong> Actual revenue figures are in structured fields this skill never touches. Rules say "give exact numbers" &mdash; delivers a truncated paragraph.</p>
+    <p>Resolver is solid. SWOT delegation is reasonable. Report generator was built for a demo.</p>
+  </div>
+</details>
+
+<details>
+  <summary><span class="advisor-tag tag-fp">First Principles</span> "Three skills wearing one coat"</summary>
+  <div class="content">
+    <p>Drug profiles serve three use cases requiring different data: deal evaluation (IP cliffs, peak sales threats), competitive positioning (Phase 1/2 pipeline), investment decisions (regulatory risk, trial patterns).</p>
+    <p>The current implementation fails at all three: financials truncated at 500 chars (fatal for deals), competitors limited to launched (fatal for positioning), history drops approvals/trials (fatal for investment).</p>
+    <p>Fix the use-case split first. Then gaps become obvious and bounded.</p>
+  </div>
+</details>
+
+<details>
+  <summary><span class="advisor-tag tag-expansionist">Expansionist</span> "Under-exploiting its own infrastructure"</summary>
+  <div class="content">
+    <p>Every limit is a feature request. Deals at 10 should be 50+ with deal-type filtering. Drug Design enrichment is accidentally brilliant &mdash; expand to all drugs. The 21 adjacent skills should auto-cross-link into a living intelligence graph.</p>
+    <p>Production-ready for basic use. Dramatically under-exploiting for power users.</p>
+  </div>
+</details>
+
+<details>
+  <summary><span class="advisor-tag tag-outsider">Outsider</span> "These cause wrong calls"</summary>
+  <div class="content">
+    <p><strong>1. Silent truncation.</strong> Headers show totals but tables show 10. SKILL.md contradicts the code.</p>
+    <p><strong>2. Competitive landscape too narrow.</strong> Only launched drugs. Phase 3 data fetched but never rendered. Drug looks like a leader while facing five hidden challengers.</p>
+    <p><strong>3. Timeline nearly empty.</strong> Only phase transitions. A 15-year drug shows 4 lines.</p>
+  </div>
+</details>
+
+<details>
+  <summary><span class="advisor-tag tag-executor">Executor</span> "Monday morning fix order provided"</summary>
+  <div class="content">
+    <p><strong>5 blockers:</strong> (1) bare <code>except:</code> silences errors, (2) timeline drops approvals/safety events, (3) 500-char financial truncation, (4) Drug Design files written but never read, (5) launched-only competitors.</p>
+    <p><strong>Fix order:</strong> error logging &rarr; timeline expansion &rarr; Drug Design wiring &rarr; Phase 3 competitors.</p>
+  </div>
+</details>
+
+<details>
+  <summary>Peer Review Highlights</summary>
+  <div class="content">
+    <p><strong>Strongest advisor:</strong> Executor (2 votes) and Contrarian (1 vote). Executor uniquely caught Drug Design dead code and provided prioritized fix order.</p>
+    <p><strong>Weakest advisor:</strong> Expansionist (unanimous). Treated production bugs as feature requests. Praised Drug Design without verifying it's consumed.</p>
+    <p><strong>All missed:</strong> API failure handling. What happens when 3 of 10 calls fail? Silent partial reports are worse than hard failures. Critical for downstream automation.</p>
+  </div>
+</details>
+
+<div class="footer">
+  LLM Council &bull; 5 advisors, 3 peer reviews, 1 chairman synthesis &bull; April 4, 2026<br>
+  Counciled: /drug-profile skill completeness
+</div>
+
+</body>
+</html>

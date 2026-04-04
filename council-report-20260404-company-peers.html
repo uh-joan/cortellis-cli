@@ -1,0 +1,200 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>LLM Council Report — Company Peers Skill</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; background: #fff; color: #1a1a1a; line-height: 1.6; max-width: 900px; margin: 0 auto; padding: 2rem 1.5rem; }
+  h1 { font-size: 1.8rem; font-weight: 700; margin-bottom: 0.25rem; }
+  h2 { font-size: 1.3rem; font-weight: 600; margin: 2rem 0 0.75rem; color: #111; border-bottom: 2px solid #e5e5e5; padding-bottom: 0.4rem; }
+  p, li { font-size: 0.95rem; margin-bottom: 0.5rem; }
+  ul { padding-left: 1.5rem; }
+  .meta { color: #666; font-size: 0.85rem; margin-bottom: 2rem; }
+  .question-box { background: #f7f7f7; border-left: 4px solid #333; padding: 1rem 1.25rem; margin: 1.5rem 0; border-radius: 0 6px 6px 0; }
+  .question-box p { font-style: italic; font-size: 1rem; margin: 0; }
+  .verdict-card { background: #fef2f2; border: 1px solid #fecaca; border-radius: 8px; padding: 1.5rem; margin: 1.5rem 0; }
+  .verdict-card h2 { border: none; margin-top: 0; color: #991b1b; font-size: 1.15rem; }
+  .first-step { background: #ecfdf5; border: 1px solid #a7f3d0; border-radius: 8px; padding: 1.25rem; margin: 1.5rem 0; }
+  .first-step h2 { border: none; margin-top: 0; color: #065f46; font-size: 1.15rem; }
+  .phase-box { background: #f9fafb; border: 1px solid #e5e5e5; border-radius: 8px; padding: 1.25rem; margin: 1rem 0; }
+  .phase-box h3 { font-size: 1rem; margin-bottom: 0.75rem; color: #374151; }
+  .agreement-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin: 1.5rem 0; }
+  .agree-box, .clash-box { border-radius: 8px; padding: 1rem 1.25rem; }
+  .agree-box { background: #f0fdf4; border: 1px solid #bbf7d0; }
+  .clash-box { background: #fff7ed; border: 1px solid #fed7aa; }
+  .agree-box h3, .clash-box h3 { font-size: 0.9rem; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 0.5rem; }
+  .agree-box h3 { color: #166534; }
+  .clash-box h3 { color: #9a3412; }
+  .advisor-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 0.5rem; margin: 1.25rem 0; }
+  .advisor-chip { text-align: center; padding: 0.5rem 0.25rem; border-radius: 6px; font-size: 0.75rem; font-weight: 600; }
+  .chip-red { background: #fef2f2; border: 1px solid #fecaca; color: #991b1b; }
+  .chip-orange { background: #fff7ed; border: 1px solid #fed7aa; color: #9a3412; }
+  .blind-spot { background: #faf5ff; border: 1px solid #e9d5ff; border-radius: 8px; padding: 1.25rem; margin: 1rem 0; }
+  .blind-spot h3 { color: #6b21a8; font-size: 0.95rem; }
+  details { border: 1px solid #e5e5e5; border-radius: 6px; margin: 0.75rem 0; }
+  summary { cursor: pointer; padding: 0.75rem 1rem; font-weight: 600; font-size: 0.95rem; background: #fafafa; border-radius: 6px; }
+  summary:hover { background: #f0f0f0; }
+  details[open] summary { border-bottom: 1px solid #e5e5e5; border-radius: 6px 6px 0 0; }
+  .detail-body { padding: 1rem 1.25rem; font-size: 0.9rem; }
+  .detail-body p { margin-bottom: 0.75rem; }
+  .footer { margin-top: 3rem; padding-top: 1rem; border-top: 1px solid #e5e5e5; color: #999; font-size: 0.8rem; text-align: center; }
+</style>
+</head>
+<body>
+
+<h1>LLM Council Report</h1>
+<p class="meta">2026-04-04 &middot; Company Peers Skill Assessment &middot; 5 advisors, 5 peer reviews</p>
+
+<div class="question-box">
+  <p>Is the <code>/company-peers</code> skill in the Cortellis CLI complete enough for production use? What gaps exist?</p>
+</div>
+
+<div class="verdict-card">
+  <h2>The Recommendation: Do Not Ship</h2>
+  <p>The skill has a <strong>confirmed broken dependency</strong> (always-empty peer table), silent failure modes, and a scope limitation that would mislead strategic decision-making. Shipping it would erode trust faster than not shipping it.</p>
+</div>
+
+<div class="first-step">
+  <h2>The One Thing to Do First</h2>
+  <p><strong>Fix the schema contract between <code>find_peers.py</code> and the report generator.</strong></p>
+  <p><code>find_peers.py</code> writes <code>peers.json</code> (flat array with name, drug_count, overlap). The report reads <code>peers_ind*.json</code> expecting Cortellis company search response schema (<code>@id</code>, <code>@name</code>, <code>Country</code>). Incompatible filename AND schema &mdash; peer table is always empty.</p>
+  <p>Rewrite the report to read <code>peers.json</code> directly. One-file change. Until this works, nothing else matters.</p>
+</div>
+
+<h2>Fix Roadmap</h2>
+
+<div class="phase-box">
+  <h3>Phase 1 &mdash; Make It Work</h3>
+  <ul>
+    <li>Fix filename/schema mismatch between find_peers.py and report generator</li>
+    <li>Replace bare <code>except Exception: return []</code> with typed exceptions + stderr</li>
+    <li>Add credential pre-flight check</li>
+    <li>Document Step 4 dependency (Step 5 needs peer IDs from Step 4)</li>
+  </ul>
+</div>
+
+<div class="phase-box">
+  <h3>Phase 2 &mdash; Make It Credible</h3>
+  <ul>
+    <li>Expand peer search beyond Launched to include Phase 2/3 pipeline companies</li>
+    <li>Document selection methodology in report output</li>
+    <li>Surface data timestamp for freshness</li>
+    <li>Add cross-skill navigation hints (/head-to-head, /pipeline)</li>
+  </ul>
+</div>
+
+<h2>Advisor Positions</h2>
+
+<div class="advisor-grid">
+  <div class="advisor-chip chip-red">Contrarian<br>3 Blockers</div>
+  <div class="advisor-chip chip-red">First Principles<br>Wrong Model</div>
+  <div class="advisor-chip chip-orange">Expansionist<br>Needs More</div>
+  <div class="advisor-chip chip-red">Outsider<br>Narrow Peers</div>
+  <div class="advisor-chip chip-red">Executor<br>2 Bugs Found</div>
+</div>
+
+<div class="agreement-grid">
+  <div class="agree-box">
+    <h3>Converged On</h3>
+    <ul>
+      <li>Not production-ready (unanimous)</li>
+      <li>Filename/schema mismatch = broken pipeline</li>
+      <li>Launched-only peer search is strategically misleading</li>
+      <li>Silent error handling masks failures</li>
+    </ul>
+  </div>
+  <div class="clash-box">
+    <h3>Disagreed On</h3>
+    <ul>
+      <li>Is the schema bug a Monday fix or requires rethink?</li>
+      <li>Is the "peer" concept itself too narrow?</li>
+      <li>Should financial data be in scope?</li>
+    </ul>
+  </div>
+</div>
+
+<h2>Blind Spots the Council Caught</h2>
+
+<div class="blind-spot">
+  <h3>No Schema Contract</h3>
+  <p>No shared contract between find_peers.py and the report generator. Any change to either silently breaks the pipeline. No test fixtures means regressions go undetected.</p>
+</div>
+
+<div class="blind-spot">
+  <h3>Methodology Opaque to Users</h3>
+  <p>"Top 10 peers" with no explanation of selection criteria is uninterpretable. Users cannot evaluate whether the peer set is appropriate for their question.</p>
+</div>
+
+<div class="blind-spot">
+  <h3>No Observability</h3>
+  <p>No logging, no run IDs, no intermediate artifact validation. When the report is wrong, there is no audit trail for reproducibility.</p>
+</div>
+
+<div class="blind-spot">
+  <h3>Data Freshness Unaddressed</h3>
+  <p>Cortellis data has approval lag. Launched-only filter on stale data compounds the bias.</p>
+</div>
+
+<h2>Advisor Responses</h2>
+
+<details>
+  <summary>The Contrarian</summary>
+  <div class="detail-body">
+    <p>Three blockers: (1) bare <code>except Exception: return []</code> silently swallows all errors. (2) Report reads <code>peers_ind*.json</code> but SKILL.md creates <code>peers.json</code> &mdash; broken dependency. (3) Launched-only peer search excludes Phase 3 competitors &mdash; strategically misleading.</p>
+    <p>Also: no manifest, no credential check, no cross-skill hints. Step 4 "optional" with no criteria creates inconsistent outputs.</p>
+  </div>
+</details>
+
+<details>
+  <summary>The First Principles Thinker</summary>
+  <div class="detail-body">
+    <p>"What makes someone a real competitor?" Current answer: "who else has launched drugs in same indications" &mdash; a proxy, not the thing.</p>
+    <p>Five gaps: Launched-only bias, indication matching too narrow (vs mechanism overlap), metrics show size not positioning, no stage-weighting, company not positioned within its own peer set.</p>
+  </div>
+</details>
+
+<details>
+  <summary>The Expansionist</summary>
+  <div class="detail-body">
+    <p>Missing: forward-looking signals (trial momentum), technology platform intelligence, network effects (partnerships), deal terms (deals-intelligence), emerging peers (Phase 2 companies = future competitors + acquisition targets).</p>
+  </div>
+</details>
+
+<details>
+  <summary>The Outsider</summary>
+  <div class="detail-body">
+    <p>Only approved drugs checked &mdash; most dangerous competitors not yet approved. "Top 10" arbitrary. Success rate undefined. No financial dimension. Head-to-head depends on this tool's selection but criteria too narrow.</p>
+  </div>
+</details>
+
+<details>
+  <summary>The Executor</summary>
+  <div class="detail-body">
+    <p>BUG 1: find_peers.py writes flat JSON to peers.json but report reads peers_ind*.json with company search schema &mdash; incompatible. Peer table always empty.</p>
+    <p>BUG 2: Schema mismatch &mdash; find_peers returns (name, drug_count, overlap) but report expects (@id, @name, Country, Drugs.@activeDevelopment).</p>
+    <p>Step 4 "optional" but Step 5 needs peer IDs from it. Monday fix: rewrite report to read peers.json directly.</p>
+  </div>
+</details>
+
+<details>
+  <summary>Peer Review Highlights</summary>
+  <div class="detail-body">
+    <p><strong>Strongest advisors:</strong> Executor (concrete bugs) and First Principles (root assumption challenge).</p>
+    <ul>
+      <li>No test fixture = silent regression on any change</li>
+      <li>Schema contract between scripts is undocumented</li>
+      <li>Data freshness unaddressed &mdash; Cortellis approval lag compounds Launched-only bias</li>
+      <li>Methodology invisible to end users</li>
+      <li>No observability or reproducibility</li>
+    </ul>
+  </div>
+</details>
+
+<div class="footer">
+  LLM Council &middot; 2026-04-04 &middot; Counciled: /company-peers skill completeness
+</div>
+
+</body>
+</html>

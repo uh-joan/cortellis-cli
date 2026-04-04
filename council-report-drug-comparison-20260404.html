@@ -1,0 +1,149 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>LLM Council Report - Drug Comparison Skill</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #fff; color: #1a1a1a; line-height: 1.6; max-width: 900px; margin: 0 auto; padding: 2rem 1.5rem; }
+  h1 { font-size: 1.8rem; font-weight: 700; margin-bottom: 0.3rem; }
+  .subtitle { color: #666; font-size: 0.95rem; margin-bottom: 2rem; border-bottom: 2px solid #e5e5e5; padding-bottom: 1rem; }
+  .question-box { background: #f8f9fa; border-left: 4px solid #2563eb; padding: 1.2rem 1.5rem; margin-bottom: 2rem; border-radius: 0 6px 6px 0; }
+  .question-box h2 { font-size: 0.85rem; text-transform: uppercase; letter-spacing: 0.05em; color: #2563eb; margin-bottom: 0.5rem; }
+  .verdict { margin-bottom: 2.5rem; }
+  .verdict h2 { font-size: 1.3rem; font-weight: 700; margin-bottom: 1rem; padding-bottom: 0.5rem; border-bottom: 1px solid #e5e5e5; }
+  .verdict p { margin-bottom: 0.8rem; color: #333; }
+  .status-badge { display: inline-block; padding: 0.25rem 0.75rem; border-radius: 20px; font-size: 0.8rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.03em; }
+  .status-not-ready { background: #fef2f2; color: #dc2626; border: 1px solid #fecaca; }
+  .alignment-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin: 1.5rem 0; }
+  .align-card { padding: 1rem; border-radius: 8px; border: 1px solid #e5e5e5; }
+  .align-agree { background: #f0fdf4; border-color: #bbf7d0; }
+  .align-disagree { background: #fef2f2; border-color: #fecaca; }
+  .align-card h4 { font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 0.5rem; }
+  .align-agree h4 { color: #16a34a; }
+  .align-disagree h4 { color: #dc2626; }
+  .align-card ul { list-style: none; padding: 0; }
+  .align-card li { font-size: 0.9rem; padding: 0.3rem 0; color: #555; }
+  .align-card li::before { content: ''; display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 0.5rem; vertical-align: middle; }
+  .align-agree li::before { background: #16a34a; }
+  .align-disagree li::before { background: #dc2626; }
+  .action-box { background: #eff6ff; border: 2px solid #2563eb; border-radius: 8px; padding: 1.5rem; margin: 1.5rem 0; }
+  .action-box h3 { color: #2563eb; font-size: 1rem; margin-bottom: 0.5rem; }
+  .action-box p { color: #1e40af; font-size: 0.95rem; }
+  .bug-box { background: #fef2f2; border: 1px solid #fecaca; border-radius: 8px; padding: 1rem 1.2rem; margin: 1.5rem 0; }
+  .bug-box h4 { color: #dc2626; font-size: 0.9rem; margin-bottom: 0.5rem; }
+  details { margin-bottom: 1rem; border: 1px solid #e5e5e5; border-radius: 8px; overflow: hidden; }
+  summary { padding: 1rem 1.2rem; cursor: pointer; font-weight: 600; font-size: 0.95rem; background: #fafafa; }
+  summary:hover { background: #f0f0f0; }
+  .advisor-content { padding: 1rem 1.2rem; border-top: 1px solid #e5e5e5; font-size: 0.9rem; color: #444; line-height: 1.7; }
+  .advisor-tag { display: inline-block; padding: 0.15rem 0.5rem; border-radius: 4px; font-size: 0.75rem; font-weight: 600; margin-right: 0.5rem; }
+  .tag-contrarian { background: #fef3c7; color: #92400e; }
+  .tag-principles { background: #dbeafe; color: #1e40af; }
+  .tag-expansionist { background: #d1fae5; color: #065f46; }
+  .tag-outsider { background: #f3e8ff; color: #6b21a8; }
+  .tag-executor { background: #fee2e2; color: #991b1b; }
+  .gap-list { margin: 1rem 0; padding-left: 0; list-style: none; }
+  .gap-list li { padding: 0.6rem 0; border-bottom: 1px solid #f0f0f0; font-size: 0.95rem; }
+  .gap-list li:last-child { border-bottom: none; }
+  .gap-severity { display: inline-block; width: 10px; height: 10px; border-radius: 50%; margin-right: 0.5rem; vertical-align: middle; }
+  .sev-critical { background: #dc2626; }
+  .sev-high { background: #f59e0b; }
+  .sev-medium { background: #3b82f6; }
+  .footer { margin-top: 3rem; padding-top: 1rem; border-top: 1px solid #e5e5e5; font-size: 0.8rem; color: #999; }
+</style>
+</head>
+<body>
+
+<h1>LLM Council Verdict</h1>
+<p class="subtitle">Drug Comparison Skill Production Readiness &mdash; April 4, 2026</p>
+
+<div class="question-box">
+  <h2>Question</h2>
+  <p>Is the <code>cli_anything/cortellis/skills/drug-comparison/</code> skill complete enough for production use?</p>
+</div>
+
+<div class="verdict">
+  <h2>Council Verdict <span class="status-badge status-not-ready">Not Production-Ready</span></h2>
+  <p>The architecture is sound and the comparison logic is well-built. But a <strong>SWOT data collapse bug</strong> (only first entry rendered per category) combined with silent truncation across trials, deals, and CSV export means the skill can produce <strong>confidently incomplete comparisons with no visible signal</strong>.</p>
+  <p>Fix surface is small (~30 min). The skill is close.</p>
+</div>
+
+<div class="bug-box">
+  <h4>Bug Found (Outsider, verified in code)</h4>
+  <p>SWOT section uses <code>items[0]</code> &mdash; only the first strength/weakness/opportunity/threat is ever rendered per category. Multiple entries collapse to one with no warning. This is a data loss bug, not a truncation design choice.</p>
+</div>
+
+<h2 style="font-size:1.1rem; margin-bottom:1rem;">Advisor Alignment</h2>
+<div class="alignment-grid">
+  <div class="align-card align-agree">
+    <h4>Unanimous Agreement</h4>
+    <ul>
+      <li>Architecture is sound, dict handling excellent</li>
+      <li>Trials/deals need "Showing X of Y"</li>
+      <li>No timestamp = hard gap for deal-making</li>
+      <li>SWOT truncation is a real problem</li>
+    </ul>
+  </div>
+  <div class="align-card align-disagree">
+    <h4>Key Disagreement</h4>
+    <ul>
+      <li>Executor: SWOT cap is "intentional for readability"</li>
+      <li>Outsider: it's items[0] collapse &mdash; a bug</li>
+      <li>Expansionist: timestamp is "non-issue"</li>
+      <li>FP/Contrarian: timestamp is hard gap for deals</li>
+    </ul>
+  </div>
+</div>
+
+<h2 style="font-size:1.1rem; margin: 2rem 0 1rem;">Gaps Identified</h2>
+<ul class="gap-list">
+  <li><span class="gap-severity sev-critical"></span><strong>SWOT items[0] collapse.</strong> Only first entry per SWOT category rendered. Multiple strengths/weaknesses lost silently. Data loss bug.</li>
+  <li><span class="gap-severity sev-high"></span><strong>Trials: no "Showing X of Y".</strong> Total shown in header but [:10] cap silent. Trial volume IS a competitive signal (847 vs 12).</li>
+  <li><span class="gap-severity sev-high"></span><strong>Deals: same pattern.</strong> Total shown but display silently capped at 10.</li>
+  <li><span class="gap-severity sev-high"></span><strong>No timestamp.</strong> Hard gap for deal-making contexts where data currency matters.</li>
+  <li><span class="gap-severity sev-medium"></span><strong>CSV export: limit=5 silent.</strong> Export is the artifact most likely to leave the tool and land in a deck.</li>
+  <li><span class="gap-severity sev-medium"></span><strong>No coverage footer.</strong> No summary of what data was available vs missing per drug.</li>
+  <li><span class="gap-severity sev-medium"></span><strong>Resolver SPOF.</strong> Wrong drug ID = confidently wrong comparison across all 8 dimensions. Surface resolved name+ID per column.</li>
+</ul>
+
+<div class="action-box">
+  <h3>The One Thing to Do First</h3>
+  <p>Fix the <code>items[0]</code> SWOT collapse to iterate over all entries, and add resolver confirmation headers (resolved drug name + ID per column). These address the only failure modes where the skill can be confidently wrong without any visible signal.</p>
+</div>
+
+<details>
+  <summary><span class="advisor-tag tag-contrarian">Contrarian</span> "Silent truncation is systematic failure at the skill's one job"</summary>
+  <div class="advisor-content"><p>4 defects: SWOT 150-char truncation misleads, CSV limit=5 broken for bulk use, trials/deals lack "Showing X of Y" (trial volume IS a signal), no timestamp. Fix those four, then production-ready.</p></div>
+</details>
+<details>
+  <summary><span class="advisor-tag tag-principles">First Principles</span> "Comparison has different requirements &mdash; 'complete data per drug?' not 'find all drugs?'"</summary>
+  <div class="advisor-content"><p>Timestamp is hard gap. "Showing 10 of 47" needed. Missing data vs no data indistinguishable. Resolver is SPOF. Architecture sound, gap is transparency.</p></div>
+</details>
+<details>
+  <summary><span class="advisor-tag tag-expansionist">Expansionist</span> "SWOT truncation kills signal &mdash; raise to 400+ or bulleted sub-section"</summary>
+  <div class="advisor-content"><p>3 gaps: SWOT truncation, indication overlap hardcoded for 2 drugs, no Verdict synthesis. Coverage footer "non-issue." Architecture is right.</p></div>
+</details>
+<details>
+  <summary><span class="advisor-tag tag-outsider">Outsider</span> "SWOT shows only items[0] &mdash; multiple entries collapse to one" <em>&mdash; Voted strongest</em></summary>
+  <div class="advisor-content"><p>Verified in code: trials [:10] no warning, deals [:10] no warning, SWOT items[0] collapse, At-a-Glance [:5] no note, CSV limit=5 silent. The only advisor who read the actual code.</p></div>
+</details>
+<details>
+  <summary><span class="advisor-tag tag-executor">Executor</span> "6 fixes, ~30 min &mdash; architecture solid"</summary>
+  <div class="advisor-content"><p>SWOT truncation "intentional" (peer review disagrees). Per-drug "Showing X of Y". Dynamic N-drug footer. Gaps are cosmetic. <em>Note: peer review challenged the "intentional" claim.</em></p></div>
+</details>
+
+<details>
+  <summary>Peer Review Highlights</summary>
+  <div class="advisor-content">
+    <p><strong>Strongest:</strong> Outsider &mdash; only one that verified against code.</p>
+    <p><strong>All missed:</strong> Resolver is the real SPOF. Wrong drug ID = confidently wrong comparison across all dimensions with no signal. Silent wrong data is categorically worse than visible truncation.</p>
+  </div>
+</details>
+
+<div class="footer">
+  <p>LLM Council &mdash; 5 advisors, 1 peer review, 1 chairman synthesis &mdash; April 4, 2026<br>
+  Counciled: Drug Comparison skill production readiness</p>
+</div>
+</body>
+</html>

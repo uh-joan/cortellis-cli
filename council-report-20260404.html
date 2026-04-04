@@ -1,0 +1,186 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>LLM Council Report - Landscape Skill Completeness</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #fff; color: #1a1a1a; line-height: 1.6; max-width: 900px; margin: 0 auto; padding: 2rem 1.5rem; }
+  h1 { font-size: 1.8rem; font-weight: 700; margin-bottom: 0.3rem; }
+  .subtitle { color: #666; font-size: 0.95rem; margin-bottom: 2rem; border-bottom: 2px solid #e5e5e5; padding-bottom: 1rem; }
+  .question-box { background: #f8f9fa; border-left: 4px solid #2563eb; padding: 1.2rem 1.5rem; margin-bottom: 2rem; border-radius: 0 6px 6px 0; }
+  .question-box h2 { font-size: 0.85rem; text-transform: uppercase; letter-spacing: 0.05em; color: #2563eb; margin-bottom: 0.5rem; }
+  .question-box p { font-size: 1rem; color: #333; }
+  .verdict { margin-bottom: 2.5rem; }
+  .verdict h2 { font-size: 1.3rem; font-weight: 700; margin-bottom: 1rem; padding-bottom: 0.5rem; border-bottom: 1px solid #e5e5e5; }
+  .verdict h3 { font-size: 1.05rem; font-weight: 600; margin: 1.5rem 0 0.7rem; color: #1a1a1a; }
+  .verdict p { margin-bottom: 0.8rem; color: #333; }
+  .verdict strong { color: #1a1a1a; }
+  .status-badge { display: inline-block; padding: 0.25rem 0.75rem; border-radius: 20px; font-size: 0.8rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.03em; }
+  .status-not-ready { background: #fef2f2; color: #dc2626; border: 1px solid #fecaca; }
+  .alignment-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin: 1.5rem 0; }
+  .align-card { padding: 1rem; border-radius: 8px; border: 1px solid #e5e5e5; }
+  .align-agree { background: #f0fdf4; border-color: #bbf7d0; }
+  .align-disagree { background: #fef2f2; border-color: #fecaca; }
+  .align-card h4 { font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 0.5rem; }
+  .align-agree h4 { color: #16a34a; }
+  .align-disagree h4 { color: #dc2626; }
+  .align-card ul { list-style: none; padding: 0; }
+  .align-card li { font-size: 0.9rem; padding: 0.3rem 0; color: #555; }
+  .align-card li::before { content: ''; display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 0.5rem; vertical-align: middle; }
+  .align-agree li::before { background: #16a34a; }
+  .align-disagree li::before { background: #dc2626; }
+  .action-box { background: #eff6ff; border: 2px solid #2563eb; border-radius: 8px; padding: 1.5rem; margin: 1.5rem 0; }
+  .action-box h3 { color: #2563eb; font-size: 1rem; margin-bottom: 0.5rem; }
+  .action-box p { color: #1e40af; font-size: 0.95rem; }
+  details { margin-bottom: 1rem; border: 1px solid #e5e5e5; border-radius: 8px; overflow: hidden; }
+  summary { padding: 1rem 1.2rem; cursor: pointer; font-weight: 600; font-size: 0.95rem; background: #fafafa; user-select: none; }
+  summary:hover { background: #f0f0f0; }
+  .advisor-content { padding: 1rem 1.2rem; border-top: 1px solid #e5e5e5; font-size: 0.9rem; color: #444; line-height: 1.7; }
+  .advisor-tag { display: inline-block; padding: 0.15rem 0.5rem; border-radius: 4px; font-size: 0.75rem; font-weight: 600; margin-right: 0.5rem; }
+  .tag-contrarian { background: #fef3c7; color: #92400e; }
+  .tag-principles { background: #dbeafe; color: #1e40af; }
+  .tag-expansionist { background: #d1fae5; color: #065f46; }
+  .tag-outsider { background: #f3e8ff; color: #6b21a8; }
+  .tag-executor { background: #fee2e2; color: #991b1b; }
+  .footer { margin-top: 3rem; padding-top: 1rem; border-top: 1px solid #e5e5e5; font-size: 0.8rem; color: #999; }
+  .gap-list { margin: 1rem 0; padding-left: 0; list-style: none; }
+  .gap-list li { padding: 0.6rem 0; border-bottom: 1px solid #f0f0f0; font-size: 0.95rem; }
+  .gap-list li:last-child { border-bottom: none; }
+  .gap-severity { display: inline-block; width: 10px; height: 10px; border-radius: 50%; margin-right: 0.5rem; vertical-align: middle; }
+  .sev-critical { background: #dc2626; }
+  .sev-high { background: #f59e0b; }
+  .sev-medium { background: #3b82f6; }
+</style>
+</head>
+<body>
+
+<h1>LLM Council Verdict</h1>
+<p class="subtitle">Landscape Skill Production Readiness &mdash; April 4, 2026</p>
+
+<div class="question-box">
+  <h2>Question</h2>
+  <p>Is the <code>cli_anything/cortellis/skills/landscape/</code> skill complete enough for production use? Are there meaningful gaps?</p>
+</div>
+
+<!-- VERDICT -->
+<div class="verdict">
+  <h2>Council Verdict <span class="status-badge status-not-ready">Not Production-Ready</span></h2>
+
+  <p>The architecture is coherent, the modes are well-designed, and the recipe structure is sane. But the skill produces confident-looking reports with <strong>invisible truncation</strong> and <strong>~45% mechanism annotation failure</strong>. For the #1 pharma intel use case feeding M&A and licensing decisions, that combination is a liability.</p>
+
+  <p><strong>Ship it as a beta with explicit limitations surfaced in the output, or do not ship it as a flagship.</strong></p>
+</div>
+
+<!-- AGREEMENT / DISAGREEMENT -->
+<h2 style="font-size:1.1rem; margin-bottom:1rem;">Advisor Alignment</h2>
+
+<div class="alignment-grid">
+  <div class="align-card align-agree">
+    <h4>Unanimous Agreement</h4>
+    <ul>
+      <li>300-drug cap = silent truncation in oncology</li>
+      <li>~45% mechanism enrichment failure rate</li>
+      <li>Hardcoded pharma list is a maintenance trap</li>
+      <li>No confidence/coverage signals in output</li>
+    </ul>
+  </div>
+  <div class="align-card align-disagree">
+    <h4>Key Disagreement</h4>
+    <ul>
+      <li>Expansionist: gaps are feature seeds, not blockers</li>
+      <li>Rest of council: that's motivated reasoning</li>
+      <li>Tension: future vision vs. current production risk</li>
+      <li>Verdict: production readiness question &ne; roadmap question</li>
+    </ul>
+  </div>
+</div>
+
+<!-- GAPS -->
+<h2 style="font-size:1.1rem; margin: 2rem 0 1rem;">Gaps Identified (by severity)</h2>
+<ul class="gap-list">
+  <li><span class="gap-severity sev-critical"></span><strong>Silent truncation at 300 drugs/phase.</strong> Oncology has 500+ programs. The report looks complete but isn't. The "missing drug detection" may also be paginated, making the diff circular.</li>
+  <li><span class="gap-severity sev-critical"></span><strong>No confidence/coverage signals in report output.</strong> Users cannot distinguish incomplete data from clean competitive signals. No resolution method warnings, no fill-rate footer, no coverage percentage.</li>
+  <li><span class="gap-severity sev-high"></span><strong>Mechanism enrichment half-fails.</strong> 40-50% of drugs have no mechanism annotation. 20-lookup cap per phase is too low for large indications.</li>
+  <li><span class="gap-severity sev-high"></span><strong>Hardcoded major pharma list.</strong> ~20 companies, will go stale with M&A activity. Drives company rankings that feed strategic conclusions.</li>
+  <li><span class="gap-severity sev-high"></span><strong>Company scoring rewards activity, not capability.</strong> Phase-weighted scoring measures program count. A single blockbuster Phase 3 asset should outweigh ten discovery programs but doesn't.</li>
+  <li><span class="gap-severity sev-medium"></span><strong>Biosimilar detection is name-based text matching.</strong> Misses brand-name biosimilars, may false-positive on "follow-on" descriptions.</li>
+  <li><span class="gap-severity sev-medium"></span><strong>"No data" vs "no activity" indistinguishable.</strong> Empty API returns could mean empty space or poor data coverage. No low-confidence flagging.</li>
+  <li><span class="gap-severity sev-medium"></span><strong>Deals capped at 20.</strong> Deal flow is the connective tissue between pipeline position and commercial validation. 20 is a floor for active indications.</li>
+  <li><span class="gap-severity sev-medium"></span><strong>ASCII-only output format.</strong> No JSON/CSV export alongside the report. Pharma analysts need to paste into decks and models.</li>
+</ul>
+
+<!-- ACTION -->
+<div class="action-box">
+  <h3>The One Thing to Do First</h3>
+  <p>Add a report footer to every generated landscape showing: total drugs fetched vs. API total, mechanism fill rate for that run, entity resolution method used, and a one-line coverage warning if any metric falls below threshold. This single change makes every gap visible to the decision-maker.</p>
+</div>
+
+<!-- ADVISOR RESPONSES -->
+<h2 style="font-size:1.1rem; margin: 2rem 0 1rem;">Advisor Responses</h2>
+
+<details>
+  <summary><span class="advisor-tag tag-contrarian">Contrarian</span> "Confident-looking reports with systematic blind spots &mdash; worse than no skill at all"</summary>
+  <div class="advisor-content">
+    <p>The fatal flaw is the 300-drug hard ceiling. Six pages of 50 is an arbitrary architectural limit masquerading as a feature. For major indications like oncology or diabetes, there are hundreds of active programs. You will silently truncate competitive landscapes.</p>
+    <p>The "missing drug detection" mechanism is circular. It fetches ALL drugs without phase filter and diffs against phase CSVs &mdash; but if that unfiltered fetch is also paginated, you're comparing two incomplete datasets.</p>
+    <p>Mechanism enrichment filling "50-60% of empty mechanisms" means 40-50% have no mechanism annotation. That's a core function that half-fails. The company scoring uses a hardcoded list that will go stale. The biosimilar detection is text-matching that will miss brand-name biosimilars.</p>
+  </div>
+</details>
+
+<details>
+  <summary><span class="advisor-tag tag-principles">First Principles</span> "Does this skill tell users what it doesn't know? No. That's the production gap."</summary>
+  <div class="advisor-content">
+    <p>The question presupposes "completeness" is the right lens. The real question is: what decisions break if this skill is wrong, and does the skill surface that risk?</p>
+    <p>Three structural problems: (1) The 300-drug ceiling is invisible to the user. (2) Company scoring rewards activity, not capability &mdash; a single Roche Phase 3 asset outweighs ten Discovery-stage startups but the algorithm doesn't know that. (3) The skill cannot distinguish "no data" from "no activity."</p>
+  </div>
+</details>
+
+<details>
+  <summary><span class="advisor-tag tag-expansionist">Expansionist</span> "Not missing completeness &mdash; missing ambition in how it frames what it has"</summary>
+  <div class="advisor-content">
+    <p>The long tail of discovery compounds is where you spot emerging mechanisms before competitors do. The major pharma list is the seed of a company-tier taxonomy (tier 1-4). The 40-50% unknown mechanisms cluster around novel programs &mdash; surface that as competitive intelligence.</p>
+    <p>The deals section (up to 20) is criminally underused. Cross-reference deal timing against phase transitions for a partnership velocity metric no competitor tool offers. The infrastructure is there. The ceiling is narrative, not technical.</p>
+    <p><em>Note: Peer reviews unanimously identified this as the weakest position &mdash; reframes production risks as opportunities without addressing readiness.</em></p>
+  </div>
+</details>
+
+<details>
+  <summary><span class="advisor-tag tag-outsider">Outsider</span> "I can't tell if error handling is real or aspirational"</summary>
+  <div class="advisor-content">
+    <p>Everything is a description of what the builder believes they built. The 300-drug cap is a business decision disguised as a technical detail. The major pharma list is a maintenance trap.</p>
+    <p>"50-60% enrichment" means 40-50% stay empty. The description frames this as a win &mdash; nearly half of drugs with no mechanism of action listed is a gap for competitive differentiation. Can't tell if the output is legible to a non-technical pharma analyst.</p>
+  </div>
+</details>
+
+<details>
+  <summary><span class="advisor-tag tag-executor">Executor</span> "The bones are solid. The gaps are in silent failures." <em>&mdash; Voted strongest by all 3 reviewers</em></summary>
+  <div class="advisor-content">
+    <p>Execution gaps: (1) 300 hard cap &mdash; oncology has 500+ drugs. (2) 20 mechanism enrichment lookups per phase is too low. (3) Major pharma list needs validation. (4) No error surfacing when entity resolution uses fallback strategies.</p>
+    <p><strong>Monday morning checklist:</strong> Run on NSCLC, PD-1, and ADC. Check drug counts vs manual Cortellis web query. Count blank mechanism entries. Audit pharma list against top 20 by revenue. Grep report generator for resolution failure warnings.</p>
+  </div>
+</details>
+
+<!-- PEER REVIEWS -->
+<details>
+  <summary style="margin-top: 1.5rem;">Peer Review Highlights</summary>
+  <div class="advisor-content">
+    <p><strong>Unanimous strongest:</strong> The Executor &mdash; concrete, actionable, falsifiable validation steps.</p>
+    <p><strong>Unanimous weakest:</strong> The Expansionist &mdash; motivated reasoning, never answers the production readiness question.</p>
+    <p><strong>All advisors missed:</strong></p>
+    <ul style="margin-top: 0.5rem; padding-left: 1.2rem;">
+      <li><strong>Output consumer fidelity</strong> &mdash; who reads these reports and do they have context to spot when something is wrong? No confidence signals in the visual output.</li>
+      <li><strong>Output format as adoption blocker</strong> &mdash; ASCII-only output is a dead end for pharma analysts who export to decks and models. No JSON/CSV alongside narrative.</li>
+      <li><strong>Downstream harm</strong> &mdash; a BD analyst pasting a truncated landscape into a board deck makes a bad strategic decision with false confidence.</li>
+    </ul>
+  </div>
+</details>
+
+<div class="footer">
+  <p>LLM Council &mdash; 5 advisors, 3 peer reviews, 1 chairman synthesis &mdash; April 4, 2026<br>
+  Counciled: Landscape skill production readiness for <code>cli_anything/cortellis/skills/landscape/</code></p>
+</div>
+
+</body>
+</html>

@@ -1,0 +1,222 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>LLM Council Report — Pipeline Skill Completeness</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; background: #fff; color: #1a1a1a; line-height: 1.6; max-width: 900px; margin: 0 auto; padding: 2rem 1.5rem; }
+  h1 { font-size: 1.8rem; font-weight: 700; margin-bottom: 0.25rem; }
+  h2 { font-size: 1.3rem; font-weight: 600; margin: 2rem 0 0.75rem; color: #111; border-bottom: 2px solid #e5e5e5; padding-bottom: 0.4rem; }
+  h3 { font-size: 1.05rem; font-weight: 600; margin: 1.25rem 0 0.5rem; }
+  p, li { font-size: 0.95rem; margin-bottom: 0.5rem; }
+  ul { padding-left: 1.5rem; }
+  .meta { color: #666; font-size: 0.85rem; margin-bottom: 2rem; }
+  .question-box { background: #f7f7f7; border-left: 4px solid #333; padding: 1rem 1.25rem; margin: 1.5rem 0; border-radius: 0 6px 6px 0; }
+  .question-box p { font-style: italic; font-size: 1rem; margin: 0; }
+  .verdict-card { background: #fefce8; border: 1px solid #f5e6a3; border-radius: 8px; padding: 1.5rem; margin: 1.5rem 0; }
+  .verdict-card h2 { border: none; margin-top: 0; color: #92400e; font-size: 1.15rem; }
+  .verdict-card p { margin-bottom: 0.5rem; }
+  .first-step { background: #ecfdf5; border: 1px solid #a7f3d0; border-radius: 8px; padding: 1.25rem; margin: 1.5rem 0; }
+  .first-step h2 { border: none; margin-top: 0; color: #065f46; font-size: 1.15rem; }
+
+  /* Agreement grid */
+  .agreement-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin: 1.5rem 0; }
+  .agree-box, .clash-box { border-radius: 8px; padding: 1rem 1.25rem; }
+  .agree-box { background: #f0fdf4; border: 1px solid #bbf7d0; }
+  .clash-box { background: #fff7ed; border: 1px solid #fed7aa; }
+  .agree-box h3, .clash-box h3 { font-size: 0.9rem; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 0.5rem; }
+  .agree-box h3 { color: #166534; }
+  .clash-box h3 { color: #9a3412; }
+
+  /* Advisor positions */
+  .advisor-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 0.5rem; margin: 1.25rem 0; }
+  .advisor-chip { text-align: center; padding: 0.5rem 0.25rem; border-radius: 6px; font-size: 0.75rem; font-weight: 600; }
+  .chip-red { background: #fef2f2; border: 1px solid #fecaca; color: #991b1b; }
+  .chip-orange { background: #fff7ed; border: 1px solid #fed7aa; color: #9a3412; }
+  .chip-blue { background: #eff6ff; border: 1px solid #bfdbfe; color: #1e40af; }
+  .chip-gray { background: #f9fafb; border: 1px solid #e5e7eb; color: #374151; }
+  .chip-green { background: #f0fdf4; border: 1px solid #bbf7d0; color: #166534; }
+
+  /* Collapsible */
+  details { border: 1px solid #e5e5e5; border-radius: 6px; margin: 0.75rem 0; }
+  summary { cursor: pointer; padding: 0.75rem 1rem; font-weight: 600; font-size: 0.95rem; background: #fafafa; border-radius: 6px; }
+  summary:hover { background: #f0f0f0; }
+  details[open] summary { border-bottom: 1px solid #e5e5e5; border-radius: 6px 6px 0 0; }
+  .detail-body { padding: 1rem 1.25rem; font-size: 0.9rem; }
+  .detail-body p { margin-bottom: 0.75rem; }
+
+  .blind-spot { background: #faf5ff; border: 1px solid #e9d5ff; border-radius: 8px; padding: 1.25rem; margin: 1rem 0; }
+  .blind-spot h3 { color: #6b21a8; font-size: 0.95rem; }
+
+  .footer { margin-top: 3rem; padding-top: 1rem; border-top: 1px solid #e5e5e5; color: #999; font-size: 0.8rem; text-align: center; }
+</style>
+</head>
+<body>
+
+<h1>LLM Council Report</h1>
+<p class="meta">2026-04-04 &middot; Pipeline Skill Completeness Assessment &middot; 5 advisors, 5 peer reviews</p>
+
+<div class="question-box">
+  <p>Is the <code>/pipeline</code> skill in the Cortellis CLI complete enough for production use? What gaps exist?</p>
+</div>
+
+<!-- VERDICT -->
+<div class="verdict-card">
+  <h2>The Recommendation</h2>
+  <p><strong>Not production-ready. Ship as beta with an integrity layer added first.</strong></p>
+  <p>The skill works for known large pharma where resolution is reliable and the user can sanity-check the output. It is not ready for any context where a user will act on the output without manual verification.</p>
+  <p>The gaps are not feature gaps. They are <strong>trust gaps</strong>. An operator cannot currently tell if a pipeline run produced complete data or silently degraded data. That single fact disqualifies it from production.</p>
+  <p>The Expansionist's platform vision and the First Principles Thinker's question framing are both correct about the ceiling &mdash; but the floor has to be fixed first. A pipeline that sometimes produces false confidence is worse than no pipeline.</p>
+</div>
+
+<div class="first-step">
+  <h2>The One Thing to Do First</h2>
+  <p><strong>Add a run manifest.</strong> After every pipeline execution, write a structured JSON file recording each step, its exit code, the row count of every CSV produced, the timestamp, and any truncation flags.</p>
+  <p>Make report generation read this manifest and refuse to render if any upstream step produced zero rows or a non-zero exit. This single change converts silent failures into loud ones, surfaces the filename mismatch, the empty-CSV-from-timeout, and credential failure modes simultaneously &mdash; without requiring changes to the underlying recipe scripts.</p>
+</div>
+
+<!-- AGREEMENT / DISAGREEMENT VISUAL -->
+<h2>Advisor Positions</h2>
+
+<div class="advisor-grid">
+  <div class="advisor-chip chip-red">Contrarian<br>Not Ready</div>
+  <div class="advisor-chip chip-red">First Principles<br>Wrong Question</div>
+  <div class="advisor-chip chip-blue">Expansionist<br>Needs Vision</div>
+  <div class="advisor-chip chip-orange">Outsider<br>Not Ready</div>
+  <div class="advisor-chip chip-green">Executor<br>Fix 2 Lines</div>
+</div>
+
+<div class="agreement-grid">
+  <div class="agree-box">
+    <h3>Converged On</h3>
+    <ul>
+      <li>Silent, undetectable errors are the core problem</li>
+      <li>No integrity layer &mdash; no way to distinguish clean vs broken run</li>
+      <li>98% resolution rate is tested on wrong denominator</li>
+      <li>Temporal/change detection is absent</li>
+    </ul>
+  </div>
+  <div class="clash-box">
+    <h3>Disagreed On</h3>
+    <ul>
+      <li>Reporting tool vs intelligence platform (sequencing dispute)</li>
+      <li>AI-reads-markdown architecture: flaw or fine?</li>
+      <li>Fix bugs first vs rethink the output model</li>
+    </ul>
+  </div>
+</div>
+
+<!-- DETAILED SECTIONS -->
+
+<h2>Where the Council Agrees</h2>
+<p>Every advisor found the same underlying failure mode: <strong>silent, undetectable errors</strong>. The Executor named a specific bug (filename mismatch producing false positives in other.csv). The Outsider found the same class of bug independently (empty CSV from API timeout generates a complete-looking report). The Contrarian named the category (50-hit cap with no warning).</p>
+<p>This is not a collection of separate issues. It is one architectural failure: <strong>the pipeline has no integrity layer</strong>. It assumes every step succeeds and reports confidently regardless of whether it did.</p>
+<p>The second point of convergence: the resolution logic has an invisible accuracy cliff. 98% on major pharma sounds good. Mid-size biotechs &mdash; the more interesting targets for competitive intelligence &mdash; fail at ~20%. Three reviewers flagged this. No one disagreed.</p>
+
+<h2>Where the Council Clashes</h2>
+<p><strong>Is this a reporting tool or an intelligence platform?</strong> The Expansionist and First Principles Thinker argue the pipeline answers the wrong question &mdash; it reports what exists instead of signaling momentum, vulnerability, and competitive position. The Executor and Outsider implicitly reject this: the thing doesn't correctly report what exists yet, so platform ambitions are premature.</p>
+<p>The Executor is right on sequencing. You cannot build a competitive intelligence hub on a foundation that silently truncates drug lists and generates reports from empty CSVs. The First Principles Thinker's critique is correct but premature.</p>
+<p><strong>Is the AI-reads-markdown architecture a problem?</strong> The Outsider calls it a tutorial, not a production system. No other advisor challenged this. The honest answer: Claude Code reading SKILL.md and running bash scripts is unconventional but not disqualifying. What the Outsider is actually pointing at is the absence of orchestration guarantees &mdash; a real problem dressed in architectural clothing.</p>
+
+<h2>Blind Spots the Council Caught</h2>
+
+<div class="blind-spot">
+  <h3>Credential Lifecycle</h3>
+  <p>Flagged by every reviewer independently. A multi-step pipeline that silently fails at step 4 due to a 401 or expired token produces a partial report with no indication of where it broke. No advisor addressed this.</p>
+</div>
+
+<div class="blind-spot">
+  <h3>SKILL.md Drift</h3>
+  <p>SKILL.md may not stay synchronized with actual scripts as the codebase evolves. Since Claude Code uses SKILL.md as the orchestration source, drift means Claude runs wrong commands &mdash; and the user has no way to know. Maintenance risk that compounds over time.</p>
+</div>
+
+<div class="blind-spot">
+  <h3>False-Alarm Truncation</h3>
+  <p>report_generator.py flags truncation at &ge;50 rows even when pagination legitimately returned 51+ real drugs. The warning cries wolf, users learn to ignore it, and real truncation becomes invisible. This makes the Contrarian's concern worse than stated.</p>
+</div>
+
+<!-- ADVISOR RESPONSES (collapsible) -->
+<h2>Advisor Responses</h2>
+
+<details>
+  <summary>The Contrarian</summary>
+  <div class="detail-body">
+    <p>The skill has a structural deception problem that no pagination fix will solve.</p>
+    <p><strong>The 50-hits-per-phase cap is a lie waiting to happen.</strong> Pfizer has 300+ pipeline assets. Pagination caps at 150 max per phase with zero warning when you hit it. A user runs /pipeline on Pfizer and gets a "complete" report missing 40% of their oncology portfolio. Silent incompleteness.</p>
+    <p><strong>Company resolution 98% success rate on 50 major pharma is the wrong denominator.</strong> Users will run this on mid-size biotechs, spinouts, recently-renamed companies, subsidiaries. That's where the 2% becomes 20%.</p>
+    <p><strong>Phase deduplication logic is fragile at the edges.</strong> Drugs with ambiguous or missing indication data get silently dropped or misattributed.</p>
+    <p><strong>Zero data freshness signals.</strong> No timestamps on fetched data. A user can't tell if they're looking at today's pipeline or cached state from last week.</p>
+    <p><strong>The flagship problem:</strong> This skill presents itself as definitive but is actually best-effort-with-silent-failures. That's the production gap.</p>
+  </div>
+</details>
+
+<details>
+  <summary>The First Principles Thinker</summary>
+  <div class="detail-body">
+    <p>The question being asked is "is this complete enough?" The question that should be asked is <strong>"complete enough for what decision?"</strong></p>
+    <p>Pipeline intelligence is not a static snapshot problem. It is a signal-detection problem. Someone running this skill is trying to answer: What is this company betting on? Where are they vulnerable? Where are they winning? The current architecture answers none of these explicitly &mdash; it answers "what exists" and leaves the inference to the user.</p>
+    <p><strong>No change detection.</strong> A pipeline without delta is a photograph, not intelligence. What moved from Phase 2 to Phase 3 last quarter? Without temporal comparison, users cannot detect momentum.</p>
+    <p><strong>No competitive anchoring.</strong> A company's pipeline in isolation is meaningless. Phase 3 for what indication, against what competitors?</p>
+    <p><strong>No attrition signal.</strong> Attrition is explicitly excluded from catch_missing_drugs. But attrition IS the signal for a company under pressure.</p>
+  </div>
+</details>
+
+<details>
+  <summary>The Expansionist</summary>
+  <div class="detail-body">
+    <p>The pipeline skill is scratching the surface of what's possible.</p>
+    <p><strong>The untapped API surface is a goldmine.</strong> Regulatory timelines + pipeline = approval window predictions. Conference data + pipeline = BD intent signals. Press releases + deals + pipeline = narrative arc reconstruction.</p>
+    <p><strong>Cross-skill integration.</strong> Every drug in that pipeline table could be an entry point into drug-profile, head-to-head, deal-deep-dive. The pipeline should be the hub of a connected intelligence graph.</p>
+    <p><strong>Temporal dimension completely missing.</strong> Where was this pipeline 6 months ago? What moved? What got dropped? Patent watch + pipeline delta = the actual competitive signal pharma analysts pay for.</p>
+    <p><strong>Partner identification.</strong> Mechanism explorer + partnership network + pipeline assets = automated BD target list generation. That's not a feature, that's a product.</p>
+  </div>
+</details>
+
+<details>
+  <summary>The Outsider</summary>
+  <div class="detail-body">
+    <p>The "flagship" framing is doing a lot of work. The skill is a recipe card, not a production system.</p>
+    <p><strong>Specific code issues:</strong> report_generator.py hardcodes 50 as truncation threshold but pagination goes to 150 &mdash; they don't talk to each other. trials_summary caps at 15 indications with no warning. Total trials count uses len(rows) not @totalResults.</p>
+    <p><strong>The 2% resolution failure rate has no documented fallback.</strong> What does a user do when their company isn't in the 98%?</p>
+    <p><strong>No way to know if a run succeeded.</strong> No checksums on CSVs, no validation that each step produced output. If ci_drugs_to_csv.py produces 0 rows from an API timeout, the report generates silently with empty tables.</p>
+  </div>
+</details>
+
+<details>
+  <summary>The Executor</summary>
+  <div class="detail-body">
+    <p><strong>Three production blockers ranked by damage:</strong></p>
+    <p><strong>1. Filename mismatch (step 7):</strong> catch_missing_drugs.py reads "phase1.csv"/"discovery.csv" but pipeline writes "phase1_ci.csv"/"discovery_ci.csv". Result: other.csv is bloated with false positives. No error thrown, no warning.</p>
+    <p><strong>2. No error handling on API failures:</strong> fetch_all_drugs has a bare except: break. A transient 429 or network blip silently truncates the drug list.</p>
+    <p><strong>3. /tmp/pipeline/ is not persistent</strong> across reboots or container restarts.</p>
+    <p><strong>What works fine:</strong> Pagination logic, dedup approach, report generator structure, 4-strategy company resolution.</p>
+    <p><strong>Monday morning fix:</strong> In catch_missing_drugs.py line 46, change "phase1.csv" to "phase1_ci.csv" and "discovery.csv" to "discovery_ci.csv". Two-line fix that unblocks production.</p>
+  </div>
+</details>
+
+<!-- PEER REVIEWS (collapsible) -->
+<h2>Peer Review Highlights</h2>
+
+<details>
+  <summary>Peer Review Summary (5 reviews)</summary>
+  <div class="detail-body">
+    <p><strong>Strongest advisor (unanimous):</strong> The Executor &mdash; only advisor with falsifiable, immediately fixable, verifiable bug findings.</p>
+    <p><strong>Weakest advisor (consensus):</strong> The Expansionist &mdash; zero actionable production guidance, evangelized cross-skill integration before addressing silent correctness bugs.</p>
+    <p><strong>Blind spots surfaced by reviewers:</strong></p>
+    <ul>
+      <li><strong>Authentication/credential lifecycle:</strong> No advisor addressed what happens when API credentials expire mid-run. Flagged by 4 of 5 reviewers independently.</li>
+      <li><strong>SKILL.md drift:</strong> Load-bearing documentation may desynchronize from actual scripts over time.</li>
+      <li><strong>False-alarm truncation:</strong> report_generator.py flags &ge;50 rows as truncated even when pagination legitimately fetched more, training users to ignore the warning.</li>
+      <li><strong>Error surfacing:</strong> No structured run manifest &mdash; operators cannot distinguish a clean run from a broken one.</li>
+    </ul>
+  </div>
+</details>
+
+<div class="footer">
+  LLM Council &middot; 2026-04-04 &middot; Counciled: /pipeline skill completeness for Cortellis CLI &middot; 5 advisors + 5 peer reviews + chairman synthesis
+</div>
+
+</body>
+</html>

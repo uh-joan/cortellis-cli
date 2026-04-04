@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>LLM Council - Combination Landscape Verification</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #fff; color: #1a1a1a; line-height: 1.6; max-width: 900px; margin: 0 auto; padding: 2rem 1.5rem; }
+  h1 { font-size: 1.8rem; font-weight: 700; margin-bottom: 0.3rem; }
+  .subtitle { color: #666; font-size: 0.95rem; margin-bottom: 2rem; border-bottom: 2px solid #e5e5e5; padding-bottom: 1rem; }
+  .question-box { background: #f8f9fa; border-left: 4px solid #d97706; padding: 1.2rem 1.5rem; margin-bottom: 2rem; border-radius: 0 6px 6px 0; }
+  .question-box h2 { font-size: 0.85rem; text-transform: uppercase; letter-spacing: 0.05em; color: #d97706; margin-bottom: 0.5rem; }
+  .verdict { margin-bottom: 2.5rem; }
+  .verdict h2 { font-size: 1.3rem; font-weight: 700; margin-bottom: 1rem; padding-bottom: 0.5rem; border-bottom: 1px solid #e5e5e5; }
+  .verdict p { margin-bottom: 0.8rem; color: #333; }
+  .status-badge { display: inline-block; padding: 0.25rem 0.75rem; border-radius: 20px; font-size: 0.8rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.03em; }
+  .status-partial { background: #fffbeb; color: #d97706; border: 1px solid #fcd34d; }
+  .scorecard { margin: 1.5rem 0; border: 1px solid #e5e5e5; border-radius: 8px; overflow: hidden; }
+  .scorecard table { width: 100%; border-collapse: collapse; font-size: 0.9rem; }
+  .scorecard th { background: #f9fafb; padding: 0.7rem 1rem; text-align: left; font-weight: 600; border-bottom: 1px solid #e5e5e5; }
+  .scorecard td { padding: 0.6rem 1rem; border-bottom: 1px solid #f0f0f0; }
+  .scorecard tr:last-child td { border-bottom: none; }
+  .fix-yes { color: #16a34a; font-weight: 600; }
+  .fix-no { color: #dc2626; font-weight: 600; }
+  .fix-partial { color: #d97706; font-weight: 600; }
+  .action-box { background: #fffbeb; border: 2px solid #d97706; border-radius: 8px; padding: 1.5rem; margin: 1.5rem 0; }
+  .action-box h3 { color: #d97706; font-size: 1rem; margin-bottom: 0.5rem; }
+  .action-box p { color: #92400e; font-size: 0.95rem; }
+  details { margin-bottom: 1rem; border: 1px solid #e5e5e5; border-radius: 8px; overflow: hidden; }
+  summary { padding: 1rem 1.2rem; cursor: pointer; font-weight: 600; font-size: 0.95rem; background: #fafafa; }
+  summary:hover { background: #f0f0f0; }
+  .advisor-content { padding: 1rem 1.2rem; border-top: 1px solid #e5e5e5; font-size: 0.9rem; color: #444; line-height: 1.7; }
+  .advisor-tag { display: inline-block; padding: 0.15rem 0.5rem; border-radius: 4px; font-size: 0.75rem; font-weight: 600; margin-right: 0.5rem; }
+  .tag-contrarian { background: #fef3c7; color: #92400e; }
+  .tag-principles { background: #dbeafe; color: #1e40af; }
+  .tag-expansionist { background: #d1fae5; color: #065f46; }
+  .tag-outsider { background: #f3e8ff; color: #6b21a8; }
+  .tag-executor { background: #fee2e2; color: #991b1b; }
+  .footer { margin-top: 3rem; padding-top: 1rem; border-top: 1px solid #e5e5e5; font-size: 0.8rem; color: #999; }
+</style>
+</head>
+<body>
+
+<h1>LLM Council Verification</h1>
+<p class="subtitle">Combination Landscape — Fix Adequacy Review &mdash; April 4, 2026</p>
+
+<div class="question-box">
+  <h2>Question</h2>
+  <p>Did the fixes to the combination-landscape skill adequately address the 9 issues from the original council?</p>
+</div>
+
+<div class="verdict">
+  <h2>Verification Verdict <span class="status-badge status-partial">7 of 9 — 2 Remain</span></h2>
+  <p>The fixes addressed real surface problems — dict rendering, truncation warnings, coverage footer, pagination, inlined dependencies. These improvements are genuine. But <strong>two issues remain open</strong> in ways that affect correctness:</p>
+  <p>1. <strong>Components column</strong> — specified in SKILL.md, absent from report. A 5-minute fix.<br>
+  2. <strong>Display caps (30/20)</strong> — paginating to 500 but displaying 30 means discarding 94% of fetched data. The 30 shown may not be the 30 most relevant (no ranking function confirmed).</p>
+</div>
+
+<div class="scorecard">
+  <table>
+    <tr><th>#</th><th>Original Issue</th><th>Severity</th><th>Status</th></tr>
+    <tr><td>1</td><td>Search logic misses combos</td><td>Critical</td><td class="fix-partial">Partial — Co-formulation added + precision caveat</td></tr>
+    <tr><td>2</td><td>Trial keyword noise</td><td>Critical</td><td class="fix-yes">Fixed — --title instead of --query</td></tr>
+    <tr><td>3</td><td>No pagination</td><td>Critical</td><td class="fix-yes">Fixed — 500 per strategy</td></tr>
+    <tr><td>4</td><td>Silent truncation</td><td>High</td><td class="fix-yes">Fixed — "Showing X of Y"</td></tr>
+    <tr><td>5</td><td>Components column missing</td><td>High</td><td class="fix-no">Not fixed — still absent</td></tr>
+    <tr><td>6</td><td>Dict rendering bug</td><td>High</td><td class="fix-yes">Fixed — handles list/dict/string</td></tr>
+    <tr><td>7</td><td>Cross-dependency</td><td>Medium</td><td class="fix-yes">Fixed — inlined NER resolution</td></tr>
+    <tr><td>8</td><td>Fallback is prose</td><td>Medium</td><td class="fix-yes">Fixed — both strategies parallel by default</td></tr>
+    <tr><td>9</td><td>No coverage footer</td><td>Medium</td><td class="fix-yes">Fixed — full footer with strategy breakdown</td></tr>
+  </table>
+</div>
+
+<div class="action-box">
+  <h3>Remaining Fixes</h3>
+  <p><strong>1. Add Components column</strong> — extract from drug record, add to table. 5-minute edit, zero design ambiguity.<br>
+  <strong>2. Raise display caps or add ranking</strong> — fetching 500 but showing 30 is wasteful. Either raise the cap to show all fetched drugs, or add phase-weighted ranking so the 30 shown are the most relevant.</p>
+</div>
+
+<details>
+  <summary><span class="advisor-tag tag-contrarian">Contrarian</span> "Components alone disqualifies 'adequate'"</summary>
+  <div class="advisor-content"><p>Components is a broken spec contract. Co-formulation is same narrow subset. --title may tank recall (untested). Coverage footer is "false confidence." 4 issues inadequately validated.</p></div>
+</details>
+<details>
+  <summary><span class="advisor-tag tag-principles">First Principles</span> "Co-formulation is cosmetic — same narrow subset"</summary>
+  <div class="advisor-content"><p>Both strategies target physically combined products. Improved surface appearance, not root cause. Components is spec violation. Display caps not evaluated.</p></div>
+</details>
+<details>
+  <summary><span class="advisor-tag tag-expansionist">Expansionist</span> "ClinicalTrials.gov arm-level data is the real moat"</summary>
+  <div class="advisor-content"><p>Directionally correct but defensive. Components + caps define whether skill answers actual question. CT.gov enrichment would be genuinely differentiated.</p></div>
+</details>
+<details>
+  <summary><span class="advisor-tag tag-outsider">Outsider</span> "Paginating 500, displaying 30 = discarding 94%"</summary>
+  <div class="advisor-content"><p>Fetch-display misalignment. Schema mismatch. Coverage footer cosmetically better but structural mismatch unresolved.</p></div>
+</details>
+<details>
+  <summary><span class="advisor-tag tag-executor">Executor</span> "7/9 fixed. Components = 5 min. Regimen combos = 30 min" <em>— Voted strongest</em></summary>
+  <div class="advisor-content"><p>Separates "not done" from "done wrong." Components is a trivial unblocked fix. Regimen-based combos need a trial-based third strategy.</p></div>
+</details>
+
+<details>
+  <summary>Peer Review Highlights</summary>
+  <div class="advisor-content">
+    <p><strong>Strongest:</strong> Executor — actionable with effort estimates.</p>
+    <p><strong>All missed:</strong> The 500-fetch / 30-display means the 30 shown may not be the 30 best. Nobody asked if there's a ranking function. A cap on a ranked list is acceptable; a cap on an unranked list is arbitrary.</p>
+  </div>
+</details>
+
+<div class="footer">
+  <p>LLM Council Verification &mdash; 5 advisors, 1 peer review, 1 chairman synthesis &mdash; April 4, 2026<br>
+  Verified: Combination Landscape fixes against original council findings</p>
+</div>
+
+</body>
+</html>

@@ -1,0 +1,220 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>LLM Council Report — Pipeline Fix Verification</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; background: #fff; color: #1a1a1a; line-height: 1.6; max-width: 900px; margin: 0 auto; padding: 2rem 1.5rem; }
+  h1 { font-size: 1.8rem; font-weight: 700; margin-bottom: 0.25rem; }
+  h2 { font-size: 1.3rem; font-weight: 600; margin: 2rem 0 0.75rem; color: #111; border-bottom: 2px solid #e5e5e5; padding-bottom: 0.4rem; }
+  h3 { font-size: 1.05rem; font-weight: 600; margin: 1.25rem 0 0.5rem; }
+  p, li { font-size: 0.95rem; margin-bottom: 0.5rem; }
+  ul { padding-left: 1.5rem; }
+  .meta { color: #666; font-size: 0.85rem; margin-bottom: 2rem; }
+  .question-box { background: #f7f7f7; border-left: 4px solid #333; padding: 1rem 1.25rem; margin: 1.5rem 0; border-radius: 0 6px 6px 0; }
+  .question-box p { font-style: italic; font-size: 1rem; margin: 0; }
+  .verdict-card { background: #fefce8; border: 1px solid #f5e6a3; border-radius: 8px; padding: 1.5rem; margin: 1.5rem 0; }
+  .verdict-card h2 { border: none; margin-top: 0; color: #92400e; font-size: 1.15rem; }
+  .first-step { background: #ecfdf5; border: 1px solid #a7f3d0; border-radius: 8px; padding: 1.25rem; margin: 1.5rem 0; }
+  .first-step h2 { border: none; margin-top: 0; color: #065f46; font-size: 1.15rem; }
+  .agreement-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin: 1.5rem 0; }
+  .agree-box, .clash-box { border-radius: 8px; padding: 1rem 1.25rem; }
+  .agree-box { background: #f0fdf4; border: 1px solid #bbf7d0; }
+  .clash-box { background: #fff7ed; border: 1px solid #fed7aa; }
+  .agree-box h3, .clash-box h3 { font-size: 0.9rem; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 0.5rem; }
+  .agree-box h3 { color: #166534; }
+  .clash-box h3 { color: #9a3412; }
+  .advisor-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 0.5rem; margin: 1.25rem 0; }
+  .advisor-chip { text-align: center; padding: 0.5rem 0.25rem; border-radius: 6px; font-size: 0.75rem; font-weight: 600; }
+  .chip-red { background: #fef2f2; border: 1px solid #fecaca; color: #991b1b; }
+  .chip-orange { background: #fff7ed; border: 1px solid #fed7aa; color: #9a3412; }
+  .chip-blue { background: #eff6ff; border: 1px solid #bfdbfe; color: #1e40af; }
+  .chip-green { background: #f0fdf4; border: 1px solid #bbf7d0; color: #166534; }
+  .chip-gray { background: #f9fafb; border: 1px solid #e5e7eb; color: #374151; }
+
+  /* Scorecard */
+  .scorecard { margin: 1.5rem 0; }
+  .scorecard table { width: 100%; border-collapse: collapse; font-size: 0.9rem; }
+  .scorecard th { background: #f9fafb; text-align: left; padding: 0.5rem 0.75rem; border-bottom: 2px solid #e5e5e5; }
+  .scorecard td { padding: 0.5rem 0.75rem; border-bottom: 1px solid #f0f0f0; }
+  .status-fixed { color: #166534; font-weight: 600; }
+  .status-open { color: #991b1b; font-weight: 600; }
+  .status-partial { color: #9a3412; font-weight: 600; }
+
+  .blind-spot { background: #faf5ff; border: 1px solid #e9d5ff; border-radius: 8px; padding: 1.25rem; margin: 1rem 0; }
+  .blind-spot h3 { color: #6b21a8; font-size: 0.95rem; }
+  details { border: 1px solid #e5e5e5; border-radius: 6px; margin: 0.75rem 0; }
+  summary { cursor: pointer; padding: 0.75rem 1rem; font-weight: 600; font-size: 0.95rem; background: #fafafa; border-radius: 6px; }
+  summary:hover { background: #f0f0f0; }
+  details[open] summary { border-bottom: 1px solid #e5e5e5; border-radius: 6px 6px 0 0; }
+  .detail-body { padding: 1rem 1.25rem; font-size: 0.9rem; }
+  .detail-body p { margin-bottom: 0.75rem; }
+  .footer { margin-top: 3rem; padding-top: 1rem; border-top: 1px solid #e5e5e5; color: #999; font-size: 0.8rem; text-align: center; }
+</style>
+</head>
+<body>
+
+<h1>LLM Council Report — Verification</h1>
+<p class="meta">2026-04-04 &middot; Pipeline Fix Verification &middot; Follow-up to initial assessment</p>
+
+<div class="question-box">
+  <p>Have the issues identified in the first council assessment of the <code>/pipeline</code> skill been adequately addressed by the fixes?</p>
+</div>
+
+<!-- VERDICT -->
+<div class="verdict-card">
+  <h2>The Recommendation</h2>
+  <p><strong>Adequate for controlled, internal deployment with a technically literate operator.</strong> Not adequate for broad rollout or any context where the manifest is treated as a correctness guarantee rather than an existence check.</p>
+  <p>Ship with these conditions:</p>
+  <ul>
+    <li><strong>Verify manifest invocation is in the default execution path</strong>, not optional. If it requires explicit calling, reclassify it as a diagnostic tool.</li>
+    <li><strong>Fix the denominator before quality metrics are surfaced downstream.</strong> A metric certified by the manifest but computed on the wrong base is worse than no metric.</li>
+    <li><strong>Treat SKILL.md as a liability until it accurately describes actual behavior.</strong> The gap creates false confidence.</li>
+  </ul>
+</div>
+
+<div class="first-step">
+  <h2>The One Thing to Do First</h2>
+  <p><strong>Audit whether the manifest is invoked automatically in every normal pipeline run</strong> or requires explicit operator action. If not automatic, it's a debugging utility counted as a safety fix. That determination changes the entire assessment.</p>
+  <p><em>Context:</em> The manifest calls are documented in SKILL.md, which Claude Code reads as orchestration instructions. Since Claude Code IS the runner, the manifest is invoked if and only if Claude follows SKILL.md. This is a documentation-as-code architecture.</p>
+</div>
+
+<!-- SCORECARD -->
+<h2>Issue Resolution Scorecard</h2>
+
+<div class="scorecard">
+<table>
+  <tr><th>#</th><th>Issue</th><th>Status</th><th>Assessment</th></tr>
+  <tr><td>1</td><td>Filename mismatch in catch_missing_drugs.py</td><td class="status-fixed">FIXED</td><td>7 files now checked, covering all pipeline outputs</td></tr>
+  <tr><td>2</td><td>Bare except: break swallows errors</td><td class="status-fixed">FIXED</td><td>Specific exceptions with stderr logging</td></tr>
+  <tr><td>3</td><td>Truncation false-alarm at &ge;50</td><td class="status-fixed">FIXED</td><td>Threshold raised to 150 (pagination limit)</td></tr>
+  <tr><td>4</td><td>trials_summary 15-indication silent cap</td><td class="status-fixed">FIXED</td><td>Shows 20 with overflow note</td></tr>
+  <tr><td>5</td><td>trials count uses len(rows)</td><td class="status-fixed">FIXED</td><td>Optional total_trials arg, dual display</td></tr>
+  <tr><td>6</td><td>No integrity layer / run manifest</td><td class="status-fixed">FIXED</td><td>manifest.py with write/validate/report + SKILL.md integration</td></tr>
+  <tr><td>7</td><td>Credential lifecycle (token expiry)</td><td class="status-open">OPEN</td><td>Active corruption risk — needs owner + deadline</td></tr>
+  <tr><td>8</td><td>SKILL.md drift from scripts</td><td class="status-partial">PARTIAL</td><td>Updated but may oversell current capabilities</td></tr>
+  <tr><td>9</td><td>No temporal/change detection</td><td class="status-open">OPEN</td><td>Enhancement — roadmap item</td></tr>
+  <tr><td>10</td><td>No competitive anchoring</td><td class="status-open">OPEN</td><td>Enhancement — roadmap item</td></tr>
+  <tr><td>11</td><td>No attrition signal</td><td class="status-open">OPEN</td><td>Enhancement — roadmap item</td></tr>
+  <tr><td>12</td><td>98% resolution wrong denominator</td><td class="status-open">OPEN</td><td>Credibility risk — needs fix or metric removal</td></tr>
+</table>
+</div>
+
+<!-- ADVISOR POSITIONS -->
+<h2>Advisor Positions</h2>
+
+<div class="advisor-grid">
+  <div class="advisor-chip chip-red">Contrarian<br>Insufficient</div>
+  <div class="advisor-chip chip-green">First Principles<br>Adequate</div>
+  <div class="advisor-chip chip-orange">Expansionist<br>Floor Only</div>
+  <div class="advisor-chip chip-red">Outsider<br>Symptoms Only</div>
+  <div class="advisor-chip chip-gray">Executor<br>Stale Read*</div>
+</div>
+
+<div class="agreement-grid">
+  <div class="agree-box">
+    <h3>Converged On</h3>
+    <ul>
+      <li>Manifest is a real improvement over the prior state</li>
+      <li>Six operational fixes are genuinely applied and correct</li>
+      <li>Credential lifecycle (#7) and wrong denominator (#12) carry active risk</li>
+      <li>Issues 9-12 are enrichment, not trust failures</li>
+    </ul>
+  </div>
+  <div class="clash-box">
+    <h3>Disagreed On</h3>
+    <ul>
+      <li>Is "adequate" = trust restored or trust complete?</li>
+      <li>Is the manifest a safety net or bureaucracy?</li>
+      <li>Does SKILL.md now oversell reality?</li>
+      <li>Is the 98% denominator a roadmap item or active corruption?</li>
+    </ul>
+  </div>
+</div>
+
+<h2>Where the Council Agrees</h2>
+<p>The manifest is a real improvement. Every advisor acknowledges it establishes an audit trail where none existed before. The six fixes addressed operational problems that were genuinely present. Nobody argues the project is worse than before.</p>
+<p>The council also agrees that two open issues &mdash; credential lifecycle (#7) and wrong denominator (#12) &mdash; carry active corruption risk rather than just technical debt.</p>
+
+<h2>Where the Council Clashes</h2>
+<p><strong>Is "adequate" = trust restored or trust complete?</strong> The First Principles Thinker draws the line: the manifest answers "did the run produce data?" and that's enough to ship responsibly. The Contrarian and Outsider reject that &mdash; a manifest that passes zero-byte CSVs is theater, and SKILL.md now describes a system more capable than the code.</p>
+<p><strong>The decisive clash:</strong> Is the 98% denominator a corruption risk or a roadmap item? The First Principles Thinker calls it enrichment. Peer review 2 pushes back: if the denominator is wrong, the manifest certifies a corrupted quality metric. That's a false negative in the audit system itself.</p>
+
+<h2>Blind Spots the Council Caught</h2>
+
+<div class="blind-spot">
+  <h3>Manifest Invocation Path</h3>
+  <p>Is the manifest actually called in normal pipeline execution, or does it require deliberate invocation? If opt-in, it provides no protection in default runs. In this architecture, Claude Code reads SKILL.md as orchestration &mdash; so the manifest IS invoked if Claude follows the instructions.</p>
+</div>
+
+<div class="blind-spot">
+  <h3>Manifest-Metrics Coupling</h3>
+  <p>If the denominator feeding quality metrics is wrong, the manifest certifies a corrupted value. "87% coverage" computed against the wrong total, signed off by the manifest, is worse than no metric. Nobody modeled this failure cascade.</p>
+</div>
+
+<div class="blind-spot">
+  <h3>No Triage Logic for Open Issues</h3>
+  <p>The six open issues have no assigned severity, blast radius, or owner. "Remaining issues are roadmap items" is deferral dressed as categorization.</p>
+</div>
+
+<!-- ADVISOR RESPONSES -->
+<h2>Advisor Responses</h2>
+
+<details>
+  <summary>The Contrarian</summary>
+  <div class="detail-body">
+    <p>The fixes are superficial patches on a fundamentally broken pipeline. The manifest validates file existence but not contents &mdash; zero-byte CSV passes. Raising 50&rarr;150 just kicks the can. The optional total_trials arg means callers can ignore it. Stderr warnings nobody monitors isn't error handling. Issues 7, 9-12 remain open. The 98% denominator alone invalidates quality metrics.</p>
+  </div>
+</details>
+
+<details>
+  <summary>The First Principles Thinker</summary>
+  <div class="detail-body">
+    <p>The framing of "6 of 12 remain open" is misleading. The actual problem was silent data degradation. The manifest fixes that &mdash; it's the architectural primitive. Issues 9-12 are analytical enrichment, not trust failures. The condition "can an operator tell if a run produced complete data?" is now answered yes. Adequate trust repair. Remaining are roadmap items.</p>
+  </div>
+</details>
+
+<details>
+  <summary>The Expansionist</summary>
+  <div class="detail-body">
+    <p>The manifest is a floor, not a ceiling. The 20+ other skills should be wired in. Credential lifecycle and wrong denominator will silently corrupt trust &mdash; fix before shipping broadly. Attrition signal is the biggest adjacent opportunity. Fixes addressed operational hygiene; untapped value is cross-skill orchestration and longitudinal trending.</p>
+  </div>
+</details>
+
+<details>
+  <summary>The Outsider</summary>
+  <div class="detail-body">
+    <p>The fixes address symptoms not the system. Each is the minimum intervention. The manifest is bureaucracy not correctness &mdash; if it fails, garbage flows through. SKILL.md now describes a system more trustworthy than reality. Issues 7-12 untouched. Original assumptions still baked in.</p>
+  </div>
+</details>
+
+<details>
+  <summary>The Executor (stale read*)</summary>
+  <div class="detail-body">
+    <p><em>*This advisor's code-state claims were factually incorrect &mdash; the fixes were verified as committed and passing syntax checks. The advisor read stale file state.</em></p>
+    <p>Claimed manifest.py doesn't exist and catch_missing_drugs.py wasn't updated. These claims are incorrect. Disregard code-state assertions; the structural recommendation (verify manifest invocation) remains valid.</p>
+  </div>
+</details>
+
+<details>
+  <summary>Peer Review Highlights</summary>
+  <div class="detail-body">
+    <p><strong>Strongest advisor:</strong> First Principles Thinker (3 votes) &mdash; correctly reframes the evaluation axis and classifies remaining issues by severity.</p>
+    <p><strong>Key peer review insights:</strong></p>
+    <ul>
+      <li>Manifest and quality metrics are coupled &mdash; wrong denominator means manifest certifies corrupted values</li>
+      <li>No one verified manifest is in the default execution path</li>
+      <li>The six open issues need triage: severity, blast radius, owner</li>
+      <li>Whether the original 12 issues were the right 12 was never challenged</li>
+    </ul>
+  </div>
+</details>
+
+<div class="footer">
+  LLM Council &middot; 2026-04-04 &middot; Verification: Pipeline fix adequacy &middot; Follow-up to initial assessment
+</div>
+
+</body>
+</html>

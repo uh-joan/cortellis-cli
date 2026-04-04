@@ -1,0 +1,219 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>LLM Council Report — Final Pipeline Verification</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; background: #fff; color: #1a1a1a; line-height: 1.6; max-width: 900px; margin: 0 auto; padding: 2rem 1.5rem; }
+  h1 { font-size: 1.8rem; font-weight: 700; margin-bottom: 0.25rem; }
+  h2 { font-size: 1.3rem; font-weight: 600; margin: 2rem 0 0.75rem; color: #111; border-bottom: 2px solid #e5e5e5; padding-bottom: 0.4rem; }
+  p, li { font-size: 0.95rem; margin-bottom: 0.5rem; }
+  ul { padding-left: 1.5rem; }
+  .meta { color: #666; font-size: 0.85rem; margin-bottom: 2rem; }
+  .question-box { background: #f7f7f7; border-left: 4px solid #333; padding: 1rem 1.25rem; margin: 1.5rem 0; border-radius: 0 6px 6px 0; }
+  .question-box p { font-style: italic; font-size: 1rem; margin: 0; }
+  .verdict-card { background: #fffbeb; border: 1px solid #f5e6a3; border-radius: 8px; padding: 1.5rem; margin: 1.5rem 0; }
+  .verdict-card h2 { border: none; margin-top: 0; color: #92400e; font-size: 1.15rem; }
+  .first-step { background: #ecfdf5; border: 1px solid #a7f3d0; border-radius: 8px; padding: 1.25rem; margin: 1.5rem 0; }
+  .first-step h2 { border: none; margin-top: 0; color: #065f46; font-size: 1.15rem; }
+  .agreement-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin: 1.5rem 0; }
+  .agree-box, .clash-box { border-radius: 8px; padding: 1rem 1.25rem; }
+  .agree-box { background: #f0fdf4; border: 1px solid #bbf7d0; }
+  .clash-box { background: #fff7ed; border: 1px solid #fed7aa; }
+  .agree-box h3, .clash-box h3 { font-size: 0.9rem; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 0.5rem; }
+  .agree-box h3 { color: #166534; }
+  .clash-box h3 { color: #9a3412; }
+  .advisor-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 0.5rem; margin: 1.25rem 0; }
+  .advisor-chip { text-align: center; padding: 0.5rem 0.25rem; border-radius: 6px; font-size: 0.75rem; font-weight: 600; }
+  .chip-green { background: #f0fdf4; border: 1px solid #bbf7d0; color: #166534; }
+  .chip-orange { background: #fff7ed; border: 1px solid #fed7aa; color: #9a3412; }
+  .chip-blue { background: #eff6ff; border: 1px solid #bfdbfe; color: #1e40af; }
+
+  .scorecard { margin: 1.5rem 0; }
+  .scorecard table { width: 100%; border-collapse: collapse; font-size: 0.9rem; }
+  .scorecard th { background: #f9fafb; text-align: left; padding: 0.5rem 0.75rem; border-bottom: 2px solid #e5e5e5; }
+  .scorecard td { padding: 0.5rem 0.75rem; border-bottom: 1px solid #f0f0f0; }
+  .s-fixed { color: #166534; font-weight: 600; }
+
+  .blind-spot { background: #faf5ff; border: 1px solid #e9d5ff; border-radius: 8px; padding: 1.25rem; margin: 1rem 0; }
+  .blind-spot h3 { color: #6b21a8; font-size: 0.95rem; }
+  details { border: 1px solid #e5e5e5; border-radius: 6px; margin: 0.75rem 0; }
+  summary { cursor: pointer; padding: 0.75rem 1rem; font-weight: 600; font-size: 0.95rem; background: #fafafa; border-radius: 6px; }
+  summary:hover { background: #f0f0f0; }
+  details[open] summary { border-bottom: 1px solid #e5e5e5; border-radius: 6px 6px 0 0; }
+  .detail-body { padding: 1rem 1.25rem; font-size: 0.9rem; }
+  .detail-body p { margin-bottom: 0.75rem; }
+  .footer { margin-top: 3rem; padding-top: 1rem; border-top: 1px solid #e5e5e5; color: #999; font-size: 0.8rem; text-align: center; }
+  .timeline { margin: 2rem 0; padding: 1rem 1.5rem; background: #f9fafb; border-radius: 8px; border: 1px solid #e5e5e5; }
+  .timeline h3 { font-size: 1rem; margin-bottom: 0.75rem; }
+  .timeline-item { display: flex; gap: 1rem; margin-bottom: 0.5rem; font-size: 0.85rem; }
+  .timeline-label { font-weight: 600; min-width: 100px; color: #666; }
+</style>
+</head>
+<body>
+
+<h1>LLM Council — Final Verdict</h1>
+<p class="meta">2026-04-04 &middot; Pipeline Skill: Final Verification (Council #3) &middot; After 3 rounds of fixes</p>
+
+<div class="question-box">
+  <p>Have ALL 12 issues from the original council assessment been adequately addressed? Is the <code>/pipeline</code> skill ready to ship?</p>
+</div>
+
+<div class="timeline">
+  <h3>Council Timeline</h3>
+  <div class="timeline-item"><span class="timeline-label">Council #1</span> Identified 12 issues. Verdict: "Not production-ready."</div>
+  <div class="timeline-item"><span class="timeline-label">Round 1 Fixes</span> Fixed 6: filename mismatch, bare except, truncation, trials, manifest, SKILL.md</div>
+  <div class="timeline-item"><span class="timeline-label">Council #2</span> Verified 6 fixed, 6 open. Verdict: "Adequate for internal deployment."</div>
+  <div class="timeline-item"><span class="timeline-label">Round 2 Fixes</span> Fixed 3 more: credential check, resolution errors, 98% claim</div>
+  <div class="timeline-item"><span class="timeline-label">Round 3 Enhancements</span> Added 3: attrition signals, temporal detection, competitive context</div>
+  <div class="timeline-item"><span class="timeline-label">Council #3</span> This verdict.</div>
+</div>
+
+<!-- VERDICT -->
+<div class="verdict-card">
+  <h2>The Recommendation</h2>
+  <p><strong>Do not ship yet — but only because no one has run it end-to-end.</strong></p>
+  <p>The work is not bad. All 12 structural fixes are in place and code-verified. The gap is that a skill orchestrating 16 scripts against a live API has exactly one acceptance criterion: does it produce correct output end-to-end? That test has not been performed.</p>
+  <p>The documentation gap on <code>total_trials</code> is a real operator risk — a user following SKILL.md will get different behavior than the code delivers. Fix that before anyone else touches it.</p>
+  <p>The silent degradation concern is legitimate but not a blocker for first ship — it is a monitoring requirement for what comes after.</p>
+</div>
+
+<div class="first-step">
+  <h2>The One Thing to Do First</h2>
+  <p><strong>Run one full end-to-end pipeline execution against a real company with known outputs.</strong> Not a syntax check. Not a dry run. The actual pipeline, live data, verified output. If it passes, the 12 issues are addressed and the skill ships. If it fails, you find out where the docs and code are still racing. Two to three hours.</p>
+</div>
+
+<!-- SCORECARD -->
+<h2>Final Issue Scorecard</h2>
+<div class="scorecard">
+<table>
+  <tr><th>#</th><th>Issue</th><th>Status</th><th>Round</th></tr>
+  <tr><td>1</td><td>Filename mismatch</td><td class="s-fixed">FIXED</td><td>Round 1</td></tr>
+  <tr><td>2</td><td>Bare except: break</td><td class="s-fixed">FIXED</td><td>Round 1</td></tr>
+  <tr><td>3</td><td>Truncation false-alarm</td><td class="s-fixed">FIXED</td><td>Round 1</td></tr>
+  <tr><td>4</td><td>trials_summary cap</td><td class="s-fixed">FIXED</td><td>Round 1</td></tr>
+  <tr><td>5</td><td>trials count</td><td class="s-fixed">FIXED</td><td>Round 1</td></tr>
+  <tr><td>6</td><td>No integrity layer</td><td class="s-fixed">FIXED</td><td>Round 1</td></tr>
+  <tr><td>7</td><td>Credential lifecycle</td><td class="s-fixed">FIXED</td><td>Round 2</td></tr>
+  <tr><td>8</td><td>SKILL.md drift</td><td class="s-fixed">FIXED</td><td>Rounds 1-3</td></tr>
+  <tr><td>9</td><td>No temporal detection</td><td class="s-fixed">FIXED</td><td>Round 3</td></tr>
+  <tr><td>10</td><td>No competitive anchoring</td><td class="s-fixed">FIXED</td><td>Round 3</td></tr>
+  <tr><td>11</td><td>No attrition signal</td><td class="s-fixed">FIXED</td><td>Round 3</td></tr>
+  <tr><td>12</td><td>98% wrong denominator</td><td class="s-fixed">FIXED</td><td>Round 2</td></tr>
+</table>
+</div>
+
+<!-- ADVISOR POSITIONS -->
+<h2>Advisor Positions</h2>
+<div class="advisor-grid">
+  <div class="advisor-chip chip-orange">Contrarian<br>Ship w/ 1 fix</div>
+  <div class="advisor-chip chip-orange">First Principles<br>Partial solution</div>
+  <div class="advisor-chip chip-green">Expansionist<br>Ship it</div>
+  <div class="advisor-chip chip-orange">Outsider<br>Test first</div>
+  <div class="advisor-chip chip-blue">Executor<br>1 E2E test</div>
+</div>
+
+<div class="agreement-grid">
+  <div class="agree-box">
+    <h3>Converged On</h3>
+    <ul>
+      <li>All 12 structural fixes are in place and code-verified</li>
+      <li>End-to-end integration testing has NOT happened</li>
+      <li>"Fixed" and "works" are different claims</li>
+      <li>The skill is significantly better than before the 3 rounds</li>
+    </ul>
+  </div>
+  <div class="clash-box">
+    <h3>Disagreed On</h3>
+    <ul>
+      <li>Does "addressed" mean "fixed" or "fixed and confirmed"?</li>
+      <li>Is silent degradation a ship-blocker or monitoring requirement?</li>
+      <li>Is the AI-reads-markdown architecture a risk multiplier?</li>
+    </ul>
+  </div>
+</div>
+
+<h2>Blind Spots the Council Caught</h2>
+
+<div class="blind-spot">
+  <h3>total_trials Documentation Gap</h3>
+  <p>The Contrarian found that the optional 5th argument <code>total_trials</code> in report_generator.py is not documented in SKILL.md. An operator following the docs will never pass it, getting "None" as the display total. Code fix exists but is unreachable via the documented workflow.</p>
+</div>
+
+<div class="blind-spot">
+  <h3>Rollback &amp; Recovery</h3>
+  <p>If the pipeline fails mid-run and leaves partial state, there is no recovery mechanism. The manifest tracks what completed but doesn't enable rollback to a known-good state.</p>
+</div>
+
+<div class="blind-spot">
+  <h3>Observability in Production</h3>
+  <p>No logging, alerts, or anomaly detection beyond stderr warnings. An operator cannot tell if the pipeline is silently degrading once deployed at frequency.</p>
+</div>
+
+<div class="blind-spot">
+  <h3>Post-Validation Steps Invisible to Manifest</h3>
+  <p>competitive_context, snapshot, and diff are not in EXPECTED_STEPS. Failures in these post-validation steps are invisible to the integrity layer.</p>
+</div>
+
+<!-- ADVISORS -->
+<h2>Advisor Responses</h2>
+
+<details>
+  <summary>The Contrarian</summary>
+  <div class="detail-body">
+    <p>Checked the code directly. Issues 1-7, 9-12 confirmed as claimed. One gap: the <code>total_trials</code> optional 5th argument is not documented in SKILL.md &mdash; an operator following docs will always get "None" as the display total.</p>
+    <p>Also: competitive_context, snapshot, and diff are NOT in EXPECTED_STEPS. Post-validation failures are invisible to the integrity layer. Not a hard block, but not a clean sign-off either.</p>
+  </div>
+</details>
+
+<details>
+  <summary>The First Principles Thinker</summary>
+  <div class="detail-body">
+    <p>The structural scaffolding is in place but silent degradation is still possible. Pagination doesn't verify page consistency (transient API error on page 2 accepted silently). First run has no baseline &mdash; corrupted initial run becomes the reference. hits=0 competitive queries can't distinguish "50 exist" from "200 exist but only 50 returned."</p>
+    <p>The 12 issues were catalogued. The silent degradation problem was made more visible at the edges while remaining invisible in the middle.</p>
+  </div>
+</details>
+
+<details>
+  <summary>The Expansionist</summary>
+  <div class="detail-body">
+    <p>The 12-issue checklist is cleared. This is now the foundation for a continuous intelligence layer. Three expansion vectors: longitudinal tracking at scale, cross-skill synthesis (auto-trigger related skills on Phase 3 clusters), and predictive signals (pipeline mortality risk per asset). The constraint is now imagination, not coverage.</p>
+  </div>
+</details>
+
+<details>
+  <summary>The Outsider</summary>
+  <div class="detail-body">
+    <p>The fixes look thorough on paper but the architecture is the unasked question. An AI reading 16 scripts in sequence assumes a careful cook. Four of twelve fixes add more AI-orchestration steps &mdash; the failure mode hasn't changed, it has grown. Documentation was updated 3 rounds, suggesting code and docs are still racing. No test run against real API mentioned. "Fixed" &ne; "works."</p>
+  </div>
+</details>
+
+<details>
+  <summary>The Executor</summary>
+  <div class="detail-body">
+    <p>12 issues addressed. Two gaps: (1) Integration untested &mdash; syntax checks &ne; working pipeline. (2) hits=0 needs null check in competitive_context.py. Monday morning: run one full end-to-end against a real company, verify manifest validates clean. 2-3 hours. If it passes, ship.</p>
+  </div>
+</details>
+
+<details>
+  <summary>Peer Review Highlights</summary>
+  <div class="detail-body">
+    <p><strong>Consensus:</strong> The Executor's "run one E2E test" is the single action that resolves all open questions.</p>
+    <p><strong>Key insights from peer reviews:</strong></p>
+    <ul>
+      <li>No rollback/recovery mechanism for partial pipeline failures</li>
+      <li>Idempotency unexamined &mdash; running pipeline twice may corrupt baseline</li>
+      <li>No observability in production beyond stderr</li>
+      <li>Whether the original 12 issues were the right 12 was never challenged</li>
+    </ul>
+  </div>
+</details>
+
+<div class="footer">
+  LLM Council &middot; 2026-04-04 &middot; Council #3: Final pipeline verification &middot; 3 councils, 3 fix rounds, 12/12 issues addressed
+</div>
+
+</body>
+</html>

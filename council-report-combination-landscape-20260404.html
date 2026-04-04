@@ -1,0 +1,174 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>LLM Council Report - Combination Landscape Skill</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #fff; color: #1a1a1a; line-height: 1.6; max-width: 900px; margin: 0 auto; padding: 2rem 1.5rem; }
+  h1 { font-size: 1.8rem; font-weight: 700; margin-bottom: 0.3rem; }
+  .subtitle { color: #666; font-size: 0.95rem; margin-bottom: 2rem; border-bottom: 2px solid #e5e5e5; padding-bottom: 1rem; }
+  .question-box { background: #f8f9fa; border-left: 4px solid #059669; padding: 1.2rem 1.5rem; margin-bottom: 2rem; border-radius: 0 6px 6px 0; }
+  .question-box h2 { font-size: 0.85rem; text-transform: uppercase; letter-spacing: 0.05em; color: #059669; margin-bottom: 0.5rem; }
+  .question-box p { font-size: 1rem; color: #333; }
+  .verdict { margin-bottom: 2.5rem; }
+  .verdict h2 { font-size: 1.3rem; font-weight: 700; margin-bottom: 1rem; padding-bottom: 0.5rem; border-bottom: 1px solid #e5e5e5; }
+  .verdict p { margin-bottom: 0.8rem; color: #333; }
+  .status-badge { display: inline-block; padding: 0.25rem 0.75rem; border-radius: 20px; font-size: 0.8rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.03em; }
+  .status-not-ready { background: #fef2f2; color: #dc2626; border: 1px solid #fecaca; }
+  .alignment-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin: 1.5rem 0; }
+  .align-card { padding: 1rem; border-radius: 8px; border: 1px solid #e5e5e5; }
+  .align-agree { background: #f0fdf4; border-color: #bbf7d0; }
+  .align-disagree { background: #fef2f2; border-color: #fecaca; }
+  .align-card h4 { font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 0.5rem; }
+  .align-agree h4 { color: #16a34a; }
+  .align-disagree h4 { color: #dc2626; }
+  .align-card ul { list-style: none; padding: 0; }
+  .align-card li { font-size: 0.9rem; padding: 0.3rem 0; color: #555; }
+  .align-card li::before { content: ''; display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 0.5rem; vertical-align: middle; }
+  .align-agree li::before { background: #16a34a; }
+  .align-disagree li::before { background: #dc2626; }
+  .action-box { background: #ecfdf5; border: 2px solid #059669; border-radius: 8px; padding: 1.5rem; margin: 1.5rem 0; }
+  .action-box h3 { color: #059669; font-size: 1rem; margin-bottom: 0.5rem; }
+  .action-box p { color: #065f46; font-size: 0.95rem; }
+  details { margin-bottom: 1rem; border: 1px solid #e5e5e5; border-radius: 8px; overflow: hidden; }
+  summary { padding: 1rem 1.2rem; cursor: pointer; font-weight: 600; font-size: 0.95rem; background: #fafafa; user-select: none; }
+  summary:hover { background: #f0f0f0; }
+  .advisor-content { padding: 1rem 1.2rem; border-top: 1px solid #e5e5e5; font-size: 0.9rem; color: #444; line-height: 1.7; }
+  .advisor-tag { display: inline-block; padding: 0.15rem 0.5rem; border-radius: 4px; font-size: 0.75rem; font-weight: 600; margin-right: 0.5rem; }
+  .tag-contrarian { background: #fef3c7; color: #92400e; }
+  .tag-principles { background: #dbeafe; color: #1e40af; }
+  .tag-expansionist { background: #d1fae5; color: #065f46; }
+  .tag-outsider { background: #f3e8ff; color: #6b21a8; }
+  .tag-executor { background: #fee2e2; color: #991b1b; }
+  .footer { margin-top: 3rem; padding-top: 1rem; border-top: 1px solid #e5e5e5; font-size: 0.8rem; color: #999; }
+  .gap-list { margin: 1rem 0; padding-left: 0; list-style: none; }
+  .gap-list li { padding: 0.6rem 0; border-bottom: 1px solid #f0f0f0; font-size: 0.95rem; }
+  .gap-list li:last-child { border-bottom: none; }
+  .gap-severity { display: inline-block; width: 10px; height: 10px; border-radius: 50%; margin-right: 0.5rem; vertical-align: middle; }
+  .sev-critical { background: #dc2626; }
+  .sev-high { background: #f59e0b; }
+  .sev-medium { background: #3b82f6; }
+  .design-box { background: #fffbeb; border: 1px solid #fcd34d; border-radius: 8px; padding: 1rem 1.2rem; margin: 1.5rem 0; }
+  .design-box h4 { color: #92400e; font-size: 0.9rem; margin-bottom: 0.5rem; }
+</style>
+</head>
+<body>
+
+<h1>LLM Council Verdict</h1>
+<p class="subtitle">Combination Landscape Skill Production Readiness &mdash; April 4, 2026</p>
+
+<div class="question-box">
+  <h2>Question</h2>
+  <p>Is the <code>cli_anything/cortellis/skills/combination-landscape/</code> skill complete enough for production use? Are there meaningful gaps?</p>
+</div>
+
+<div class="verdict">
+  <h2>Council Verdict <span class="status-badge status-not-ready">Not Production-Ready</span></h2>
+  <p>The skill is a <strong>working prototype with correct scaffolding but incorrect core logic</strong>. The infrastructure (report generator, table formatting, CLI wiring) is sound. The data retrieval strategy is not.</p>
+  <p>Searching for "+" in drug names catches branded co-formulations but <strong>misses the investigational combinations that matter most</strong> in oncology (FOLFOX, pembrolizumab+olaparib, nivolumab+ipilimumab). This is not a truncation issue &mdash; it is the wrong query for the right problem.</p>
+  <p><strong>Do not ship to oncology/immunology users in this state.</strong></p>
+</div>
+
+<div class="design-box">
+  <h4>Key Question (raised by peer review)</h4>
+  <p>Does the Cortellis API have a dedicated combination therapy endpoint or structured combination flag? If yes, rewrite search logic around it. If no, the precision ceiling is inherent and must be documented explicitly. <strong>Every other fix is downstream of this answer.</strong></p>
+</div>
+
+<h2 style="font-size:1.1rem; margin-bottom:1rem;">Advisor Alignment</h2>
+<div class="alignment-grid">
+  <div class="align-card align-agree">
+    <h4>Unanimous Agreement</h4>
+    <ul>
+      <li>No pagination (50-hit cap on both searches)</li>
+      <li>No "Showing X of Y" or coverage signals</li>
+      <li>Silent truncation at 30 drugs / 20 trials</li>
+      <li>Cross-dependency on landscape not inlined</li>
+    </ul>
+  </div>
+  <div class="align-card align-disagree">
+    <h4>Key Disagreement</h4>
+    <ul>
+      <li>Contrarian/FP: search logic is broken by design</li>
+      <li>Executor: 20 lines of Python fixes it</li>
+      <li>Verdict: Executor underestimates &mdash; fixing pagination on a broken query is waste</li>
+    </ul>
+  </div>
+</div>
+
+<h2 style="font-size:1.1rem; margin: 2rem 0 1rem;">Gaps Identified (by severity)</h2>
+<ul class="gap-list">
+  <li><span class="gap-severity sev-critical"></span><strong>Search logic misses most real combinations.</strong> "+" in drug name catches branded co-formulations only. FOLFOX has no "+". Investigational combos (pembrolizumab+olaparib) are not branded. The query returns a biased sample of the wrong population.</li>
+  <li><span class="gap-severity sev-critical"></span><strong>"combination" trial keyword is noise.</strong> Full-text match returns trials mentioning "combination" anywhere. Misses trials where combination is implicit in design. No structured co-enrollment filter.</li>
+  <li><span class="gap-severity sev-critical"></span><strong>No pagination on either search.</strong> --hits 50 cap. Oncology indications have hundreds of combination programs.</li>
+  <li><span class="gap-severity sev-high"></span><strong>Silent truncation at 30/20 display limits.</strong> No "Showing X of Y". User sees clean table with no indication of what's missing.</li>
+  <li><span class="gap-severity sev-high"></span><strong>Components column missing.</strong> SKILL.md specifies a Components column. The report generator never extracts or renders it. The most diagnostic field for combinations is absent.</li>
+  <li><span class="gap-severity sev-high"></span><strong>ActionsPrimary dict rendering bug.</strong> Can render as <code>{'$': 'inhibitor'}</code> in table cells instead of the actual mechanism name.</li>
+  <li><span class="gap-severity sev-medium"></span><strong>Cross-dependency not inlined.</strong> Depends on landscape's resolve_indication.py. Same fragility fixed in target-profile but not here.</li>
+  <li><span class="gap-severity sev-medium"></span><strong>Fallback logic is prose, not code.</strong> SKILL.md says "if 0 results, try Co-formulation" but no recipe enforces this programmatically.</li>
+  <li><span class="gap-severity sev-medium"></span><strong>No coverage footer.</strong> @totalResults is read but never surfaced to user.</li>
+</ul>
+
+<div class="action-box">
+  <h3>The One Thing to Do First</h3>
+  <p>Determine whether the Cortellis API exposes a combination therapy endpoint or a structured combination flag on drug records. If yes, rewrite the search logic around that endpoint. If no, document the precision ceiling explicitly in the skill output. Every other fix (pagination, coverage signals, Components column) is downstream of this answer.</p>
+</div>
+
+<h2 style="font-size:1.1rem; margin: 2rem 0 1rem;">Advisor Responses</h2>
+
+<details>
+  <summary><span class="advisor-tag tag-contrarian">Contrarian</span> "Confidently wrong outputs with no signal that anything is missing"</summary>
+  <div class="advisor-content">
+    <p>Primary detection method broken by design &mdash; "+" in drug names catches branded co-formulations but misses investigational combos. "combination" as trial keyword is noise. Cross-dependency fragile. No pagination. Will produce confidently wrong outputs.</p>
+  </div>
+</details>
+
+<details>
+  <summary><span class="advisor-tag tag-principles">First Principles</span> "Search logic is wrong by design &mdash; don't ship to oncology users" <em>&mdash; Voted strongest by 2 of 3 reviewers</em></summary>
+  <div class="advisor-content">
+    <p>"+" catches only co-formulated branded products, not actual regimens (FOLFOX, carboplatin+pembrolizumab). Components column missing despite SKILL.md spec. Trials keyword not structured. Most thorough technical critique with spec violation evidence.</p>
+  </div>
+</details>
+
+<details>
+  <summary><span class="advisor-tag tag-expansionist">Expansionist</span> "Highest-signal query type &mdash; two hours work for disproportionate value"</summary>
+  <div class="advisor-content">
+    <p>Three deficiencies but combination therapy is highest-signal query in Cortellis. Fix is same playbook as landscape. Phase 2&rarr;3 transitions are densest here and BD deal flow concentrates around combos.</p>
+  </div>
+</details>
+
+<details>
+  <summary><span class="advisor-tag tag-outsider">Outsider</span> "Same bug class across codebase &mdash; treat as systematic, not per-skill"</summary>
+  <div class="advisor-content">
+    <p>Silent truncation critical. Search logic fragile. Dependency undocumented risk. Calls out the pattern: this codebase has a habit of silent truncation that should be treated as a bug class, not individual per-skill issues.</p>
+  </div>
+</details>
+
+<details>
+  <summary><span class="advisor-tag tag-executor">Executor</span> "Three concrete blockers &mdash; 20 lines of Python"</summary>
+  <div class="advisor-content">
+    <p>No X of Y, no footer, no pagination. Found secondary dict rendering bug. But peer reviews challenged the "20 lines" estimate &mdash; fixing pagination on a broken query doesn't fix the query.</p>
+  </div>
+</details>
+
+<details>
+  <summary style="margin-top: 1.5rem;">Peer Review Highlights</summary>
+  <div class="advisor-content">
+    <p><strong>Strongest:</strong> First Principles (2 votes) &mdash; root cause analysis + spec violation evidence.</p>
+    <p><strong>All advisors missed:</strong></p>
+    <ul style="margin-top: 0.5rem; padding-left: 1.2rem;">
+      <li><strong>API capability question</strong> &mdash; does Cortellis even have a dedicated combination endpoint? If not, the skill is reverse-engineering structured data from unstructured text and precision will always be low.</li>
+      <li><strong>No empirical testing</strong> &mdash; all critiques are code-reading. A 10-minute smoke test would confirm or refute whether "+" detection actually misses combos in practice.</li>
+      <li><strong>Cross-dependency failure mode</strong> &mdash; nobody examined whether it's a subprocess, import, or config coupling. The blast radius of failure is unknown.</li>
+    </ul>
+  </div>
+</details>
+
+<div class="footer">
+  <p>LLM Council &mdash; 5 advisors, 3 peer reviews, 1 chairman synthesis &mdash; April 4, 2026<br>
+  Counciled: Combination Landscape skill production readiness for <code>cli_anything/cortellis/skills/combination-landscape/</code></p>
+</div>
+
+</body>
+</html>

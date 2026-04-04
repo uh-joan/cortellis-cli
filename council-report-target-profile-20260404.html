@@ -1,0 +1,190 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>LLM Council Report - Target Profile Skill Completeness</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #fff; color: #1a1a1a; line-height: 1.6; max-width: 900px; margin: 0 auto; padding: 2rem 1.5rem; }
+  h1 { font-size: 1.8rem; font-weight: 700; margin-bottom: 0.3rem; }
+  .subtitle { color: #666; font-size: 0.95rem; margin-bottom: 2rem; border-bottom: 2px solid #e5e5e5; padding-bottom: 1rem; }
+  .question-box { background: #f8f9fa; border-left: 4px solid #7c3aed; padding: 1.2rem 1.5rem; margin-bottom: 2rem; border-radius: 0 6px 6px 0; }
+  .question-box h2 { font-size: 0.85rem; text-transform: uppercase; letter-spacing: 0.05em; color: #7c3aed; margin-bottom: 0.5rem; }
+  .question-box p { font-size: 1rem; color: #333; }
+  .verdict { margin-bottom: 2.5rem; }
+  .verdict h2 { font-size: 1.3rem; font-weight: 700; margin-bottom: 1rem; padding-bottom: 0.5rem; border-bottom: 1px solid #e5e5e5; }
+  .verdict h3 { font-size: 1.05rem; font-weight: 600; margin: 1.5rem 0 0.7rem; color: #1a1a1a; }
+  .verdict p { margin-bottom: 0.8rem; color: #333; }
+  .verdict strong { color: #1a1a1a; }
+  .status-badge { display: inline-block; padding: 0.25rem 0.75rem; border-radius: 20px; font-size: 0.8rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.03em; }
+  .status-not-ready { background: #fef2f2; color: #dc2626; border: 1px solid #fecaca; }
+  .alignment-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin: 1.5rem 0; }
+  .align-card { padding: 1rem; border-radius: 8px; border: 1px solid #e5e5e5; }
+  .align-agree { background: #f0fdf4; border-color: #bbf7d0; }
+  .align-disagree { background: #fef2f2; border-color: #fecaca; }
+  .align-card h4 { font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 0.5rem; }
+  .align-agree h4 { color: #16a34a; }
+  .align-disagree h4 { color: #dc2626; }
+  .align-card ul { list-style: none; padding: 0; }
+  .align-card li { font-size: 0.9rem; padding: 0.3rem 0; color: #555; }
+  .align-card li::before { content: ''; display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 0.5rem; vertical-align: middle; }
+  .align-agree li::before { background: #16a34a; }
+  .align-disagree li::before { background: #dc2626; }
+  .action-box { background: #f5f3ff; border: 2px solid #7c3aed; border-radius: 8px; padding: 1.5rem; margin: 1.5rem 0; }
+  .action-box h3 { color: #7c3aed; font-size: 1rem; margin-bottom: 0.5rem; }
+  .action-box p { color: #4c1d95; font-size: 0.95rem; }
+  details { margin-bottom: 1rem; border: 1px solid #e5e5e5; border-radius: 8px; overflow: hidden; }
+  summary { padding: 1rem 1.2rem; cursor: pointer; font-weight: 600; font-size: 0.95rem; background: #fafafa; user-select: none; }
+  summary:hover { background: #f0f0f0; }
+  .advisor-content { padding: 1rem 1.2rem; border-top: 1px solid #e5e5e5; font-size: 0.9rem; color: #444; line-height: 1.7; }
+  .advisor-tag { display: inline-block; padding: 0.15rem 0.5rem; border-radius: 4px; font-size: 0.75rem; font-weight: 600; margin-right: 0.5rem; }
+  .tag-contrarian { background: #fef3c7; color: #92400e; }
+  .tag-principles { background: #dbeafe; color: #1e40af; }
+  .tag-expansionist { background: #d1fae5; color: #065f46; }
+  .tag-outsider { background: #f3e8ff; color: #6b21a8; }
+  .tag-executor { background: #fee2e2; color: #991b1b; }
+  .footer { margin-top: 3rem; padding-top: 1rem; border-top: 1px solid #e5e5e5; font-size: 0.8rem; color: #999; }
+  .gap-list { margin: 1rem 0; padding-left: 0; list-style: none; }
+  .gap-list li { padding: 0.6rem 0; border-bottom: 1px solid #f0f0f0; font-size: 0.95rem; }
+  .gap-list li:last-child { border-bottom: none; }
+  .gap-severity { display: inline-block; width: 10px; height: 10px; border-radius: 50%; margin-right: 0.5rem; vertical-align: middle; }
+  .sev-critical { background: #dc2626; }
+  .sev-high { background: #f59e0b; }
+  .sev-medium { background: #3b82f6; }
+  .contradiction-box { background: #fffbeb; border: 1px solid #fcd34d; border-radius: 8px; padding: 1rem 1.2rem; margin: 1.5rem 0; }
+  .contradiction-box h4 { color: #92400e; font-size: 0.9rem; margin-bottom: 0.5rem; }
+  .contradiction-box code { background: #fef3c7; padding: 0.15rem 0.4rem; border-radius: 3px; font-size: 0.85rem; }
+</style>
+</head>
+<body>
+
+<h1>LLM Council Verdict</h1>
+<p class="subtitle">Target Profile Skill Production Readiness &mdash; April 4, 2026</p>
+
+<div class="question-box">
+  <h2>Question</h2>
+  <p>Is the <code>cli_anything/cortellis/skills/target-profile/</code> skill complete enough for production use? Are there meaningful gaps?</p>
+</div>
+
+<!-- VERDICT -->
+<div class="verdict">
+  <h2>Council Verdict <span class="status-badge status-not-ready">Not Production-Ready</span></h2>
+
+  <p>The 7-dimension architecture is correct and the resolution strategy is reasonable. But the skill <strong>systematically misrepresents its own completeness</strong>. SKILL.md says "ALWAYS list ALL items &mdash; no truncation" while the code silently truncates every dimension. The drug pipeline shows 50 rows under a header that says "847 total." A scientist cannot trust this output without already knowing its limitations &mdash; which inverts the value proposition.</p>
+
+  <p><strong>Do not ship in production, including internally without explicit caveats.</strong></p>
+</div>
+
+<!-- INTERNAL CONTRADICTION -->
+<div class="contradiction-box">
+  <h4>Internal Contradiction (flagged by Outsider)</h4>
+  <p>SKILL.md documentation says <code>"ALWAYS list ALL items in tables (no truncation)"</code>. The code does: <code>disease_data[:25]</code>, <code>gene_assocs[:15]</code>, <code>meaningful[:20]</code>, <code>pharm_list[:20]</code>, and drug pipeline <code>--hits 50</code>. The report header shows the real <code>@totalResults</code> while the table only shows the truncated subset &mdash; making the gap visible to careful readers but unexplained.</p>
+</div>
+
+<!-- AGREEMENT / DISAGREEMENT -->
+<h2 style="font-size:1.1rem; margin-bottom:1rem;">Advisor Alignment</h2>
+
+<div class="alignment-grid">
+  <div class="align-card align-agree">
+    <h4>Unanimous Agreement</h4>
+    <ul>
+      <li>50-hit pipeline cap is the most damaging defect</li>
+      <li>Silent truncation across ALL dimensions (25/15/20/20)</li>
+      <li>Cross-skill dependency is undocumented coupling</li>
+      <li>No coverage/confidence signals in output</li>
+      <li>Sequential API calls waste 60-70% of wall time</li>
+    </ul>
+  </div>
+  <div class="align-card align-disagree">
+    <h4>Key Disagreements</h4>
+    <ul>
+      <li>Executor: resolution is "solid" / Outsider: hard stop, no fuzzy fallback</li>
+      <li>Executor: disease briefings fail "gracefully" / Others: silent data hole</li>
+      <li>Expansionist: add /target-compare / Others: fix single target first</li>
+    </ul>
+  </div>
+</div>
+
+<!-- GAPS -->
+<h2 style="font-size:1.1rem; margin: 2rem 0 1rem;">Gaps Identified (by severity)</h2>
+<ul class="gap-list">
+  <li><span class="gap-severity sev-critical"></span><strong>Drug pipeline capped at 50, no pagination.</strong> EGFR has 300+ programs. Header shows totalResults (847) but table has 50 rows. This is a lie of omission &mdash; the number signals completeness, the data doesn't deliver.</li>
+  <li><span class="gap-severity sev-critical"></span><strong>SKILL.md contradicts code behavior.</strong> Documentation promises "no truncation" while code hard-caps every dimension. Users have been told a false contract.</li>
+  <li><span class="gap-severity sev-critical"></span><strong>No "Showing X of Y" on any truncated section.</strong> A researcher sees 20 protein interactions with no idea if that's 20 of 20 or 20 of 300.</li>
+  <li><span class="gap-severity sev-high"></span><strong>Resolution failure propagates silently.</strong> Wrong target ID at Step 1 produces plausible-looking but incorrect data across all 7 dimensions. No validation layer between resolution and retrieval.</li>
+  <li><span class="gap-severity sev-high"></span><strong>Cross-skill dependency via relative path.</strong> If landscape skill is absent, action resolution returns empty string and drug pipeline (Step 6) is silently skipped.</li>
+  <li><span class="gap-severity sev-high"></span><strong>Protein interaction filter is undisclosed.</strong> Names &gt;60 chars filtered silently. Reported count may not match table row count.</li>
+  <li><span class="gap-severity sev-medium"></span><strong>No output provenance.</strong> No run timestamp, no API endpoint attribution per dimension. Two runs produce different results with no record of when data was fetched.</li>
+  <li><span class="gap-severity sev-medium"></span><strong>Disease briefings fail silently.</strong> 400 errors cause the section to be omitted with no indication to the user.</li>
+  <li><span class="gap-severity sev-medium"></span><strong>Sequential API calls.</strong> 7-8 independent calls run sequentially. Parallelism would cut wall time 60-70%.</li>
+</ul>
+
+<!-- ACTION -->
+<div class="action-box">
+  <h3>The One Thing to Do First</h3>
+  <p>Fix drug pipeline pagination (paginate until exhausted or hit a reasonable cap) and add <code>"Showing X of Y"</code> to every truncated list &mdash; in the same commit, add a run timestamp to the output header. This closes the header/table contradiction, makes truncation visible across all dimensions, and begins the provenance record.</p>
+</div>
+
+<!-- ADVISOR RESPONSES -->
+<h2 style="font-size:1.1rem; margin: 2rem 0 1rem;">Advisor Responses</h2>
+
+<details>
+  <summary><span class="advisor-tag tag-contrarian">Contrarian</span> "Demo-quality that looks production-ready but hides incompleteness"</summary>
+  <div class="advisor-content">
+    <p>Same fatal flaw as landscape, worse here. EGFR has 300+ drugs, skill shows 50 (15% coverage). Cross-skill dependency is production anti-pattern &mdash; no contract, no versioning, no fallback. 7-8 sequential calls unusable for batch. Disease briefings "optional, may fail" not acceptable. Demo-quality that produces reports which look production-ready but hide their own incompleteness.</p>
+  </div>
+</details>
+
+<details>
+  <summary><span class="advisor-tag tag-principles">First Principles</span> "Production readiness requires outputs trustworthy by default, not by user vigilance"</summary>
+  <div class="advisor-content">
+    <p>Wrong question. Real question: can a scientist trust outputs without knowing limitations? No. Silent truncation is epistemological failure &mdash; 50 for EGFR (200+) gives data that looks complete. No pagination is unvalidated assumption. Cross-skill dependency is undocumented coupling. Sequential calls are structurally slow for no reason. Fix the epistemic layer first.</p>
+  </div>
+</details>
+
+<details>
+  <summary><span class="advisor-tag tag-expansionist">Expansionist</span> "Adjacent opportunity: cross-target comparison (/target-compare)"</summary>
+  <div class="advisor-content">
+    <p>50-hit cap most damaging. Display limits are hard truncations with no signal. Natural extension: /target-compare for druggability triage. Resolution confidence should surface in header. Disease briefings 400s need monitoring. Fix pagination and coverage signals &mdash; same landscape lesson.</p>
+    <p><em>Note: Council consensus is to fix single-target integrity before expanding to comparison.</em></p>
+  </div>
+</details>
+
+<details>
+  <summary><span class="advisor-tag tag-outsider">Outsider</span> "SKILL.md says 'no truncation' &mdash; the code contradicts this on four lines" <em>&mdash; Voted strongest by all 3 reviewers</em></summary>
+  <div class="advisor-content">
+    <p>SKILL.md says "ALWAYS list ALL items &mdash; no truncation" but code has <code>disease_data[:25]</code>, <code>gene_assocs[:15]</code>, <code>meaningful[:20]</code>, <code>pharm_list[:20]</code>. Pipeline header shows totalResults (847) but table shows 50 rows. Protein interactions filter &gt;60 char names without disclosure. Resolution failure is hard stop with no fuzzy candidates. Cross-skill via relative path &mdash; silently breaks if landscape absent.</p>
+  </div>
+</details>
+
+<details>
+  <summary><span class="advisor-tag tag-executor">Executor</span> "Fix pagination and truncation warnings first &mdash; ship internal only"</summary>
+  <div class="advisor-content">
+    <p>4 gaps: (1) pipeline blind beyond 50, (2) no truncation warnings on 25/15/20/20 limits, (3) no coverage signals, (4) sequential calls. Resolution is solid, 7-dimension structure correct. Ship internal only. Fix pagination and warnings first.</p>
+    <p><em>Note: Peer reviews unanimously challenged the "resolution is solid" and "ship internal" claims.</em></p>
+  </div>
+</details>
+
+<!-- PEER REVIEWS -->
+<details>
+  <summary style="margin-top: 1.5rem;">Peer Review Highlights</summary>
+  <div class="advisor-content">
+    <p><strong>Unanimous strongest:</strong> The Outsider &mdash; grounded in code evidence, not principles. Cited specific slice notation and the SKILL.md contradiction.</p>
+    <p><strong>Unanimous weakest:</strong> The Executor &mdash; called resolution "solid" and disease briefings "graceful" without evidence. "Ship internal" is not a meaningful risk boundary.</p>
+    <p><strong>All advisors missed:</strong></p>
+    <ul style="margin-top: 0.5rem; padding-left: 1.2rem;">
+      <li><strong>Output provenance</strong> &mdash; no timestamps, no run metadata. Two runs produce different results with no record of when data was fetched. Traceability failure for scientific use.</li>
+      <li><strong>Error propagation across dimensions</strong> &mdash; wrong target ID at resolution produces plausible-looking but incorrect data in all 7 dimensions. No validation layer. Worse than a hard stop.</li>
+      <li><strong>Data freshness</strong> &mdash; no indication of when underlying Cortellis data was last updated. Stale pipeline counts are patient-safety-adjacent errors.</li>
+    </ul>
+  </div>
+</details>
+
+<div class="footer">
+  <p>LLM Council &mdash; 5 advisors, 3 peer reviews, 1 chairman synthesis &mdash; April 4, 2026<br>
+  Counciled: Target Profile skill production readiness for <code>cli_anything/cortellis/skills/target-profile/</code></p>
+</div>
+
+</body>
+</html>
