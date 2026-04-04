@@ -61,6 +61,24 @@ Pre-built multi-step analysis workflows, available as slash commands in [Claude 
 | `/pipeline "Novo Nordisk"` | Full company pipeline (all phases, deals, trials) |
 | `/landscape obesity` | Competitive landscape by indication, target, or technology |
 | `/drug-profile tirzepatide` | Deep drug profile (SWOT, financials, history, competitors) |
+| `/drug-comparison tirzepatide vs semaglutide` | Side-by-side drug comparison (2+ drugs) |
+| `/company-peers "Novo Nordisk"` | Company peer benchmarking (KPIs, indication overlap) |
+| `/deal-deep-dive 479661` | Expanded deal analysis (financials, territories, timeline) |
+| `/regulatory-pathway semaglutide` | Regulatory intelligence (approvals, citations, regions) |
+| `/clinical-landscape obesity` | Clinical trial landscape (phases, sponsors, enrollment) |
+| `/sales-forecast tirzepatide` | Drug sales actuals & forecast with competitive context |
+| `/pharmacology-dossier tirzepatide` | Pharmacology & drug design dossier (PK/PD, assays) |
+| `/literature-review "GLP-1 obesity"` | Systematic literature review with publication analysis |
+| `/indication-deep-dive obesity` | Complete indication analysis (drugs, trials, deals, regulatory) |
+| `/partnership-network "Novo Nordisk"` | Partnership network (deal graph, top partners, types) |
+| `/patent-watch semaglutide` | Patent expiry timeline + generic/biosimilar threats |
+| `/drug-swot tirzepatide` | AI-generated strategic SWOT from live data (8 domains) |
+| `/target-profile EGFR` | Deep biological target profile (biology, drugs, pharmacology) |
+| `/disease-briefing obesity` | Disease briefing from Drug Design (premium access) |
+| `/head-to-head "Novo Nordisk" vs "Eli Lilly"` | Company vs company comparison (pipeline, KPIs, overlap) |
+| `/mechanism-explorer "PD-1 inhibitor"` | Mechanism of action explorer (all drugs, pharmacology) |
+| `/combination-landscape "lung cancer"` | Combination therapy landscape (trials, drugs) |
+| `/conference-intel ASCO` | Conference-based competitive intelligence |
 
 **From this repo:**
 ```bash
