@@ -7,20 +7,12 @@ description: /landscape: Competitive Landscape Report
 
 Generate a full competitive landscape for a therapeutic indication.
 
-> **Version: v0.9-internal** (locked 2026-04-05)
->
-> **Status:** Cleared for internal BD use. Not promoted to public v0.9 — pending completion of the retrospective blind test (`docs/decider_trials/retrospective_blind_test_protocol.md`, protocol ID `retrospective-blind-v1-20260405`).
->
-> **Roles (names tracked in referenced docs, not here):** harness owner, independent observer, rubric author, external decider, third-party rubric reviewer (TBD).
->
-> **Validation status:** 5-indication internal harness 4/4 PASS. Independent harness re-run scheduled. TOS dual-attestation complete (MIT relicense). Retrospective blind test pending.
->
-> **Caveat:** Strategic briefings and scores should be reviewed against domain judgment before acting on external commitments until v0.9 promotion lands.
+> **Version: v0.9-internal POC** (2026-04-05). CPI scores and strategic briefings are directional, not definitive — validate against domain judgment before acting on external commitments. Governance artifacts (council transcripts, blind-test protocols, validation runs, reproducibility kits) live under `docs/governance/` for interested reviewers.
 
 ## LICENSING
 
 > **Code:** MIT (see repository `LICENSE`).
-> **Derived analytical outputs** (strategic briefings, scenario libraries, CPI rankings, mechanism crowding indices): shareable per the TOS answer recorded in `docs/tos_check.md` (ANSWERED 2026-04-05). Attribute Cortellis/Clarivate as the underlying data source when sharing externally.
+> **Derived analytical outputs** (strategic briefings, scenario libraries, CPI rankings, mechanism crowding indices): shareable per the TOS answer recorded in `docs/governance/tos_check.md` (ANSWERED 2026-04-05). Attribute Cortellis/Clarivate as the underlying data source when sharing externally.
 > **Raw Cortellis data** (anything under `raw/` pulled directly from the API) remains governed by your Cortellis/Clarivate subscription agreement and must not be redistributed.
 
 ## Usage
@@ -56,6 +48,8 @@ Generate a full competitive landscape for a therapeutic indication.
 /landscape --technology "mRNA" --indication "cancer"
 /landscape --technology "gene therapy" --indication "sickle cell disease"
 ```
+
+> **New to `/landscape`?** Read `docs/worked_example_mash.md` for a narrated end-to-end example before your first run.
 
 ## Technology Mode Workflow
 
@@ -246,6 +240,12 @@ python3 $RECIPES/enrich_company_sizes.py $DIR
 ```
 Resolves top 20 companies via NER → batch-fetches `@companySize` (Large/Medium/Small) from Cortellis company-analytics. Writes `company_sizes.json`. Used by report generator for dynamic company classification (no hardcoded pharma lists).
 
+### Step 5c: Normalize company names (recommended)
+```bash
+python3 $RECIPES/company_normalize.py $DIR
+```
+Collapses company name variants to canonical form using `config/company_aliases.csv` (e.g., "Lilly", "Eli Lilly & Co", "Eli Lilly and Company" → one row). Critical for trustworthy downstream CPI, crowding, and specialty-buyer-fit scores. Writes `normalization_log.json`. Alias CSV flagged `REQUIRES_DOMAIN_REVIEW` — extend as needed.
+
 ### Step 6: Recent deals (paginated, up to 200)
 ```bash
 bash $RECIPES/fetch_deals_paginated.sh '--indication "<INDICATION>"' $DIR/deals.csv $PIPELINE_RECIPES
@@ -319,7 +319,7 @@ python3 $RECIPES/opportunity_matrix.py $DIR | tee $DIR/opportunity_analysis.md
 python3 $RECIPES/strategic_narrative.py $DIR "<INDICATION_NAME>" | tee $DIR/strategic_briefing.md
 # Produces 2-page executive briefing from scored data:
 # - Executive Summary (5 key bullets)
-# - Company 2x2 Matrix (Leaders/Fading Giants/Rising Challengers/Struggling)
+# - Company 2x2 Matrix (Leaders/Fading Giants/Rising Challengers/Under Pressure)
 # - Scenario Analysis (what if top company exits?)
 # - Strategic Implications for 4 executive decisions
 # Pure computation — no LLM calls. Every claim backed by a number.
@@ -445,13 +445,15 @@ Confidence labels appear on: Primary Beneficiaries (strategic_narrative), all 5 
 - **CPI factor audit**: `docs/cpi_factor_audit.md` — construct validity analysis of the 5 scoring factors, including known limitations (double counting, selection bias, temporal mismatch).
 - **Weight derivation methodology**: `docs/weight_derivation.md` — how CPI weights SHOULD be derived empirically when historical data is available (currently using committee-compromise weights).
 - **Presets**: `config/presets/*.json` — therapeutic area-specific CPI weights (default, oncology, rare_disease, neuro, metabolic, respiratory, rare_cns, io_combo).
-- **Validation harness**: `docs/validation_harness.md` — reproducibility test protocol, known ground-truth fixtures (asthma, IPF, ALS), and regression-check commands.
-- **Stress test findings**: `docs/fragmented_indication_stress_test.md` — documents Tier D collapse on IPF/ALS, thin-pipeline specialty-fit degeneracy, and dealActionsPrimary API bug; describes the adaptive-tier and engagement-tiebreak fixes applied in v0.9.
+- **Validation harness**: `docs/governance/validation_harness.md` — reproducibility test protocol, known ground-truth fixtures (asthma, IPF, ALS), and regression-check commands.
+- **Stress test findings**: `docs/governance/fragmented_indication_stress_test.md` — documents Tier D collapse on IPF/ALS, thin-pipeline specialty-fit degeneracy, and dealActionsPrimary API bug; describes the adaptive-tier and engagement-tiebreak fixes applied in v0.9.
 - **Glossary**: `docs/glossary.md` — definitions for confidence labels (HIGH/MEDIUM/LOW/ABSTAIN), CPI scoring factors, tier thresholds, and key terms used across all strategic output files.
-- **TOS check**: `docs/tos_check.md` — Cortellis redistribution question, **ANSWERED 2026-04-05**: derived analytical outputs may be shared externally with attribution; raw Cortellis data stays internal. Code is MIT-licensed (repository `LICENSE`).
-- **Pre-registered predictions**: `docs/pre_registered_predictions.md` — forward-looking scenario predictions registered before outcomes are known, for future back-testing of scenario_library.py accuracy.
+- **TOS check**: `docs/governance/tos_check.md` — Cortellis redistribution question, **ANSWERED 2026-04-05**: derived analytical outputs may be shared externally with attribution; raw Cortellis data stays internal. Code is MIT-licensed (repository `LICENSE`).
+- **Pre-registered predictions**: `docs/governance/pre_registered_predictions.md` — forward-looking scenario predictions registered before outcomes are known, for future back-testing of scenario_library.py accuracy.
+- **Audit trail spec**: `docs/governance/audit_trail_spec.md` — audit_trail/v1 schema, bottom-of-file HTML-comment placement, and how to cite `/landscape` output in an IC memo.
+- **Freshness contract**: `docs/freshness_contract.md` — staleness thresholds, user-visible warning placement, and the "no silent history rewrite" rule for reruns.
 
-## Recipes (15 total)
+## Recipes (16 total)
 
 ### resolve_indication.py — Indication ID resolution
 ```bash
@@ -542,7 +544,7 @@ python3 $RECIPES/strategic_scoring.py $DIR
 ```bash
 python3 $RECIPES/strategic_narrative.py $DIR "<INDICATION_NAME>"
 # 2-page executive briefing from scored data
-# Company 2x2 matrix: Leaders / Fading Giants / Rising Challengers / Struggling
+# Company 2x2 matrix: Leaders / Fading Giants / Rising Challengers / Under Pressure
 # Scenario analysis: what if top company exits? Who benefits?
 # Strategic implications for 4 decisions: enter, partner, cut, differentiate
 # Every claim backed by a computed number — no LLM inference
@@ -575,6 +577,17 @@ python3 $RECIPES/opportunity_matrix.py $DIR
 # Computes attrition-adjusted opportunity score per mechanism
 # Identifies top 5 strategic opportunities + risk zones (graveyard mechanisms)
 # Outputs: opportunity_matrix.csv + markdown to stdout
+```
+
+### company_normalize.py — Company name normalization
+```bash
+python3 $RECIPES/company_normalize.py $DIR
+# Reads config/company_aliases.csv for variant→canonical mappings
+# Case-insensitive exact match on trimmed name — no fuzzy matching
+# Rewrites company column in all phase CSVs; also principal/partner in deals.csv
+# Writes normalization_log.json with per-variant rewrite counts and alias CSV sha256
+# Idempotent for CSV rewrites: running twice produces byte-identical CSV output (normalization_log.json carries a fresh run_timestamp_utc on each run)
+# Missing alias CSV → warn + exit 0 (degrades gracefully, no hard failure)
 ```
 
 NOTE: This skill reuses pipeline recipes for CSV conversion:

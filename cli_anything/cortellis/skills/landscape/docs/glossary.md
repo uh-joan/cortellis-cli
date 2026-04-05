@@ -1,5 +1,14 @@
 # Landscape Skill — Glossary
 
+## Reader Orientation
+
+- **Scale of CPI:** 0–100. Higher is better.
+- **Tier direction:** Tier **A = best**, Tier D = weakest. Tiers are percentile-based **within a single indication** (A = top 10%, B = next 15%, C = next 25%, D = bottom 50%) and are **not comparable across diseases**. A Tier-A company in ALS is not the same competitive strength as a Tier-A company in oncology.
+- **"White Space":** An opportunity gap — a mechanism with launched drugs but no Phase 2/3 follow-on activity, or an emerging mechanism with no late-stage competition yet. *White Space = good for a new entrant*, not an empty graveyard.
+- **"ABSTAIN" confidence:** The data is too thin to rank or recommend. Treat ABSTAIN as "no recommendation" — **not** "weakest recommendation". Downstream consumers must not infer a preference from an ABSTAIN label.
+- **Quadrant labels ("Leaders / Rising Challengers / Fading Giants / Under Pressure"):** Relative to the current indication's competitive set, not absolute market power. A "Leader" in ALS is not the same as a "Leader" in oncology.
+- **"Specialty-Buyer-Fit":** A heuristic score (0–∞) assessing how well a prospective buyer fits a divestment target's therapeutic niche. Higher = better fit. Not backtested against real transactions — use domain judgment.
+
 ## Core Metrics
 
 **CPI (Competitive Position Index)**
@@ -42,6 +51,28 @@
 - **Formula:** (deals in recent 6 months) / (deals in prior 6 months). Ratio = 1.0 = steady state; >1.0 = accelerating; <1.0 = slowing.
 - **Caveat:** High momentum in a small deal window can be noise. Interpret momentum in context of absolute deal count.
 
+## Acronyms & Abbreviations
+
+- **CPI** — Competitive Position Index (see Core Metrics)
+- **LOE** — Loss of Exclusivity (patent / market exclusivity expiration)
+- **BD** — Business Development (the BD team at a pharma co is the deal-making arm)
+- **Corp-dev** — Corporate Development (M&A and licensing function)
+- **IC** — Investment Committee (the internal body that approves pharma BD deals)
+- **IO** — Immuno-Oncology (cancer therapies targeting the immune system, e.g. PD-1/PD-L1 inhibitors)
+- **CNS** — Central Nervous System (neurology/psychiatry indications)
+- **MOA** — Mechanism of Action
+- **NSCLC** — Non-Small Cell Lung Cancer
+- **MASH** — Metabolic dysfunction-Associated Steatohepatitis (formerly NASH)
+- **IPF** — Idiopathic Pulmonary Fibrosis
+- **ALS** — Amyotrophic Lateral Sclerosis
+- **ADC** — Antibody Drug Conjugate
+- **P1/P2/P3** — Clinical trial Phase 1 / 2 / 3
+- **DR** — Discovery / Research phase
+- **NewCo** — A newly formed biotech company (venture-incubated)
+- **Fading Giant** — Quadrant label: strong pipeline, slowing activity
+- **Rising Challenger** — Quadrant label: building pipeline, high deal/trial momentum
+- **Under Pressure** — Quadrant label: small pipeline, limited activity (replaces the prior "Struggling" label)
+
 ## Data Quality & Confidence
 
 **Confidence Labels (HIGH / MEDIUM / LOW / ABSTAIN)**
@@ -51,6 +82,9 @@
 - **LOW:** <2 companies or <50% data coverage; scenario is illustrative only.
 - **ABSTAIN:** Data too thin to justify any claim; do not act on this scenario.
 - **Caveat:** Confidence reflects data density, not prediction accuracy. A HIGH-confidence scenario can still be wrong if domain assumptions shift.
+
+**ABSTAIN trigger rule (thin-pipeline guarantee)**
+- **Beneficiary rankings (`top_exit`, `strategic_narrative` primary beneficiaries) emit ABSTAIN when:** (a) top-3 scores are within 0.1 of each other, (b) only 2 beneficiaries exist and they are within 0.1 of each other, or (c) a single beneficiary exists but no second comparison point is available (emits LOW, not ABSTAIN, to preserve the one real signal). These rules protect against thin-pipeline degeneracy where raw overlap counts tie everyone at 1.0 (documented in `docs/governance/fragmented_indication_stress_test.md`). Regression test: `cli_anything/cortellis/tests/test_abstain_robustness.py`.
 
 **LOE (Loss of Exclusivity) Exposure**
 - **Definition:** Heuristic proxy for pipeline vulnerability to generic/biosimilar erosion.
