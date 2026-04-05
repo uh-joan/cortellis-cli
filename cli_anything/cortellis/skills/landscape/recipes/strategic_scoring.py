@@ -17,6 +17,12 @@ import sys
 from collections import defaultdict
 from datetime import datetime, date
 
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from _audit_trail import (
+    build_audit_trail, render_audit_trail_markdown, write_audit_trail_json,
+    compute_freshness, render_freshness_warning, write_freshness_json,
+)
+
 # ---------------------------------------------------------------------------
 # Preset loading
 # ---------------------------------------------------------------------------
@@ -466,6 +472,9 @@ def render_markdown(landscape_dir, cpi_data, mech_data, momentum):
     now = datetime.now().strftime("%Y-%m-%d %H:%M UTC")
     ind = os.path.basename(os.path.normpath(landscape_dir)).replace("-", " ").title()
 
+    freshness = compute_freshness(landscape_dir)
+    freshness_warning = render_freshness_warning(freshness)
+
     lines = [
         f"# Strategic Intelligence: {ind}",
         f"",
@@ -473,7 +482,13 @@ def render_markdown(landscape_dir, cpi_data, mech_data, momentum):
         f"",
         f"*Preset: {preset['name']} — {preset['description']}*",
         f"",
+        f"> **Reading this output:** CPI = Competitive Position Index, scale 0–100, higher is better. Tier A/B/C/D are **relative to this indication only** (A = top 10%, D = bottom 50%) — not comparable across diseases. White Space = opportunity gap with no current late-stage competition. ABSTAIN confidence = data too thin to rank; **not** the same as \"weakest recommendation\". Full definitions: `docs/glossary.md`.",
+        f"",
     ]
+
+    if freshness_warning:
+        lines.append(freshness_warning.rstrip("\n"))
+        lines.append("")
 
     # CPI table — top 15
     lines += [
@@ -534,6 +549,17 @@ def render_markdown(landscape_dir, cpi_data, mech_data, momentum):
         "",
     ]
 
+    audit = build_audit_trail(
+        script_name="strategic_scoring.py",
+        landscape_dir=landscape_dir,
+        preset_name=preset.get("name"),
+        preset_weights=preset.get("weights"),
+    )
+    lines += [
+        "",
+        render_audit_trail_markdown(audit),
+    ]
+
     return "\n".join(lines)
 
 
@@ -561,6 +587,21 @@ def main():
 
     md = render_markdown(landscape_dir, cpi_data, mech_data, momentum)
     print(md)
+
+    # Write audit entry to audit_trail.json (audit already built inside render_markdown;
+    # rebuild here with same preset so the JSON entry is also recorded)
+    audit = build_audit_trail(
+        script_name="strategic_scoring.py",
+        landscape_dir=landscape_dir,
+        preset_name=preset.get("name"),
+        preset_weights=preset.get("weights"),
+    )
+    write_audit_trail_json(audit, landscape_dir, "strategic_scoring.py")
+
+    # Write freshness.json (freshness already computed inside render_markdown;
+    # recompute here so the file is written even if render_markdown is called separately)
+    freshness = compute_freshness(landscape_dir)
+    write_freshness_json(freshness, landscape_dir)
 
     print(f"\n<!-- Output: {scores_path} -->", file=sys.stderr)
     print(f"<!-- Output: {mech_path} -->", file=sys.stderr)

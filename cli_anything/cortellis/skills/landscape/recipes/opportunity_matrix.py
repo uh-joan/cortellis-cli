@@ -13,6 +13,12 @@ import os
 import sys
 from collections import defaultdict
 
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from _audit_trail import (
+    build_audit_trail, render_audit_trail_markdown, write_audit_trail_json,
+    compute_freshness, render_freshness_warning, write_freshness_json,
+)
+
 
 PHASE_FILES = [
     ("launched", "launched.csv"),
@@ -124,6 +130,7 @@ def main():
         sys.exit(1)
 
     raw_data = build_matrix(landscape_dir)
+    _freshness = compute_freshness(landscape_dir)
 
     # Build summary rows
     rows = []
@@ -165,6 +172,11 @@ def main():
         writer.writerows(rows)
 
     # --- Markdown output ---
+
+    _freshness_warning = render_freshness_warning(_freshness)
+    if _freshness_warning:
+        print(_freshness_warning.rstrip("\n"))
+        print()
 
     # 1. Heatmap table (top 20 by total)
     print("## Mechanism x Phase Heatmap (Top 20 by Total Drug Count)\n")
@@ -238,6 +250,17 @@ def main():
 
     print(f"\n---\n_Output written to: {output_csv}_")
     print(f"_Total mechanisms analyzed: {len(rows)}_")
+
+    audit = build_audit_trail(
+        script_name="opportunity_matrix.py",
+        landscape_dir=landscape_dir,
+        preset_name=None,
+        preset_weights=None,
+    )
+    print()
+    print(render_audit_trail_markdown(audit))
+    write_audit_trail_json(audit, landscape_dir, "opportunity_matrix.py")
+    write_freshness_json(_freshness, landscape_dir)
 
 
 if __name__ == "__main__":

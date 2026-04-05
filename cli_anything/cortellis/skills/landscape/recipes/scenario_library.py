@@ -19,6 +19,12 @@ import os
 import sys
 from collections import Counter, defaultdict
 
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from _audit_trail import (
+    build_audit_trail, render_audit_trail_markdown, write_audit_trail_json,
+    compute_freshness, render_freshness_warning, write_freshness_json,
+)
+
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -159,12 +165,15 @@ def scenario_top_exit(landscape_dir, indication_name):
             confidence = "MEDIUM"
     elif len(top5) == 2:
         s1, s2 = top5[0][1], top5[1][1]
-        if s2 > 0 and s1 >= 2 * s2:
+        if abs(s1 - s2) <= 0.1:
+            abstain = True
+            confidence = "ABSTAIN"
+        elif s2 > 0 and s1 >= 2 * s2:
             confidence = "HIGH"
         elif s2 > 0 and s1 >= 1.25 * s2:
             confidence = "MEDIUM"
     elif len(top5) == 1:
-        confidence = "HIGH"
+        confidence = "LOW"
 
     lines = [
         f"## Scenario 1: Top Company Exit — confidence: {confidence}",
@@ -759,8 +768,15 @@ def main():
     print(f"*Generated: {now}*")
     print(f"*Scenarios: {', '.join(selected)}*")
     print(f"")
-    print("> **Reading these scenarios:** All scores are heuristic, not calibrated against historical transactions. Tier labels (where shown) are relative to the current indication — not comparable across diseases. ABSTAIN means the data is too thin to produce a confident ranking. See docs/glossary.md.")
+    print("> **Reading this output:** CPI = Competitive Position Index, scale 0–100, higher is better. Tier A/B/C/D are **relative to this indication only** (A = top 10%, D = bottom 50%) — not comparable across diseases. White Space = opportunity gap with no current late-stage competition. ABSTAIN confidence = data too thin to rank; **not** the same as \"weakest recommendation\". Full definitions: `docs/glossary.md`.")
     print(f"")
+
+    _freshness = compute_freshness(landscape_dir)
+    _freshness_warning = render_freshness_warning(_freshness)
+    if _freshness_warning:
+        print(_freshness_warning.rstrip("\n"))
+        print()
+
     print("---")
     print("")
 
@@ -770,6 +786,16 @@ def main():
         print(output)
         print("---")
         print("")
+
+    audit = build_audit_trail(
+        script_name="scenario_library.py",
+        landscape_dir=landscape_dir,
+        preset_name=", ".join(selected) if selected else None,
+        preset_weights=None,
+    )
+    print(render_audit_trail_markdown(audit))
+    write_audit_trail_json(audit, landscape_dir, "scenario_library.py")
+    write_freshness_json(_freshness, landscape_dir)
 
 
 if __name__ == "__main__":

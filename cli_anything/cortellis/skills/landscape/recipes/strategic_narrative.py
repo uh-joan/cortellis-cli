@@ -8,7 +8,7 @@ deals.csv, and deals.meta.json to produce a 2-page executive briefing.
 
 Includes:
 - Executive Summary (5 key bullets)
-- Company 2x2 Matrix (Leaders/Fading Giants/Rising Challengers/Struggling)
+- Company 2x2 Matrix (Leaders/Fading Giants/Rising Challengers/Under Pressure)
 - Scenario Analysis (what if top drug/company exits?)
 - Strategic Implications for the 4 executive decisions
 
@@ -17,6 +17,12 @@ Pure computation + structured text. No LLM API calls.
 import csv, json, math, os, re, sys
 from collections import Counter, defaultdict
 from datetime import datetime
+
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from _audit_trail import (
+    build_audit_trail, render_audit_trail_markdown, write_audit_trail_json,
+    compute_freshness, render_freshness_warning, write_freshness_json,
+)
 
 
 def load_csv(landscape_dir, filename):
@@ -120,7 +126,7 @@ momentum_values = [s["_momentum"] for s in scores if s["_momentum"] > 0]
 cpi_median = sorted(cpi_values)[len(cpi_values) // 2] if cpi_values else 0
 momentum_median = sorted(momentum_values)[len(momentum_values) // 2] if momentum_values else 0
 
-quadrants = {"Leaders": [], "Fading Giants": [], "Rising Challengers": [], "Struggling": []}
+quadrants = {"Leaders": [], "Fading Giants": [], "Rising Challengers": [], "Under Pressure": []}
 for s in scores:
     name = s.get("company", "?")
     cpi = s["_cpi"]
@@ -132,7 +138,7 @@ for s in scores:
     elif cpi < cpi_median and mom >= momentum_median:
         quadrants["Rising Challengers"].append(s)
     else:
-        quadrants["Struggling"].append(s)
+        quadrants["Under Pressure"].append(s)
 
 # ---------------------------------------------------------------------------
 # Scenario Analysis: remove top company, recompute rankings
@@ -247,8 +253,14 @@ print(f"# Strategic Briefing: {indication_name}")
 print(f"*Data as of: {newest_deal}*")
 print(f"*Preset: {preset_name} — {preset_description}*")
 print()
-print("> **Reading this briefing:** CPI = Competitive Position Index (weighted company strength 0–100). Tier A/B/C/D are **relative to this indication** (top 10%/15%/25%/50%) — not comparable across diseases. \"Specialty-buyer-fit\" weights beneficiaries against their own franchise size. See docs/glossary.md for definitions.")
+print("> **Reading this output:** CPI = Competitive Position Index, scale 0–100, higher is better. Tier A/B/C/D are **relative to this indication only** (A = top 10%, D = bottom 50%) — not comparable across diseases. White Space = opportunity gap with no current late-stage competition. ABSTAIN confidence = data too thin to rank; **not** the same as \"weakest recommendation\". Full definitions: `docs/glossary.md`.")
 print()
+
+_freshness = compute_freshness(landscape_dir)
+_freshness_warning = render_freshness_warning(_freshness)
+if _freshness_warning:
+    print(_freshness_warning.rstrip("\n"))
+    print()
 
 # Executive Summary
 print("## Executive Summary")
@@ -290,7 +302,7 @@ print("## Company Positioning Matrix")
 print()
 print("| Quadrant | Companies | Characteristics |")
 print("|----------|-----------|-----------------|")
-for quadrant_name in ["Leaders", "Rising Challengers", "Fading Giants", "Struggling"]:
+for quadrant_name in ["Leaders", "Rising Challengers", "Fading Giants", "Under Pressure"]:
     companies = quadrants[quadrant_name]
     if companies:
         names = ", ".join(s.get("company", "?")[:25] for s in companies[:4])
@@ -333,6 +345,9 @@ if top_company:
         top_overlap = overlaps_list[0]
         # ABSTAIN: top 3 scores all within 0.1 of each other
         if len(scores_list) >= 3 and (scores_list[0] - scores_list[2]) <= 0.1:
+            return "ABSTAIN"
+        # ABSTAIN: 2-way tie within 0.1 (thin pipeline degeneracy)
+        if len(scores_list) == 2 and abs(scores_list[0] - scores_list[1]) <= 0.1:
             return "ABSTAIN"
         # HIGH: top score >= 2x second, AND top overlap >= 3
         if second_score > 0 and top_score >= 2 * second_score and top_overlap >= 3:
@@ -533,3 +548,27 @@ print()
 print("---")
 print(f"*Generated from landscape data. Strategic scores are deterministic computations, not LLM predictions.*")
 print(f"*Validate against domain expertise before making investment decisions.*")
+
+# Load preset weights for audit trail
+_preset_weights = None
+_preset_config_path = os.path.join(
+    os.path.dirname(__file__), "..", "config", "presets", f"{preset_name}.json"
+)
+if os.path.exists(_preset_config_path):
+    try:
+        with open(_preset_config_path) as _f:
+            _preset_data = json.load(_f)
+            _preset_weights = _preset_data.get("weights")
+    except Exception:
+        pass
+
+_audit = build_audit_trail(
+    script_name="strategic_narrative.py",
+    landscape_dir=landscape_dir,
+    preset_name=preset_name,
+    preset_weights=_preset_weights,
+)
+print()
+print(render_audit_trail_markdown(_audit))
+write_audit_trail_json(_audit, landscape_dir, "strategic_narrative.py")
+write_freshness_json(_freshness, landscape_dir)

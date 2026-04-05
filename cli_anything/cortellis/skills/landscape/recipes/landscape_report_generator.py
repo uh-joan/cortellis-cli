@@ -6,6 +6,12 @@ Usage: python3 landscape_report_generator.py /tmp/landscape/ <indication_name> <
 import csv, json, sys, os
 from collections import Counter
 
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from _audit_trail import (
+    build_audit_trail, render_audit_trail_markdown, write_audit_trail_json,
+    compute_freshness, render_freshness_warning, write_freshness_json,
+)
+
 landscape_dir = sys.argv[1]
 indication_name = sys.argv[2] if len(sys.argv) > 2 else "Unknown"
 indication_id = sys.argv[3] if len(sys.argv) > 3 else "?"
@@ -199,6 +205,14 @@ else:
     print(f"# Competitive Landscape: {indication_name}")
 print(f"**Indication ID:** {indication_id}")
 print()
+print("> **Reading this output:** CPI = Competitive Position Index, scale 0–100, higher is better. Tier A/B/C/D are **relative to this indication only** (A = top 10%, D = bottom 50%) — not comparable across diseases. White Space = opportunity gap with no current late-stage competition. ABSTAIN confidence = data too thin to rank; **not** the same as \"weakest recommendation\". Full definitions: `docs/glossary.md`.")
+print()
+
+_freshness = compute_freshness(landscape_dir)
+_freshness_warning = render_freshness_warning(_freshness)
+if _freshness_warning:
+    print(_freshness_warning.rstrip("\n"))
+    print()
 
 # Summary
 phase_info = [
@@ -454,3 +468,13 @@ if deals:
     else:
         print(f"| Deals shown | {shown_deals} |")
 print()
+
+_audit = build_audit_trail(
+    script_name="landscape_report_generator.py",
+    landscape_dir=landscape_dir,
+    preset_name=None,
+    preset_weights=None,
+)
+print(render_audit_trail_markdown(_audit))
+write_audit_trail_json(_audit, landscape_dir, "landscape_report_generator.py")
+write_freshness_json(_freshness, landscape_dir)
