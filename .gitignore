@@ -9,3 +9,9 @@ build/
 .omc/
 *.png
 *.svg
+
+# Raw Cortellis API data — governed by Cortellis/Clarivate subscription, do not redistribute
+raw/
+
+# Landscape skill governance/process artifacts (POC-internal, not shipped)
+cli_anything/cortellis/skills/landscape/docs/governance/

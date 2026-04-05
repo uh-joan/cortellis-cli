@@ -1,0 +1,11 @@
+{
+  "name": "neuro",
+  "description": "P3 is exceptional due to attrition",
+  "weights": {
+    "pipeline_breadth": 15,
+    "phase_score": 40,
+    "mechanism_diversity": 20,
+    "deal_activity": 15,
+    "trial_intensity": 10
+  }
+}

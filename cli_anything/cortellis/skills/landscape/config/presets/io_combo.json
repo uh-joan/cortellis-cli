@@ -1,0 +1,11 @@
+{
+  "name": "io_combo",
+  "description": "I-O combination — mechanism diversity + trial intensity dominate",
+  "weights": {
+    "pipeline_breadth": 15,
+    "phase_score": 20,
+    "mechanism_diversity": 30,
+    "deal_activity": 10,
+    "trial_intensity": 25
+  }
+}

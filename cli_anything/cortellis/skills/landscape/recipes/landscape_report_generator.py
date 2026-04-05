@@ -6,17 +6,24 @@ Usage: python3 landscape_report_generator.py /tmp/landscape/ <indication_name> <
 import csv, json, sys, os
 from collections import Counter
 
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from _audit_trail import (
+    build_audit_trail, render_audit_trail_markdown, write_audit_trail_json,
+    compute_freshness, render_freshness_warning, write_freshness_json,
+)
+
 landscape_dir = sys.argv[1]
 indication_name = sys.argv[2] if len(sys.argv) > 2 else "Unknown"
 indication_id = sys.argv[3] if len(sys.argv) > 3 else "?"
 user_input = sys.argv[4] if len(sys.argv) > 4 else ""
+resolution_method = sys.argv[5] if len(sys.argv) > 5 else ""
 
-MAJOR_PHARMA = {
-    "pfizer", "novartis", "roche", "merck", "astrazeneca", "johnson & johnson",
-    "sanofi", "abbvie", "eli lilly", "bristol-myers squibb", "amgen", "gilead",
-    "gsk", "glaxosmithkline", "bayer", "boehringer ingelheim", "takeda",
-    "novo nordisk", "biogen", "regeneron", "vertex",
-}
+
+# Company classification uses Cortellis @companySize (Large/Medium/Small) + phase-weighted score.
+# No hardcoded pharma lists — sizes fetched dynamically from company-analytics API.
+# Leader: score >= 10, OR (Large company AND score >= 4)
+# Active: score >= 4, OR Large company
+# Emerging: everything else
 
 
 def read_csv(filename):
@@ -25,6 +32,32 @@ def read_csv(filename):
         return []
     with open(path) as f:
         return list(csv.DictReader(f))
+
+
+def load_json(filename):
+    path = os.path.join(landscape_dir, filename)
+    if not os.path.exists(path):
+        return None
+    with open(path) as f:
+        return json.load(f)
+
+
+def read_company_sizes():
+    """Read company_sizes.json from enrich_company_sizes.py."""
+    path = os.path.join(landscape_dir, "company_sizes.json")
+    if os.path.exists(path):
+        with open(path) as f:
+            return json.load(f)
+    return {}
+
+
+def read_enrichment_meta():
+    """Read enrichment.meta.json from landscape_dir if it exists."""
+    path = os.path.join(landscape_dir, "enrichment.meta.json")
+    if os.path.exists(path):
+        with open(path) as f:
+            return json.load(f)
+    return None
 
 
 def read_metadata(phase_code):
@@ -83,9 +116,6 @@ def drug_table(rows, phase_name, phase_code):
     return "\n".join(lines)
 
 
-def is_major_pharma(company_name):
-    name_lower = company_name.lower()
-    return any(name_lower.startswith(major) for major in MAJOR_PHARMA)
 
 
 # Read all data
@@ -175,6 +205,14 @@ else:
     print(f"# Competitive Landscape: {indication_name}")
 print(f"**Indication ID:** {indication_id}")
 print()
+print("> **Reading this output:** CPI = Competitive Position Index, scale 0–100, higher is better. Tier A/B/C/D are **relative to this indication only** (A = top 10%, D = bottom 50%) — not comparable across diseases. White Space = opportunity gap with no current late-stage competition. ABSTAIN confidence = data too thin to rank; **not** the same as \"weakest recommendation\". Full definitions: `docs/glossary.md`.")
+print()
+
+_freshness = compute_freshness(landscape_dir)
+_freshness_warning = render_freshness_warning(_freshness)
+if _freshness_warning:
+    print(_freshness_warning.rstrip("\n"))
+    print()
 
 # Summary
 phase_info = [
@@ -194,13 +232,16 @@ else:
 
 # Build recruiting trials display
 if trials_summary_total is not None:
-    recruiting_trials_str = f"{len(trials):,} of {trials_summary_total:,}"
+    recruiting_trials_str = f"{trials_summary_total:,}"
 else:
     recruiting_trials_str = str(len(trials))
 
 print("## Market Overview")
 print()
 print(f"**Total drugs:** {total_drugs_str} | **Deals:** {len(deals)} | **Recruiting trials:** {recruiting_trials_str}")
+unknown_mech = sum(1 for row in all_drugs if not row.get("mechanism", "").strip())
+if unknown_mech > 0:
+    print(f"**Uncharacterized mechanisms:** {unknown_mech} drugs")
 print()
 
 # Pipeline chart
@@ -239,25 +280,52 @@ for rows, name, code in [(launched, "Launched", "L"), (phase3, "Phase 3", "C3"),
         print()
 
 # Key companies (phase-weighted: Launched=5, P3=4, P2=3, P1=2, Discovery=1)
+company_sizes = read_company_sizes()
+
 if company_counts:
     print("## Key Companies")
     print()
-    print("| Company | Drugs | Score | Market Position |")
-    print("|---------|-------|-------|-----------------|")
+    print("| Company | Drugs | Score | Size | Market Position |")
+    print("|---------|-------|-------|------|-----------------|")
     for company, count in company_counts[:15]:
         score = company_scores.get(company, 0)
-        if score >= 10:
+        size_info = company_sizes.get(company, {})
+        cortellis_size = size_info.get("size", "")
+        active_drugs = int(size_info.get("active_drugs", 0) or 0)
+        # Dynamic classification: Cortellis @companySize or active drug count as proxy
+        # Cortellis sizes: Mega, Large, Medium, Small, Micro (or missing)
+        is_large = cortellis_size in ("Large", "Mega") or active_drugs >= 50
+        is_medium = cortellis_size == "Medium" or active_drugs >= 20
+        if score >= 10 or (is_large and score >= 4):
             position = "Leader"
-        elif score >= 4 or is_major_pharma(company):
+        elif score >= 4 or is_large or is_medium:
             position = "Active"
         else:
             position = "Emerging"
-        print(f"| {company[:50]} | {count} | {score} | {position} |")
+        if cortellis_size:
+            size_label = cortellis_size
+        elif active_drugs >= 50:
+            size_label = f"Large ({active_drugs} drugs)"
+        elif active_drugs >= 20:
+            size_label = f"Medium ({active_drugs} drugs)"
+        elif active_drugs > 0:
+            size_label = f"Small ({active_drugs} drugs)"
+        else:
+            size_label = "—"
+        print(f"| {company[:50]} | {count} | {score} | {size_label} | {position} |")
+    if len(company_counts) > 15:
+        remaining = len(company_counts) - 15
+        print(f"\n*+ {remaining} additional companies with smaller portfolios (not shown)*")
     print()
 
 # Deals
 if deals:
-    print(f"## Recent Deals ({len(deals)})")
+    deals_meta = load_json("deals.meta.json")
+    total_deals = int(deals_meta.get("totalResults", 0)) if deals_meta and isinstance(deals_meta, dict) else len(deals)
+    if total_deals > len(deals):
+        print(f"## Recent Deals ({len(deals)} most recent of {total_deals} total)")
+    else:
+        print(f"## Recent Deals ({len(deals)})")
     print()
     print("| Deal | Partner | Type | Date |")
     print("|------|---------|------|------|")
@@ -311,3 +379,102 @@ if trials or trials_summary_by_phase:
         for phase, count in sorted(other_phases.items(), key=lambda x: -x[1]):
             print(f"| {phase} | {count} |")
         print()
+
+# Trial activity by sponsor
+sponsor_trials = []
+sponsor_path = os.path.join(landscape_dir, "trials_by_sponsor.csv")
+if os.path.exists(sponsor_path):
+    with open(sponsor_path) as f:
+        sponsor_trials = list(csv.DictReader(f))
+
+if sponsor_trials:
+    print("### Trial Activity by Company")
+    print()
+    print("| Company | Phase 2 | Phase 3 | Total |")
+    print("|---------|---------|---------|-------|")
+    for row in sponsor_trials:
+        co = row.get("company", "?")[:35]
+        p2 = row.get("phase2", "0")
+        p3 = row.get("phase3", "0")
+        total = row.get("total", "0")
+        if int(total) > 0:
+            print(f"| {co} | {p2} | {p3} | {total} |")
+    print()
+
+# Data Coverage footer
+print("## Data Coverage")
+print()
+print("| Metric | Value |")
+print("|--------|-------|")
+
+# Drug coverage: check each phase for truncation
+phase_coverage_parts = []
+for phase_name, phase_rows, phase_code in [
+    ("Launched", launched, "L"),
+    ("Phase 3", phase3, "C3"),
+    ("Phase 2", phase2, "C2"),
+    ("Phase 1", phase1, "C1"),
+    ("Discovery", discovery, "DR"),
+]:
+    meta = read_metadata(phase_code)
+    if meta:
+        fetched = int(meta.get("fetched", len(phase_rows)))
+        total_results = int(meta.get("totalResults", fetched))
+        if total_results > fetched:
+            pct = int(fetched / total_results * 100) if total_results else 0
+            phase_coverage_parts.append(f"{phase_name}: {fetched}/{total_results} ({pct}%)")
+
+if phase_coverage_parts:
+    print(f"| Drug coverage | {', '.join(phase_coverage_parts)} |")
+else:
+    grand_total = sum(c for _, c, _ in phase_info)
+    print(f"| Drug coverage | {grand_total}/{grand_total} (100%) — no truncation |")
+
+# Mechanism fill rate
+drugs_with_mech = sum(1 for row in all_drugs if row.get("mechanism", "").strip())
+total_all = len(all_drugs)
+mech_pct = int(drugs_with_mech / total_all * 100) if total_all else 0
+print(f"| Mechanism annotation | {drugs_with_mech}/{total_all} ({mech_pct}%) |")
+
+# Uncharacterized mechanisms
+unknown_mech_footer = total_all - drugs_with_mech
+if unknown_mech_footer > 0:
+    print(f"| Uncharacterized mechanisms | {unknown_mech_footer} (potential novel programs) |")
+
+# Enrichment meta fill rate (if available)
+enrichment_meta = read_enrichment_meta()
+if enrichment_meta:
+    enrich_fill = enrichment_meta.get("fill_rate")
+    if enrich_fill is not None:
+        print(f"| Enrichment fill rate | {enrich_fill} |")
+
+# Entity resolution confidence
+if resolution_method:
+    method_lower = resolution_method.lower()
+    if method_lower == "ner":
+        confidence = "high confidence"
+    elif method_lower == "ontology":
+        confidence = "medium confidence"
+    else:
+        confidence = "low confidence — verify indication"
+    print(f"| Entity resolution | {resolution_method} match ({confidence}) |")
+
+# Deals shown
+if deals:
+    total_deals = len(deals)
+    shown_deals = min(15, total_deals)
+    if total_deals > 15:
+        print(f"| Deals shown | {shown_deals} of {total_deals} total |")
+    else:
+        print(f"| Deals shown | {shown_deals} |")
+print()
+
+_audit = build_audit_trail(
+    script_name="landscape_report_generator.py",
+    landscape_dir=landscape_dir,
+    preset_name=None,
+    preset_weights=None,
+)
+print(render_audit_trail_markdown(_audit))
+write_audit_trail_json(_audit, landscape_dir, "landscape_report_generator.py")
+write_freshness_json(_freshness, landscape_dir)

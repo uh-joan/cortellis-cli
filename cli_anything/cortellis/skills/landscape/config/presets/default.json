@@ -1,0 +1,11 @@
+{
+  "name": "default",
+  "description": "Balanced weights",
+  "weights": {
+    "pipeline_breadth": 20,
+    "phase_score": 30,
+    "mechanism_diversity": 20,
+    "deal_activity": 15,
+    "trial_intensity": 15
+  }
+}

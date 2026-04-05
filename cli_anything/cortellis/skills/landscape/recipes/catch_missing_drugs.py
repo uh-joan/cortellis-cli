@@ -15,7 +15,8 @@ def fetch_all_drugs(indication_id, hits=200):
     """Fetch all drugs for an indication without phase filter."""
     all_drugs = []
     offset = 0
-    while offset < 1000:
+    total = None
+    while total is None or offset < total:
         r = subprocess.run(
             ["cortellis", "--json", "drugs", "search",
              "--indication", str(indication_id), "--hits", str(hits), "--offset", str(offset)],
