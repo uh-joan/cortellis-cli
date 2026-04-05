@@ -1,0 +1,206 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>LLM Council — Landscape Strategic Layer Verification</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; background: #fff; color: #1a1a1a; line-height: 1.6; max-width: 900px; margin: 0 auto; padding: 2rem 1.5rem; }
+  h1 { font-size: 1.8rem; font-weight: 700; margin-bottom: 0.25rem; }
+  h2 { font-size: 1.3rem; font-weight: 600; margin: 2rem 0 0.75rem; color: #111; border-bottom: 2px solid #e5e5e5; padding-bottom: 0.4rem; }
+  h3 { font-size: 1.05rem; font-weight: 600; margin: 1.25rem 0 0.5rem; }
+  p, li { font-size: 0.95rem; margin-bottom: 0.5rem; }
+  ul, ol { padding-left: 1.5rem; }
+  .meta { color: #666; font-size: 0.85rem; margin-bottom: 2rem; }
+  .question-box { background: #f7f7f7; border-left: 4px solid #333; padding: 1rem 1.25rem; margin: 1.5rem 0; border-radius: 0 6px 6px 0; }
+  .question-box p { font-style: italic; font-size: 1rem; margin: 0; }
+  .verdict-card { background: #fef3c7; border: 1px solid #fcd34d; border-radius: 8px; padding: 1.5rem; margin: 1.5rem 0; }
+  .verdict-card h2 { border: none; margin-top: 0; color: #92400e; font-size: 1.15rem; }
+  .first-step { background: #ecfdf5; border: 1px solid #a7f3d0; border-radius: 8px; padding: 1.25rem; margin: 1.5rem 0; }
+  .first-step h2 { border: none; margin-top: 0; color: #065f46; font-size: 1.15rem; }
+  .score-box { background: #fff7ed; border: 2px solid #fed7aa; border-radius: 8px; padding: 1.5rem; margin: 1rem 0; text-align: center; }
+  .score-num { font-size: 3rem; font-weight: 700; color: #9a3412; }
+  .score-label { font-size: 0.9rem; color: #9a3412; text-transform: uppercase; letter-spacing: 0.05em; }
+  .priority-table { margin: 1.5rem 0; }
+  .priority-table table { width: 100%; border-collapse: collapse; font-size: 0.9rem; }
+  .priority-table th { background: #f9fafb; text-align: left; padding: 0.5rem 0.75rem; border-bottom: 2px solid #e5e5e5; }
+  .priority-table td { padding: 0.5rem 0.75rem; border-bottom: 1px solid #f0f0f0; }
+  .rank { font-weight: 700; color: #1e40af; }
+  .agreement-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin: 1.5rem 0; }
+  .agree-box, .clash-box { border-radius: 8px; padding: 1rem 1.25rem; }
+  .agree-box { background: #f0fdf4; border: 1px solid #bbf7d0; }
+  .clash-box { background: #fff7ed; border: 1px solid #fed7aa; }
+  .agree-box h3, .clash-box h3 { font-size: 0.9rem; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 0.5rem; }
+  .agree-box h3 { color: #166534; }
+  .clash-box h3 { color: #9a3412; }
+  .advisor-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 0.5rem; margin: 1.25rem 0; }
+  .advisor-chip { text-align: center; padding: 0.5rem 0.25rem; border-radius: 6px; font-size: 0.75rem; font-weight: 600; }
+  .chip-red { background: #fef2f2; border: 1px solid #fecaca; color: #991b1b; }
+  .chip-orange { background: #fff7ed; border: 1px solid #fed7aa; color: #9a3412; }
+  .chip-green { background: #f0fdf4; border: 1px solid #bbf7d0; color: #166534; }
+  .chip-blue { background: #eff6ff; border: 1px solid #bfdbfe; color: #1e40af; }
+  .blind-spot { background: #faf5ff; border: 1px solid #e9d5ff; border-radius: 8px; padding: 1.25rem; margin: 1rem 0; }
+  .blind-spot h3 { color: #6b21a8; font-size: 0.95rem; }
+  details { border: 1px solid #e5e5e5; border-radius: 6px; margin: 0.75rem 0; }
+  summary { cursor: pointer; padding: 0.75rem 1rem; font-weight: 600; font-size: 0.95rem; background: #fafafa; border-radius: 6px; }
+  summary:hover { background: #f0f0f0; }
+  details[open] summary { border-bottom: 1px solid #e5e5e5; border-radius: 6px 6px 0 0; }
+  .detail-body { padding: 1rem 1.25rem; font-size: 0.9rem; }
+  .detail-body p { margin-bottom: 0.75rem; }
+  .footer { margin-top: 3rem; padding-top: 1rem; border-top: 1px solid #e5e5e5; color: #999; font-size: 0.8rem; text-align: center; }
+</style>
+</head>
+<body>
+
+<h1>LLM Council — Verification</h1>
+<p class="meta">2026-04-04 &middot; Landscape Strategic Layer: Alignment Check &middot; 5 advisors, 5 peer reviews</p>
+
+<div class="question-box">
+  <p>Is the <code>/landscape</code> strategic layer implementation aligned with the original council recommendation?</p>
+</div>
+
+<div class="score-box">
+  <div class="score-num">65%</div>
+  <div class="score-label">Alignment Score</div>
+</div>
+
+<div class="verdict-card">
+  <h2>The Recommendation: Partially Aligned — Fix the Foundation</h2>
+  <p>The implementation delivers the three scripts by name but <strong>substitutes the hardest requirement (LLM narration) with templating</strong>, ships <strong>unjustified weights</strong> as if they were science, and <strong>validates on cases that cannot fail</strong> (Novo Nordisk in obesity, Eli Lilly in Alzheimer's — any reasonable weighting would produce these).</p>
+  <p>Shippable as a v0.1 internal tool. Not yet aligned with the council's original intent.</p>
+</div>
+
+<div class="first-step">
+  <h2>The One Thing to Do First</h2>
+  <p><strong>Publish the JSON output schema for /landscape and commit it to the repo before touching another line of code.</strong></p>
+  <p>Half a day of work. Unblocks cross-skill composition (the biggest missed multiplier). Forces the team to answer: what does a downstream skill actually consume from this? Every other fix gets easier once the contract exists.</p>
+</div>
+
+<h2>Prioritized Backlog (by Leverage &divide; Effort)</h2>
+
+<div class="priority-table">
+<table>
+  <tr><th>#</th><th>Fix</th><th>Effort</th><th>Why</th></tr>
+  <tr><td class="rank">1</td><td>Publish JSON output schema</td><td>0.5 day</td><td>Unblocks all cross-skill integration</td></tr>
+  <tr><td class="rank">2</td><td>Derive CPI weights from historical data (regression)</td><td>2 days</td><td>20/30/20/15/15 is a committee compromise; weights should be learned</td></tr>
+  <tr><td class="rank">3</td><td>Audit 5 CPI factors for construct validity</td><td>1 day</td><td>Before weighting, justify the factor set itself</td></tr>
+  <tr><td class="rank">4</td><td>Add <code>--narrate</code> as optional LLM pass</td><td>3 days</td><td>Honors original Phase 3 spec; deterministic stays default</td></tr>
+  <tr><td class="rank">5</td><td>Build one real cross-skill composition (/landscape &rarr; /drug-swot)</td><td>2 days</td><td>Proves the integration contract</td></tr>
+  <tr><td class="rank">6</td><td>Therapeutic area presets</td><td>2 days</td><td>Polish, not foundation</td></tr>
+  <tr><td class="rank">7</td><td>Kill decimal precision (CPI tiers A/B/C)</td><td>10 min</td><td>"93.3 vs 74.6" is a credibility leak</td></tr>
+</table>
+</div>
+
+<h2>Advisor Positions</h2>
+<div class="advisor-grid">
+  <div class="advisor-chip chip-red">Contrarian<br>Real Retreat</div>
+  <div class="advisor-chip chip-orange">First Principles<br>Weights Arbitrary</div>
+  <div class="advisor-chip chip-green">Expansionist<br>Scenario = Crown</div>
+  <div class="advisor-chip chip-red">Outsider<br>False Precision</div>
+  <div class="advisor-chip chip-blue">Executor<br>70% Shippable</div>
+</div>
+
+<div class="agreement-grid">
+  <div class="agree-box">
+    <h3>Converged On</h3>
+    <ul>
+      <li><strong>Scenario analysis is the crown jewel</strong> &mdash; the only genuinely novel output</li>
+      <li><strong>LLM omission is a regression</strong> not a simplification</li>
+      <li><strong>Validation is theater</strong> &mdash; two known leaders is a mirror, not a test</li>
+      <li><strong>Cross-skill integration</strong> is the biggest missed multiplier (silently dropped)</li>
+    </ul>
+  </div>
+  <div class="clash-box">
+    <h3>Disagreed On</h3>
+    <ul>
+      <li>Ship vs rebuild: 70% fixable in a week (E) vs CPI construct may be invalid (A)</li>
+      <li>Is templating acceptable as a fallback?</li>
+      <li>Does false precision matter if downstream is machine-readable?</li>
+    </ul>
+  </div>
+</div>
+
+<h2>Blind Spots the Council Caught (in this Verification Round)</h2>
+
+<div class="blind-spot">
+  <h3>Construct Validity of CPI</h3>
+  <p>Nobody asked whether the 5 factors are the RIGHT 5. A score built on wrong factors launders opinion as math. Scenario analysis inherits garbage inputs.</p>
+</div>
+
+<div class="blind-spot">
+  <h3>Weights Should Be Learned, Not Legislated</h3>
+  <p>20/30/20/15/15 is a committee compromise dressed as a model. Historical regression on deal outcomes or launch success would produce defensible weights in a weekend.</p>
+</div>
+
+<div class="blind-spot">
+  <h3>Schema Contract for Downstream Consumers</h3>
+  <p>Cross-skill integration was dropped without even publishing the output schema other skills would consume. This is why integration "wasn't implemented" &mdash; there was nothing to integrate against.</p>
+</div>
+
+<div class="blind-spot">
+  <h3>The Counterfactual Question</h3>
+  <p>What does a user do WITHOUT this tool, and what do they now do DIFFERENTLY? If the answer is "write the same memo with more confidence," the tool is a confidence amplifier, not a decision tool.</p>
+</div>
+
+<div class="blind-spot">
+  <h3>No Effort Ranking</h3>
+  <p>Five advisors, zero prioritized backlog (until this verification round). Reviews without effort estimates are wishlists.</p>
+</div>
+
+<h2>Advisor Responses</h2>
+
+<details>
+  <summary>The Contrarian &mdash; "Real retreat, not simplification"</summary>
+  <div class="detail-body">
+    <p>Implementation is mostly aligned but strategic_narrative.py is a sleight-of-hand. Council said "structured LLM prompts referencing scored data" &mdash; what shipped is deterministic templating. That's not discipline, it's avoidance. Validation on 2 known leaders is confirmation bias, not rigor.</p>
+  </div>
+</details>
+
+<details>
+  <summary>The First Principles Thinker &mdash; "Weights are arbitrary"</summary>
+  <div class="detail-body">
+    <p>Core primitives correct, scenario analysis nailed it. But CPI weights (20/30/20/15/15) have no documented justification. 490 lines vs estimated 200 suggests scope creep. Foundations solid, weight-justification warrants audit.</p>
+  </div>
+</details>
+
+<details>
+  <summary>The Expansionist &mdash; "Scenario is the crown jewel"</summary>
+  <div class="detail-body">
+    <p>Lean into scenario analysis. Build multi-company exits, mechanism-exit scenarios, entry scenarios. Cross-skill composition is the biggest missed multiplier. Add --narrate as optional flag. Ship therapeutic area presets this week.</p>
+  </div>
+</details>
+
+<details>
+  <summary>The Outsider &mdash; "False precision, no actionable insight"</summary>
+  <div class="detail-body">
+    <p>What do I DO differently after reading this? "Novo #1" is known. Why trust 93.3 vs 74.6? False precision &mdash; use tiers. Only scenario analysis produces non-obvious insight. Everything else re-derives consensus.</p>
+  </div>
+</details>
+
+<details>
+  <summary>The Executor &mdash; "70% aligned, shippable"</summary>
+  <div class="detail-body">
+    <p>Production-shippable. 3 gaps: (1) therapeutic area presets (2 days), (2) --narrate LLM flag (3 days), (3) validation harness on historical data (2 days). Defer cross-skill integration to v2.</p>
+  </div>
+</details>
+
+<details>
+  <summary>Peer Review Highlights</summary>
+  <div class="detail-body">
+    <ul>
+      <li><strong>Construct validity</strong> &mdash; are the 5 factors the right 5?</li>
+      <li><strong>Weights should be derived</strong> from historical data via regression</li>
+      <li><strong>Schema contract</strong> is missing &mdash; downstream skills have nothing to consume</li>
+      <li><strong>Counterfactual</strong> &mdash; what would user do without the tool?</li>
+      <li><strong>No effort ranking</strong> &mdash; reviews without priorities are wishlists</li>
+    </ul>
+  </div>
+</details>
+
+<div class="footer">
+  LLM Council &middot; 2026-04-04 &middot; Verification: landscape strategic layer alignment &middot; 65% aligned
+</div>
+
+</body>
+</html>

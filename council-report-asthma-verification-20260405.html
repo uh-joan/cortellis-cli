@@ -1,0 +1,202 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>LLM Council — Asthma Output Verification</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; background: #fff; color: #1a1a1a; line-height: 1.6; max-width: 900px; margin: 0 auto; padding: 2rem 1.5rem; }
+  h1 { font-size: 1.8rem; font-weight: 700; margin-bottom: 0.25rem; }
+  h2 { font-size: 1.3rem; font-weight: 600; margin: 2rem 0 0.75rem; color: #111; border-bottom: 2px solid #e5e5e5; padding-bottom: 0.4rem; }
+  h3 { font-size: 1.05rem; font-weight: 600; margin: 1.25rem 0 0.5rem; }
+  p, li { font-size: 0.95rem; margin-bottom: 0.5rem; }
+  ul, ol { padding-left: 1.5rem; }
+  .meta { color: #666; font-size: 0.85rem; margin-bottom: 2rem; }
+  .question-box { background: #f7f7f7; border-left: 4px solid #333; padding: 1rem 1.25rem; margin: 1.5rem 0; border-radius: 0 6px 6px 0; }
+  .question-box p { font-style: italic; font-size: 1rem; margin: 0; }
+  .verdict-card { background: #fef3c7; border: 1px solid #fcd34d; border-radius: 8px; padding: 1.5rem; margin: 1.5rem 0; }
+  .verdict-card h2 { border: none; margin-top: 0; color: #92400e; font-size: 1.15rem; }
+  .first-step { background: #ecfdf5; border: 1px solid #a7f3d0; border-radius: 8px; padding: 1.25rem; margin: 1.5rem 0; }
+  .first-step h2 { border: none; margin-top: 0; color: #065f46; font-size: 1.15rem; }
+  .score-box { background: #eff6ff; border: 2px solid #bfdbfe; border-radius: 8px; padding: 1.5rem; margin: 1rem 0; text-align: center; }
+  .score-num { font-size: 3rem; font-weight: 700; color: #1e40af; }
+  .score-label { font-size: 0.9rem; color: #1e40af; text-transform: uppercase; letter-spacing: 0.05em; }
+  .delta { font-size: 1.1rem; color: #065f46; font-weight: 600; margin-top: 0.25rem; }
+  .agreement-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin: 1.5rem 0; }
+  .agree-box, .clash-box { border-radius: 8px; padding: 1rem 1.25rem; }
+  .agree-box { background: #f0fdf4; border: 1px solid #bbf7d0; }
+  .clash-box { background: #fff7ed; border: 1px solid #fed7aa; }
+  .agree-box h3, .clash-box h3 { font-size: 0.9rem; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 0.5rem; }
+  .agree-box h3 { color: #166534; }
+  .clash-box h3 { color: #9a3412; }
+  .advisor-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 0.5rem; margin: 1.25rem 0; }
+  .advisor-chip { text-align: center; padding: 0.75rem 0.25rem; border-radius: 6px; font-size: 0.75rem; font-weight: 600; }
+  .advisor-chip .score { display: block; font-size: 1.3rem; margin-top: 0.25rem; }
+  .chip-green { background: #f0fdf4; border: 1px solid #bbf7d0; color: #166534; }
+  .chip-orange { background: #fff7ed; border: 1px solid #fed7aa; color: #9a3412; }
+  .blind-spot { background: #faf5ff; border: 1px solid #e9d5ff; border-radius: 8px; padding: 1.25rem; margin: 1rem 0; }
+  .blind-spot h3 { color: #6b21a8; font-size: 0.95rem; }
+  details { border: 1px solid #e5e5e5; border-radius: 6px; margin: 0.75rem 0; }
+  summary { cursor: pointer; padding: 0.75rem 1rem; font-weight: 600; font-size: 0.95rem; background: #fafafa; border-radius: 6px; }
+  summary:hover { background: #f0f0f0; }
+  details[open] summary { border-bottom: 1px solid #e5e5e5; border-radius: 6px 6px 0 0; }
+  .detail-body { padding: 1rem 1.25rem; font-size: 0.9rem; }
+  .footer { margin-top: 3rem; padding-top: 1rem; border-top: 1px solid #e5e5e5; color: #999; font-size: 0.8rem; text-align: center; }
+</style>
+</head>
+<body>
+
+<h1>LLM Council — Asthma Output Verification</h1>
+<p class="meta">2026-04-05 &middot; /landscape strategic layer judged on actual asthma output files</p>
+
+<div class="question-box">
+  <p>Does the /landscape skill's strategic intelligence layer, as demonstrated by the actual asthma output files, fulfill the original council recommendation?</p>
+</div>
+
+<div class="score-box">
+  <div class="score-num">78%</div>
+  <div class="score-label">Alignment Score</div>
+  <div class="delta">Up from 65% baseline (+13 points)</div>
+</div>
+
+<div class="verdict-card">
+  <h2>The Recommendation: Ship v0.9 After Scoped Hardening</h2>
+  <p>Refinement, not reconstruction. The strategic layer has crossed the threshold from "prototype" to "usable artifact." But the headline insight mechanism is domain-naive, and the validation story is absent.</p>
+  <p><strong>Chairman's judgment call:</strong> When the strategy consultant and domain expert disagree about a strategy artifact in a domain context, <strong>the domain expert wins</strong>. The advisor average (83%) overweights polish over domain correctness. Adjusted to 78%.</p>
+</div>
+
+<div class="first-step">
+  <h2>The One Thing to Do First</h2>
+  <p><strong>Fix the divestment scenario model.</strong></p>
+  <p>Not because it's the biggest gap — traceability and validation are arguably bigger — but because it is the <strong>only flaw that makes the skill actively misleading</strong>. Every other shortcoming produces an incomplete artifact; this one produces a confidently-wrong artifact with a named company attached.</p>
+  <p>Replace overlap-only with <strong>overlap &times; specialty-buyer-fit</strong>. Re-run asthma. If Chiesi is still the answer, defensible. If it changes to Covis or a specialty player, the original headline was the artifact the domain expert warned about.</p>
+</div>
+
+<h2>Advisor Scores</h2>
+
+<div class="advisor-grid">
+  <div class="advisor-chip chip-green">Strategy Consultant<span class="score">88%</span></div>
+  <div class="advisor-chip chip-green">Data Skeptic<span class="score">82%</span></div>
+  <div class="advisor-chip chip-orange">Domain Expert<span class="score">78%</span></div>
+  <div class="advisor-chip chip-green">Product Manager<span class="score">85%</span></div>
+  <div class="advisor-chip chip-orange">Chairman (adjusted)<span class="score">78%</span></div>
+</div>
+
+<div class="agreement-grid">
+  <div class="agree-box">
+    <h3>What's Fulfilled</h3>
+    <ul>
+      <li>Compute-first, narrate-second (CPI tiers A/B/C/D)</li>
+      <li>4 executive decisions anchored with concrete targets</li>
+      <li>Scenario analysis delivers non-obvious insight</li>
+      <li>Output is 2 pages, shorter not longer</li>
+      <li>Data freshness watermarks throughout</li>
+      <li>5 therapeutic area presets, cross-skill composition</li>
+      <li>4 of 5 original blind spots closed</li>
+    </ul>
+  </div>
+  <div class="clash-box">
+    <h3>What Still Falls Short</h3>
+    <ul>
+      <li>Scenario library thin (only "top company exits")</li>
+      <li>GSK-exit scenario is mechanism-overlap naive</li>
+      <li>No validation harness (footer = buck-pass)</li>
+      <li>Domain-naive (U Tokyo as partner, no LOE layer)</li>
+      <li>Preset-to-output traceability invisible</li>
+    </ul>
+  </div>
+</div>
+
+<h2>Hardening Sprint — Ship v0.9 Blockers</h2>
+<ol>
+  <li><strong>Fix divestment scenario</strong>: overlap &times; specialty-buyer-fit (one sprint)</li>
+  <li><strong>Reproducibility test</strong>: run same query 24h apart, diff tiers</li>
+  <li><strong>Fragmented indication stress test</strong>: IPF or rare CNS (not mature asthma)</li>
+  <li><strong>Preset provenance tags</strong>: one-line change per recommendation</li>
+  <li><strong>Validation harness</strong>: explicit follow-up ticket with owner, not a footer</li>
+</ol>
+<p><em>LOE layer + scenario library expansion &rarr; v1.0, not v0.9</em></p>
+
+<h2>Blind Spots the Council Caught</h2>
+
+<div class="blind-spot">
+  <h3>Asthma Is the Easy Case</h3>
+  <p>Mature indication, consolidated leaders, stable MoA landscape. The skill has not been stressed against fragmented indications (IPF, rare CNS, early I-O combos) where the tier system will either hold or collapse into noise.</p>
+</div>
+
+<div class="blind-spot">
+  <h3>The GSK-Exit Insight May Be a Model Artifact</h3>
+  <p>Domain Expert C: Real pharma divestments go to specialty buyers (Covis, Cipla), not to the company with the most overlapping mechanisms. The headline insight is mechanism-overlap math, not divestment logic.</p>
+</div>
+
+<div class="blind-spot">
+  <h3>No Reproducibility Check</h3>
+  <p>If the same asthma query tomorrow returns different CPI tiers due to upstream data shifts, the "deterministic footer" is a lie. Nobody tested this.</p>
+</div>
+
+<div class="blind-spot">
+  <h3>No User Model</h3>
+  <p>BD analyst doing weekly scans? VP prepping a board deck? Consultant billing hours? The right scenario library, drill-down depth, and validation UX depend on who uses this.</p>
+</div>
+
+<div class="blind-spot">
+  <h3>65% Baseline Is Self-Referential</h3>
+  <p>Set by a previous council pass using similar rubrics. The 65&rarr;78 delta is movement within the same measurement frame, not independent ground truth. Some of the "improvement" is the skill learning the test.</p>
+</div>
+
+<h2>Advisor Responses</h2>
+
+<details>
+  <summary>Strategy Consultant (88%) &mdash; "M&A-grade insight, ship it"</summary>
+  <div class="detail-body">
+    <p>Strategic briefing reads like a real BD deliverable. GSK-exit scenario is breakthrough — "Chiesi inherits 8 drugs" is non-obvious M&A-grade thinking. Gap: only one scenario type, need 3-5. Also "U Tokyo as partnership target" needs academic-institution filter.</p>
+  </div>
+</details>
+
+<details>
+  <summary>Data Science Skeptic (82%) &mdash; "Compute-first honored, precision concerns"</summary>
+  <div class="detail-body">
+    <p>CPI tiers replacing decimals is right. Position distribution looks like real power-law. Footer disclaimer shows epistemic humility. Concerns: 93% attrition estimates suspiciously precise with no CI, 0.92 momentum ratio with n=11 is within noise, preset inheritance invisible downstream.</p>
+  </div>
+</details>
+
+<details>
+  <summary>Pharma Domain Expert (78%) &mdash; "Leader rankings correct, scenario naive"</summary>
+  <div class="detail-body">
+    <p>GSK-AZ-Chiesi triad is correct. Mechanism ranking matches 2026 reality. But GSK-exit scenario is naive — real-world franchise divestments wouldn't redistribute by mechanism overlap. Missing: biosimilar/LOE layer, severe-vs-mild segmentation, device/formulation axis. Architecture right; respiratory tuning absent.</p>
+  </div>
+</details>
+
+<details>
+  <summary>Product Manager (85%) &mdash; "4/5 blind spots closed"</summary>
+  <div class="detail-body">
+    <p>4 of 5 blind spots closed: freshness (watermarks), configurability (5 presets), cross-skill (swot commands), output length (2 pages). Partial on drill-down. Still missing: validation harness for historical replay. "Validate against expertise" is a buck-pass.</p>
+  </div>
+</details>
+
+<details>
+  <summary>Chairman (78% adjusted from 83% avg)</summary>
+  <div class="detail-body">
+    <p>Advisors graded the artifact. Chairman grades the artifact AND the evaluation. When strategy consultant and domain expert disagree about a strategy artifact in a domain context, domain expert wins. C's 78% carries a structural critique (naive scenarios) that should dominate A's 88% polish praise. Arithmetic averaging produces false consensus.</p>
+  </div>
+</details>
+
+<details>
+  <summary>Peer Review Highlights</summary>
+  <div class="detail-body">
+    <ul>
+      <li><strong>Asthma is the easy case</strong> — single-indication validation is not validation</li>
+      <li><strong>Domain expert critique should dominate</strong> — chairman over-weights polish reviewers</li>
+      <li><strong>No reproducibility check</strong> — can same query produce same tiers tomorrow?</li>
+      <li><strong>Statistical concerns need decision impact framing</strong> — imprecision is cosmetic if actions are robust</li>
+      <li><strong>65% baseline is self-referential</strong> — delta measures calibration, not ground truth</li>
+    </ul>
+  </div>
+</details>
+
+<div class="footer">
+  LLM Council &middot; 2026-04-05 &middot; Asthma output verification &middot; 78% aligned (ship v0.9 after hardening)
+</div>
+
+</body>
+</html>
