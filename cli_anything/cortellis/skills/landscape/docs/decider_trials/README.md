@@ -14,9 +14,30 @@ whether the output changes a real BD call.
 
 ## Status (2026-04-05)
 
-**No trials recorded yet.** This is the **last open item** in the v0.9
-hardening plan and the only one that cannot be substituted by internal
-effort, AI review, or the author acting on their own behalf.
+**First trial scheduled.** Assigned to an external BD contact from
+Joan's network, sourced via recruitment option 1 (network contact):
+
+- **Name:** Carlos
+- **Contact handle:** uh-carlos
+- **Relationship to /landscape team:** network contact (BD/CI
+  practitioner, independent of Joan's current employer and not
+  involved in `/landscape` authorship or harness review)
+- **Trial date:** scheduled for **2026-04-15** (10 days from assignment)
+- **Decision under evaluation:** *to be nominated by Carlos at least
+  48 hours before the trial — must be a real in-flight BD call within
+  his current pipeline with an observable go/no-go outcome*
+- **Author presence:** Joan (uh-joan) will attend the live read-along
+  (in person or video call); Kimon (uh-kimon) will dial in as
+  independent observer to cross-check Joan's post-trial interpretation
+- **Record location:** `docs/decider_trials/2026-04-15-cs.md`
+  (placeholder file created; to be populated immediately after the
+  trial by Joan and cross-signed by Kimon)
+
+This is the **last open gate** for promotion from `v0.9-internal` to
+public `v0.9`. Carlos's trial is the first data point in the
+correctness-evidence case the v09 hardening council identified as the
+entire remaining epistemic gap. Until this trial lands, the skill
+stays tagged `v0.9-internal` regardless of harness pass rate.
 
 ## Why This Cannot Be Self-Run
 

@@ -37,6 +37,16 @@ this repository (CLI, recipes, skills, schemas, docs, tests) is licensed
 - Assignment date: 2026-04-05
 - Answer date: 2026-04-05
 
+## Co-Reviewer (secondary attestation)
+
+- **Name:** Kimon
+- **Contact handle:** uh-kimon
+- **Attestation date:** 2026-04-05
+- **Role:** Independent second reading of the Cortellis / Clarivate license terms, cross-checking Joan's interpretation.
+- **Attestation verdict:** CONCURS with Joan's reading. Derived outputs (rankings, briefings, scenario analyses) are shareable with attribution; raw API pulls under `raw/` remain governed by the Cortellis subscription and must not be redistributed; MIT license is appropriate for the code layer.
+
+**Acknowledged limitation:** two developers reading the same license is still not formal legal counsel. This dual-attestation is sufficient for internal use and for sharing derived analytical outputs with individual external partners. Before any large-scale public distribution (commercial CLI licensing, paid benchmarks, third-party data reselling, reseller/API endpoint offerings), obtain written sign-off from Clarivate legal or outside counsel.
+
 ---
 
 ## The Question (as originally asked)

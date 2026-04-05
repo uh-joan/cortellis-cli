@@ -11,7 +11,20 @@
 - **First-run verdict:** 4/4 available indications PASS (NSCLC deferred — raw data not pulled). Provisional pass criteria met.
 - **Cadence after first run:** re-run on every change touching scoring logic (`strategic_scoring.py`), narrative logic (`strategic_narrative.py`), or preset weights; quarterly backstop otherwise.
 
-**Known caveat on owner independence:** Joan is both the skill author and the current harness owner. This is an acknowledged independence gap — the harness catches regressions but cannot catch systematic author blind-spots. A second domain reviewer (pharma BD / medical affairs) should be recruited before v1.0; tracked as a v0.10 item. Until then, item 3 (real external BD decider trial) in the v0.9 hardening plan carries the independent-judgment load.
+## Independent Co-Reviewer (Gate 2 independence closure)
+
+To address the independence gap (Joan is both skill author and primary harness owner), a second reviewer has been assigned:
+
+- **Name:** Kimon
+- **Contact handle:** uh-kimon
+- **Assignment date:** 2026-04-05
+- **Role:** Independent harness co-reviewer. Not involved in `/landscape` scoring/narrative authorship. Runs the 5-indication harness independently of Joan and signs off on pass/fail without access to Joan's interpretation of edge cases.
+- **First independent run:** scheduled **2026-04-12** (one week from assignment).
+- **Cadence:** quarterly independent pass, plus any run Joan flags as materially affecting scoring logic, preset weights, or the scenario library.
+- **Escalation rule:** if Kimon's independent run disagrees with Joan's harness result on any indication, that indication is marked `AMBIGUOUS` in `docs/validation_harness_runs/` and held until a tie-breaker run (Carlos, or a new domain reviewer) resolves it.
+
+With this assignment, the former "Joan is both author and owner" caveat is **closed upon Kimon's first independent run landing**. Until that run lands, Gate 2 status is **closed-with-scheduled-independent-pass**; after it lands and passes, Gate 2 is fully closed.
+
 **Version**: v0.9
 **Cadence**: Re-run on every change that touches scoring logic (`strategic_scoring.py`),
 narrative logic (`strategic_narrative.py`), or preset weights.
