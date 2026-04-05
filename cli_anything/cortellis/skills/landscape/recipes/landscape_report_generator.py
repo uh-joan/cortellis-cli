@@ -60,6 +60,30 @@ def read_enrichment_meta():
     return None
 
 
+def read_approval_regions():
+    """Read approval_regions.json from enrich_approval_regions.py.
+
+    Returns (by_drug_id, counts) where by_drug_id maps drug_id ->
+    {countries, has_us, has_eu, has_jp, has_major_western, earliest}, and
+    counts is the top-level summary dict. Returns ({}, None) if the file is
+    absent (recipe is optional; report degrades gracefully).
+    """
+    path = os.path.join(landscape_dir, "approval_regions.json")
+    if not os.path.exists(path):
+        return {}, None
+    try:
+        with open(path) as f:
+            data = json.load(f)
+    except Exception:
+        return {}, None
+    by_drug = {}
+    for a in data.get("analyses", []) or []:
+        did = str(a.get("drug_id", ""))
+        if did:
+            by_drug[did] = a
+    return by_drug, data.get("counts") or {}
+
+
 def read_metadata(phase_code):
     """Read .meta.json written by fetch_indication_phase.sh."""
     # Map phase names to file prefixes
@@ -102,17 +126,50 @@ def truncation_status(count, phase_code):
     return ""
 
 
-def drug_table(rows, phase_name, phase_code):
+def drug_table(rows, phase_name, phase_code, approvals_by_id=None):
+    """Render a drug table. If approvals_by_id is provided, add an 'Approved In' column
+    summarising US/EU/JP approval scope per drug (used for the Launched table).
+    """
     count = len(rows)
     warning = truncation_status(count, phase_code)
     lines = [f"### {phase_name} ({count}){warning}", ""]
-    lines.append("| Drug | Company | Mechanism |")
-    lines.append("|------|---------|-----------|")
-    for row in rows:
-        name = row.get("name", "?")[:60]
-        company = row.get("company", "?")[:40]
-        mechanism = row.get("mechanism", "")[:50]
-        lines.append(f"| {name} | {company} | {mechanism} |")
+
+    if approvals_by_id:
+        lines.append("| Drug | Company | Mechanism | Approved In |")
+        lines.append("|------|---------|-----------|-------------|")
+        for row in rows:
+            name = row.get("name", "?")[:60]
+            company = row.get("company", "?")[:40]
+            mechanism = row.get("mechanism", "")[:50]
+            approval = approvals_by_id.get(str(row.get("id", "")).strip())
+            if approval and approval.get("countries"):
+                marks = []
+                if approval.get("has_us"): marks.append("US")
+                if approval.get("has_eu"): marks.append("EU")
+                if approval.get("has_jp"): marks.append("JP")
+                cc = approval.get("country_count", 0)
+                if marks:
+                    scope = "/".join(marks) + (f" (+{cc - len(marks)})" if cc > len(marks) else "")
+                else:
+                    # No Western mark — show China-only / non-Western label
+                    countries = approval.get("countries", [])
+                    if countries == ["China"]:
+                        scope = "China only"
+                    elif len(countries) == 1:
+                        scope = f"{countries[0]} only"
+                    else:
+                        scope = f"non-Western ({cc})"
+            else:
+                scope = "—"
+            lines.append(f"| {name} | {company} | {mechanism} | {scope} |")
+    else:
+        lines.append("| Drug | Company | Mechanism |")
+        lines.append("|------|---------|-----------|")
+        for row in rows:
+            name = row.get("name", "?")[:60]
+            company = row.get("company", "?")[:40]
+            mechanism = row.get("mechanism", "")[:50]
+            lines.append(f"| {name} | {company} | {mechanism} |")
     return "\n".join(lines)
 
 
@@ -244,6 +301,29 @@ if unknown_mech > 0:
     print(f"**Uncharacterized mechanisms:** {unknown_mech} drugs")
 print()
 
+# Approval regions banner (from enrich_approval_regions.py; optional)
+approvals_by_id, approval_counts = read_approval_regions()
+if approvals_by_id and len(launched) > 0 and approval_counts is not None:
+    western = int(approval_counts.get("has_major_western", 0) or 0)
+    total_launched = len(launched)
+    pct = int(western / total_launched * 100) if total_launched else 0
+    if western == 0:
+        print(
+            f"> **FINDING: No US/EU/JP approved drug exists for this indication.** "
+            f"All {total_launched} launched drug(s) are outside the major Western "
+            "regulated regions. Treat this as a pre-first-in-class market in the West."
+        )
+        print()
+    else:
+        us = int(approval_counts.get("has_us", 0) or 0)
+        eu = int(approval_counts.get("has_eu", 0) or 0)
+        jp = int(approval_counts.get("has_jp", 0) or 0)
+        print(
+            f"**Western approvals (US/EU/JP):** {western}/{total_launched} launched drugs "
+            f"({pct}%) — US: {us} · EU: {eu} · JP: {jp}"
+        )
+        print()
+
 # Pipeline chart
 phase_data = [(name, count) for name, count, _ in phase_info]
 print("```")
@@ -271,12 +351,14 @@ for name, count, code in phase_info:
 print(f"| **Total** | **{total}** |")
 print()
 
-# Drug tables by phase
+# Drug tables by phase (Launched table gets the Approved In column when
+# approval_regions.json is present)
 for rows, name, code in [(launched, "Launched", "L"), (phase3, "Phase 3", "C3"),
                           (phase2, "Phase 2", "C2"), (phase1, "Phase 1", "C1"),
                           (discovery, "Discovery", "DR")]:
     if rows:
-        print(drug_table(rows, name, code))
+        approvals_arg = approvals_by_id if code == "L" else None
+        print(drug_table(rows, name, code, approvals_by_id=approvals_arg))
         print()
 
 # Key companies (phase-weighted: Launched=5, P3=4, P2=3, P1=2, Discovery=1)
@@ -440,6 +522,11 @@ print(f"| Mechanism annotation | {drugs_with_mech}/{total_all} ({mech_pct}%) |")
 unknown_mech_footer = total_all - drugs_with_mech
 if unknown_mech_footer > 0:
     print(f"| Uncharacterized mechanisms | {unknown_mech_footer} (potential novel programs) |")
+
+# Approval regions coverage (from enrich_approval_regions.py, if available)
+if approvals_by_id and len(launched) > 0 and approval_counts is not None:
+    western = int(approval_counts.get("has_major_western", 0) or 0)
+    print(f"| Western approvals | {western}/{len(launched)} launched drugs (US/EU/JP) |")
 
 # Enrichment meta fill rate (if available)
 enrichment_meta = read_enrichment_meta()

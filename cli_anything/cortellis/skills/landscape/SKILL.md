@@ -275,6 +275,21 @@ python3 $RECIPES/catch_missing_drugs.py <ID> $DIR
 # Catches drugs in phases like "Preclinical" that --phase DR may miss.
 ```
 
+### Step 8b: Enrich launched drugs with regulatory approval regions (recommended)
+```bash
+python3 $RECIPES/enrich_approval_regions.py $DIR <INDICATION_ID> "<INDICATION_NAME>"
+# Walks IDdbDevelopmentStatus.DevelopmentStatusCurrent[] for each launched drug
+# and keeps only (country, status, date) rows whose indication matches the target.
+# Aggregates per-drug: approval countries, earliest launch date, has_us/has_eu/has_jp.
+# Writes approval_regions.json and approval_regions.md.
+# Cost: 1 batch API call per 20 launched drugs (e.g. 3 calls for psoriasis=49).
+#
+# Surfaces "pre-first-in-class in the West" markets: when 0 launched drugs are
+# approved in US/EU/JP for this indication, the downstream report emits a
+# "no Western-approved drug" FINDING banner. Validated on Sjögren's (0% Western)
+# vs psoriasis (61% Western).
+```
+
 ### Step 9: Generate report
 ```bash
 python3 $RECIPES/landscape_report_generator.py $DIR "<INDICATION_NAME>" "<INDICATION_ID>" "<USER_INPUT>" | tee $DIR/report.md
@@ -577,6 +592,17 @@ python3 $RECIPES/opportunity_matrix.py $DIR
 # Computes attrition-adjusted opportunity score per mechanism
 # Identifies top 5 strategic opportunities + risk zones (graveyard mechanisms)
 # Outputs: opportunity_matrix.csv + markdown to stdout
+```
+
+### enrich_approval_regions.py — Regulatory approval scope per launched drug
+```bash
+python3 $RECIPES/enrich_approval_regions.py $DIR <IND_ID> "<IND_NAME>"
+# Walks IDdbDevelopmentStatus.DevelopmentStatusCurrent[] per drug, keeps
+# (country, L|R status, date) rows where Indication.@id == target OR
+# indication name contains target (catches child indications without ontology calls).
+# Outputs approval_regions.json + approval_regions.md.
+# Enables the report generator to distinguish "launched for this indication
+# in US/EU/JP" vs "launched but only in non-Western regions via a broad label".
 ```
 
 ### company_normalize.py — Company name normalization
