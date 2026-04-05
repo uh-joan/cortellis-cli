@@ -1,0 +1,11 @@
+{
+  "name": "rare_disease",
+  "description": "Breadth + deal commitment matter most",
+  "weights": {
+    "pipeline_breadth": 30,
+    "phase_score": 25,
+    "mechanism_diversity": 10,
+    "deal_activity": 20,
+    "trial_intensity": 15
+  }
+}

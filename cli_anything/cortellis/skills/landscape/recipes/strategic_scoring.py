@@ -2,7 +2,7 @@
 """
 strategic_scoring.py — Strategic intelligence layer for landscape skill.
 
-Usage: python3 strategic_scoring.py <landscape_dir>
+Usage: python3 strategic_scoring.py <landscape_dir> [preset_name]
 
 Outputs:
   <landscape_dir>/strategic_scores.csv
@@ -16,6 +16,16 @@ import os
 import sys
 from collections import defaultdict
 from datetime import datetime, date
+
+# ---------------------------------------------------------------------------
+# Preset loading
+# ---------------------------------------------------------------------------
+
+preset_name = sys.argv[2] if len(sys.argv) > 2 else "default"
+preset_path = os.path.join(os.path.dirname(__file__), "..", "config", "presets", f"{preset_name}.json")
+with open(preset_path) as f:
+    preset = json.load(f)
+WEIGHTS = preset["weights"]
 
 
 # ---------------------------------------------------------------------------
@@ -219,11 +229,11 @@ def compute_cpi(landscape_dir):
     cpi_scores = {}
     for c in all_companies:
         cpi = (
-            n_breadth.get(c, 0) * 0.20
-            + n_phase.get(c, 0) * 0.30
-            + n_mech.get(c, 0) * 0.20
-            + n_deals.get(c, 0) * 0.15
-            + n_trials.get(c, 0) * 0.15
+            n_breadth.get(c, 0) * WEIGHTS["pipeline_breadth"] / 100
+            + n_phase.get(c, 0) * WEIGHTS["phase_score"] / 100
+            + n_mech.get(c, 0) * WEIGHTS["mechanism_diversity"] / 100
+            + n_deals.get(c, 0) * WEIGHTS["deal_activity"] / 100
+            + n_trials.get(c, 0) * WEIGHTS["trial_intensity"] / 100
         )
         cpi_scores[c] = cpi
 
@@ -244,9 +254,11 @@ def compute_cpi(landscape_dir):
 
     result = {}
     for c in all_companies:
+        score = round(cpi_scores[c], 2)
         result[c] = {
             "company": c,
-            "cpi_score": round(cpi_scores[c], 2),
+            "cpi_tier": cpi_to_tier(score),
+            "cpi_score": score,
             "pipeline_breadth": breadth.get(c, 0),
             "phase_score": round(phase_score.get(c, 0), 2),
             "mechanism_diversity": mech_diversity.get(c, 0),
@@ -255,6 +267,17 @@ def compute_cpi(landscape_dir):
             "position": positions.get(c, "Emerging"),
         }
     return result
+
+
+# ---------------------------------------------------------------------------
+# CPI tier helper
+# ---------------------------------------------------------------------------
+
+def cpi_to_tier(cpi):
+    if cpi >= 75: return "A"
+    if cpi >= 50: return "B"
+    if cpi >= 25: return "C"
+    return "D"
 
 
 # ---------------------------------------------------------------------------
@@ -355,7 +378,7 @@ def compute_momentum(landscape_dir):
 def write_strategic_scores(landscape_dir, cpi_data):
     path = os.path.join(landscape_dir, "strategic_scores.csv")
     fieldnames = [
-        "company", "cpi_score", "pipeline_breadth", "phase_score",
+        "company", "cpi_tier", "cpi_score", "pipeline_breadth", "phase_score",
         "mechanism_diversity", "deal_activity", "trial_intensity", "position"
     ]
     rows = sorted(cpi_data.values(), key=lambda r: r["cpi_score"], reverse=True)
@@ -393,19 +416,21 @@ def render_markdown(landscape_dir, cpi_data, mech_data, momentum):
         f"",
         f"_Data freshness: {now}_",
         f"",
+        f"*Preset: {preset['name']} — {preset['description']}*",
+        f"",
     ]
 
     # CPI table — top 15
     lines += [
         "## Competitive Position Index (Top 15)",
         "",
-        "| Rank | Company | CPI | Breadth | Phase Score | Mech Diversity | Deals | Trials | Position |",
-        "|------|---------|-----|---------|-------------|----------------|-------|--------|----------|",
+        "| Rank | Company | Tier | CPI | Breadth | Phase Score | Mech Diversity | Deals | Trials | Position |",
+        "|------|---------|------|-----|---------|-------------|----------------|-------|--------|----------|",
     ]
     sorted_cpi = sorted(cpi_data.values(), key=lambda r: r["cpi_score"], reverse=True)
     for i, row in enumerate(sorted_cpi[:15], 1):
         lines.append(
-            f"| {i} | {row['company']} | {row['cpi_score']:.1f} | {row['pipeline_breadth']} "
+            f"| {i} | {row['company']} | {row['cpi_tier']} | {int(round(row['cpi_score']))} | {row['pipeline_breadth']} "
             f"| {row['phase_score']:.0f} | {row['mechanism_diversity']} "
             f"| {row['deal_activity']} | {row['trial_intensity']} | {row['position']} |"
         )

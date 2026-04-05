@@ -106,6 +106,8 @@ python3 $RECIPES/landscape_report_generator.py $DIR "$TECH_NAME" "" "<TECH>" | t
 python3 $RECIPES/strategic_scoring.py $DIR | tee $DIR/strategic_scores.md
 python3 $RECIPES/opportunity_matrix.py $DIR | tee $DIR/opportunity_analysis.md
 python3 $RECIPES/strategic_narrative.py $DIR "$TECH_NAME" | tee $DIR/strategic_briefing.md
+python3 $RECIPES/compose_swot.py $DIR | tee $DIR/swot_composition.md
+python3 $RECIPES/narrate.py $DIR "$TECH_NAME"
 # Pass empty string for ID (not applicable in technology mode)
 # For combined mode: python3 $RECIPES/landscape_report_generator.py $DIR "$TECH_NAME ($IND_NAME)" "" "<TECH> + <IND>" | tee $DIR/report.md
 # USER_INPUT is the original user-supplied technology (and indication) name
@@ -267,10 +269,18 @@ python3 $RECIPES/landscape_report_generator.py $DIR "<INDICATION_NAME>" "<INDICA
 
 ### Step 10: Strategic scoring
 ```bash
-python3 $RECIPES/strategic_scoring.py $DIR | tee $DIR/strategic_scores.md
-# Computes: Competitive Position Index, mechanism crowding, momentum indicators
+python3 $RECIPES/strategic_scoring.py $DIR [PRESET] | tee $DIR/strategic_scores.md
+# Computes: Competitive Position Index (CPI with A/B/C/D tiers), mechanism crowding, momentum indicators
 # Outputs: strategic_scores.csv, mechanism_scores.csv + markdown to stdout
 # Pure computation — no LLM calls. Deterministic and reproducible.
+#
+# Optional PRESET arg selects therapeutic area weights from config/presets/:
+#   default (20/30/20/15/15 — balanced)
+#   oncology (15/35/25/15/10 — phase + mechanism diversity)
+#   rare_disease (30/25/10/20/15 — breadth + deal commitment)
+#   neuro (15/40/20/15/10 — P3 is exceptional due to attrition)
+#   metabolic (15/25/15/25/20 — deals + trial velocity dominate)
+# Example: python3 $RECIPES/strategic_scoring.py $DIR neuro
 ```
 
 ### Step 11: Opportunity analysis
@@ -290,6 +300,23 @@ python3 $RECIPES/strategic_narrative.py $DIR "<INDICATION_NAME>" | tee $DIR/stra
 # - Scenario Analysis (what if top company exits?)
 # - Strategic Implications for 4 executive decisions
 # Pure computation — no LLM calls. Every claim backed by a number.
+```
+
+### Step 13: Cross-skill composition (optional)
+```bash
+python3 $RECIPES/compose_swot.py $DIR | tee $DIR/swot_composition.md
+# Identifies top Leader-tier companies and their flagship drugs
+# Outputs markdown with /drug-swot commands for the orchestrator to execute
+# Enables /landscape → /drug-swot cross-skill chains
+```
+
+### Step 14: LLM narration context (optional)
+```bash
+python3 $RECIPES/narrate.py $DIR "<INDICATION_NAME>"
+# Prepares structured context for LLM-based narrative briefing
+# Writes narrate_context.json with top companies, mechanisms, opportunities, risks
+# Outputs a prompt template for the orchestrator to feed to an LLM
+# Honors council recommendation: structured LLM prompts over scored data (no freeform)
 ```
 
 ## Output Rules
@@ -350,7 +377,14 @@ python3 $RECIPES/strategic_narrative.py $DIR "<INDICATION_NAME>" | tee $DIR/stra
 - Risk Zones (high attrition mechanisms to avoid)
 ```
 
-## Recipes (13 total)
+## Documentation
+
+- **Schema contract**: `schemas/landscape_output.schema.json` — JSON Schema draft-07 for all CSV/JSON outputs. Downstream skills should validate against this.
+- **CPI factor audit**: `docs/cpi_factor_audit.md` — construct validity analysis of the 5 scoring factors, including known limitations (double counting, selection bias, temporal mismatch).
+- **Weight derivation methodology**: `docs/weight_derivation.md` — how CPI weights SHOULD be derived empirically when historical data is available (currently using committee-compromise weights).
+- **Presets**: `config/presets/*.json` — therapeutic area-specific CPI weights (default, oncology, rare_disease, neuro, metabolic).
+
+## Recipes (15 total)
 
 ### resolve_indication.py — Indication ID resolution
 ```bash
@@ -445,6 +479,25 @@ python3 $RECIPES/strategic_narrative.py $DIR "<INDICATION_NAME>"
 # Scenario analysis: what if top company exits? Who benefits?
 # Strategic implications for 4 decisions: enter, partner, cut, differentiate
 # Every claim backed by a computed number — no LLM inference
+```
+
+### compose_swot.py — Cross-skill composition (/landscape → /drug-swot)
+```bash
+python3 $RECIPES/compose_swot.py $DIR
+# Identifies top 5 Leader-tier companies from strategic_scores.csv
+# Extracts flagship drugs from launched.csv / phase3.csv
+# Outputs markdown with /drug-swot commands for orchestrator execution
+# Pure Python stdlib
+```
+
+### narrate.py — LLM narration scaffold
+```bash
+python3 $RECIPES/narrate.py $DIR "<INDICATION_NAME>"
+# Reads all scored CSVs + opportunity_matrix + deals metadata
+# Builds structured context dict (top companies, mechanisms, opportunities, risks)
+# Writes $DIR/narrate_context.json
+# Prints prompt template for orchestrator to feed to LLM
+# Honors council spec: structured prompts over scored data, no freeform
 ```
 
 ### opportunity_matrix.py — Mechanism x Phase Heatmap + White Space

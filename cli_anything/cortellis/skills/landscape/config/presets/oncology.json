@@ -1,0 +1,11 @@
+{
+  "name": "oncology",
+  "description": "Late-stage and combo mechanisms dominate",
+  "weights": {
+    "pipeline_breadth": 15,
+    "phase_score": 35,
+    "mechanism_diversity": 25,
+    "deal_activity": 15,
+    "trial_intensity": 10
+  }
+}
