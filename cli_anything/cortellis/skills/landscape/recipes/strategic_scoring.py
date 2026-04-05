@@ -238,7 +238,8 @@ def compute_cpi(landscape_dir):
         cpi_scores[c] = cpi
 
     # --- Position assignment ---
-    sorted_companies = sorted(cpi_scores, key=lambda c: cpi_scores[c], reverse=True)
+    # Sort by score desc, then company name asc for deterministic tiebreak
+    sorted_companies = sorted(cpi_scores, key=lambda c: (-cpi_scores[c], c))
     n = len(sorted_companies)
     top20 = max(1, int(n * 0.20))
     next30 = max(1, int(n * 0.30))
@@ -251,6 +252,10 @@ def compute_cpi(landscape_dir):
             positions[c] = "Challenger"
         else:
             positions[c] = "Emerging"
+
+    # Compute percentile-based tier thresholds for this run
+    sorted_scores_desc = [round(cpi_scores[c], 2) for c in sorted_companies]
+    set_cpi_tier_thresholds(sorted_scores_desc)
 
     result = {}
     for c in all_companies:
@@ -270,13 +275,63 @@ def compute_cpi(landscape_dir):
 
 
 # ---------------------------------------------------------------------------
-# CPI tier helper
+# CPI tier helper — percentile-based, computed per-run
 # ---------------------------------------------------------------------------
 
+# Module-level holder; populated by compute_cpi() before first use.
+_cpi_tier_thresholds = None
+
+
+def set_cpi_tier_thresholds(sorted_scores):
+    """Compute percentile-based tier thresholds from a sorted (desc) list of CPI scores.
+
+    Tiers:
+      A — top 10%  (requires cpi >= 40 floor; if no company meets it, best gets B)
+      B — next 15% (10th–25th percentile from top)
+      C — next 25% (25th–50th percentile from top)
+      D — bottom 50%
+    """
+    global _cpi_tier_thresholds
+    n = len(sorted_scores)
+    if n == 0:
+        _cpi_tier_thresholds = (40.0, 0.0, 0.0)
+        return
+
+    top10_idx = max(1, int(n * 0.10)) - 1        # last index in top 10%
+    top25_idx = max(1, int(n * 0.25)) - 1        # last index in top 25%
+    top50_idx = max(1, int(n * 0.50)) - 1        # last index in top 50%
+
+    thresh_a = sorted_scores[top10_idx]   # score at 10th-percentile boundary
+    thresh_b = sorted_scores[top25_idx]   # score at 25th-percentile boundary
+    thresh_c = sorted_scores[top50_idx]   # score at 50th-percentile boundary
+
+    _cpi_tier_thresholds = (thresh_a, thresh_b, thresh_c)
+
+
 def cpi_to_tier(cpi):
-    if cpi >= 75: return "A"
-    if cpi >= 50: return "B"
-    if cpi >= 25: return "C"
+    """Assign tier using percentile thresholds set by set_cpi_tier_thresholds().
+
+    Tier A requires cpi_score >= 40 (floor); if the top-10% threshold is below 40,
+    no company gets Tier A and the best company gets Tier B instead.
+    """
+    global _cpi_tier_thresholds
+    if _cpi_tier_thresholds is None:
+        # Fallback to fixed thresholds if called before thresholds are set
+        if cpi >= 75: return "A"
+        if cpi >= 50: return "B"
+        if cpi >= 25: return "C"
+        return "D"
+
+    thresh_a, thresh_b, thresh_c = _cpi_tier_thresholds
+    FLOOR_A = 40.0
+
+    effective_a = max(thresh_a, FLOOR_A)
+    if cpi >= effective_a:
+        return "A"
+    if cpi >= thresh_b:
+        return "B"
+    if cpi >= thresh_c:
+        return "C"
     return "D"
 
 
@@ -381,7 +436,7 @@ def write_strategic_scores(landscape_dir, cpi_data):
         "company", "cpi_tier", "cpi_score", "pipeline_breadth", "phase_score",
         "mechanism_diversity", "deal_activity", "trial_intensity", "position"
     ]
-    rows = sorted(cpi_data.values(), key=lambda r: r["cpi_score"], reverse=True)
+    rows = sorted(cpi_data.values(), key=lambda r: (-r["cpi_score"], r["company"]))
     with open(path, "w", newline="", encoding="utf-8") as f:
         writer = csv.DictWriter(f, fieldnames=fieldnames)
         writer.writeheader()
@@ -395,7 +450,7 @@ def write_mechanism_scores(landscape_dir, mech_data):
         "mechanism", "active_count", "launched", "phase3", "phase2",
         "phase1", "discovery", "company_count", "crowding_index"
     ]
-    rows = sorted(mech_data.values(), key=lambda r: r["crowding_index"], reverse=True)
+    rows = sorted(mech_data.values(), key=lambda r: (-r["crowding_index"], r["mechanism"]))
     with open(path, "w", newline="", encoding="utf-8") as f:
         writer = csv.DictWriter(f, fieldnames=fieldnames)
         writer.writeheader()
@@ -427,7 +482,7 @@ def render_markdown(landscape_dir, cpi_data, mech_data, momentum):
         "| Rank | Company | Tier | CPI | Breadth | Phase Score | Mech Diversity | Deals | Trials | Position |",
         "|------|---------|------|-----|---------|-------------|----------------|-------|--------|----------|",
     ]
-    sorted_cpi = sorted(cpi_data.values(), key=lambda r: r["cpi_score"], reverse=True)
+    sorted_cpi = sorted(cpi_data.values(), key=lambda r: (-r["cpi_score"], r["company"]))
     for i, row in enumerate(sorted_cpi[:15], 1):
         lines.append(
             f"| {i} | {row['company']} | {row['cpi_tier']} | {int(round(row['cpi_score']))} | {row['pipeline_breadth']} "
@@ -456,7 +511,7 @@ def render_markdown(landscape_dir, cpi_data, mech_data, momentum):
         "| Mechanism | Active Drugs | Companies | Crowding Index |",
         "|-----------|-------------|-----------|----------------|",
     ]
-    sorted_mech = sorted(mech_data.values(), key=lambda r: r["crowding_index"], reverse=True)
+    sorted_mech = sorted(mech_data.values(), key=lambda r: (-r["crowding_index"], r["mechanism"]))
     for row in sorted_mech[:10]:
         mech_display = row["mechanism"][:60]
         lines.append(

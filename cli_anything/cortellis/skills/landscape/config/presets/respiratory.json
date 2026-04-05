@@ -1,0 +1,11 @@
+{
+  "name": "respiratory",
+  "description": "Respiratory — launched franchise + trial execution weighted",
+  "weights": {
+    "pipeline_breadth": 25,
+    "phase_score": 25,
+    "mechanism_diversity": 15,
+    "deal_activity": 15,
+    "trial_intensity": 20
+  }
+}

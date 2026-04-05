@@ -7,6 +7,14 @@ description: /landscape: Competitive Landscape Report
 
 Generate a full competitive landscape for a therapeutic indication.
 
+> **Version: v0.9-internal** (as of 2026-04-05). Validated on a 5-indication internal harness (4/4 available PASS) and cleared for internal BD use. Not yet promoted to public v0.9 — pending first external decider trial (`docs/decider_trials/`). Strategic briefings and scores should be reviewed against domain judgment before acting on external commitments.
+
+## LICENSING
+
+> **Code:** MIT (see repository `LICENSE`).
+> **Derived analytical outputs** (strategic briefings, scenario libraries, CPI rankings, mechanism crowding indices): shareable per the TOS answer recorded in `docs/tos_check.md` (ANSWERED 2026-04-05). Attribute Cortellis/Clarivate as the underlying data source when sharing externally.
+> **Raw Cortellis data** (anything under `raw/` pulled directly from the API) remains governed by your Cortellis/Clarivate subscription agreement and must not be redistributed.
+
 ## Usage
 
 **Indication mode (default):**
@@ -151,7 +159,9 @@ python3 $RECIPES/company_landscape.py $DIR > $DIR/companies.csv
 
 ### Target Step 4: Recent deals (paginated)
 ```bash
-bash $RECIPES/fetch_deals_paginated.sh '--query "dealActionsPrimary:\"$ACTION_NAME\""' $DIR/deals.csv $PIPELINE_RECIPES
+# Note: dealActionsPrimary is not a valid Cortellis deals API field (returns HTTP 500).
+# Use free-text keyword query instead — over-fetches slightly but avoids 500 errors.
+bash $RECIPES/fetch_deals_paginated.sh '--query "\"$ACTION_NAME\""' $DIR/deals.csv $PIPELINE_RECIPES
 python3 $RECIPES/deals_analytics.py $DIR/deals.csv $DIR/deals.meta.json | tee $DIR/deals_analytics.md
 ```
 
@@ -275,12 +285,17 @@ python3 $RECIPES/strategic_scoring.py $DIR [PRESET] | tee $DIR/strategic_scores.
 # Pure computation — no LLM calls. Deterministic and reproducible.
 #
 # Optional PRESET arg selects therapeutic area weights from config/presets/:
-#   default (20/30/20/15/15 — balanced)
-#   oncology (15/35/25/15/10 — phase + mechanism diversity)
+#   default      (20/30/20/15/15 — balanced)
+#   oncology     (15/35/25/15/10 — phase + mechanism diversity)
 #   rare_disease (30/25/10/20/15 — breadth + deal commitment)
-#   neuro (15/40/20/15/10 — P3 is exceptional due to attrition)
-#   metabolic (15/25/15/25/20 — deals + trial velocity dominate)
-# Example: python3 $RECIPES/strategic_scoring.py $DIR neuro
+#   neuro        (15/40/20/15/10 — P3 is exceptional due to attrition)
+#   metabolic    (15/25/15/25/20 — deals + trial velocity dominate)
+#   respiratory  (25/35/15/15/10 — launched franchise + trial execution weighted)
+#   rare_cns     (35/30/10/15/10 — breadth + phase score for ultra-rare CNS)
+#   io_combo     (10/40/30/10/10 — mechanism diversity + late-stage focus for I-O combos)
+# Note: CPI tiers are percentile-based within each run (Tier A = top 10%, floor cpi>=40).
+#   Tier A always exists when any company clears the floor — avoids Tier D collapse on sparse indications.
+# Example: python3 $RECIPES/strategic_scoring.py $DIR respiratory
 ```
 
 ### Step 11: Opportunity analysis
@@ -300,6 +315,30 @@ python3 $RECIPES/strategic_narrative.py $DIR "<INDICATION_NAME>" | tee $DIR/stra
 # - Scenario Analysis (what if top company exits?)
 # - Strategic Implications for 4 executive decisions
 # Pure computation — no LLM calls. Every claim backed by a number.
+```
+
+### Step 12b: Scenario library (counterfactual analysis)
+```bash
+python3 $RECIPES/scenario_library.py $DIR "<INDICATION_NAME>" [--scenarios all|<name,...>] | tee $DIR/scenario_analysis.md
+# Runs 5 counterfactual scenarios:
+#   top_exit              — top company exits; ranks beneficiaries by specialty-buyer-fit
+#   crowded_consolidation — crowded mechanism consolidates to top-3 winners
+#   loe_wave              — LOE wave simulation (requires loe_metrics.csv from loe_analysis.py)
+#   new_entrant_disruption — well-funded entrant targets white-space mechanisms
+#   pivotal_failure       — top-3 company's flagship phase-3 drug fails
+# Pure computation, stdlib only. Run after strategic_scoring.py and opportunity_matrix.py.
+# Example: python3 $RECIPES/scenario_library.py $DIR "Asthma" --scenarios top_exit,loe_wave
+```
+
+### Step 12c: LOE analysis
+```bash
+python3 $RECIPES/loe_analysis.py $DIR | tee $DIR/loe_analysis.md
+# Computes Loss-of-Exclusivity exposure per company:
+#   - launched drug count vs phase-3 backfill gap
+#   - LOE exposure % (launched / total pipeline)
+#   - HIGH risk flag: refill_gap >= 3 or exposure > 50%
+# Outputs: loe_metrics.csv + markdown to stdout
+# Required input for scenario_library.py loe_wave scenario
 ```
 
 ### Step 13: Cross-skill composition (optional)
@@ -331,6 +370,21 @@ python3 $RECIPES/narrate.py $DIR "<INDICATION_NAME>"
   - **Leader**: score >= 10, OR (Large company AND score >= 4)
   - **Active**: score >= 4, OR Large company (from Cortellis company-analytics)
   - **Emerging**: everything else
+
+### Confidence & abstention
+
+`strategic_narrative.py` and `scenario_library.py` now emit confidence labels — **HIGH**, **MEDIUM**, **LOW**, or **ABSTAIN** — on key claims and scenario outputs.
+
+- **HIGH**: claim is supported by dense pipeline data (many drugs, multiple large-cap companies, substantial deal activity).
+- **MEDIUM**: claim is directionally supported but rests on moderate data (thin launched franchise, limited deals, or few large players).
+- **LOW**: claim is speculative; data is sparse and a single data point could reverse the conclusion.
+- **ABSTAIN**: data is too thin to rank or recommend. Treat ABSTAIN as "no recommendation", **not** "weakest recommendation". Downstream consumers must not infer a preference from an ABSTAIN label.
+
+Confidence labels appear on: Primary Beneficiaries (strategic_narrative), all 5 scenario headers and `top_exit` beneficiary rows (scenario_library).
+
+### Reader orientation
+
+- For definitions of all confidence labels, scoring factors, and tier thresholds, see **`docs/glossary.md`**.
 
 ## Output Format
 
@@ -382,7 +436,12 @@ python3 $RECIPES/narrate.py $DIR "<INDICATION_NAME>"
 - **Schema contract**: `schemas/landscape_output.schema.json` — JSON Schema draft-07 for all CSV/JSON outputs. Downstream skills should validate against this.
 - **CPI factor audit**: `docs/cpi_factor_audit.md` — construct validity analysis of the 5 scoring factors, including known limitations (double counting, selection bias, temporal mismatch).
 - **Weight derivation methodology**: `docs/weight_derivation.md` — how CPI weights SHOULD be derived empirically when historical data is available (currently using committee-compromise weights).
-- **Presets**: `config/presets/*.json` — therapeutic area-specific CPI weights (default, oncology, rare_disease, neuro, metabolic).
+- **Presets**: `config/presets/*.json` — therapeutic area-specific CPI weights (default, oncology, rare_disease, neuro, metabolic, respiratory, rare_cns, io_combo).
+- **Validation harness**: `docs/validation_harness.md` — reproducibility test protocol, known ground-truth fixtures (asthma, IPF, ALS), and regression-check commands.
+- **Stress test findings**: `docs/fragmented_indication_stress_test.md` — documents Tier D collapse on IPF/ALS, thin-pipeline specialty-fit degeneracy, and dealActionsPrimary API bug; describes the adaptive-tier and engagement-tiebreak fixes applied in v0.9.
+- **Glossary**: `docs/glossary.md` — definitions for confidence labels (HIGH/MEDIUM/LOW/ABSTAIN), CPI scoring factors, tier thresholds, and key terms used across all strategic output files.
+- **TOS check**: `docs/tos_check.md` — Cortellis redistribution question, **ANSWERED 2026-04-05**: derived analytical outputs may be shared externally with attribution; raw Cortellis data stays internal. Code is MIT-licensed (repository `LICENSE`).
+- **Pre-registered predictions**: `docs/pre_registered_predictions.md` — forward-looking scenario predictions registered before outcomes are known, for future back-testing of scenario_library.py accuracy.
 
 ## Recipes (15 total)
 

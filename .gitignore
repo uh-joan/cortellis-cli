@@ -9,3 +9,6 @@ build/
 .omc/
 *.png
 *.svg
+
+# Raw Cortellis API data — governed by Cortellis/Clarivate subscription, do not redistribute
+raw/
