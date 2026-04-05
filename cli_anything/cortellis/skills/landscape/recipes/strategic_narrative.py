@@ -383,14 +383,24 @@ if white_space:
     ws_names = ", ".join(m.get("mechanism", "?")[:30] for m in white_space[:3])
     print(f"- White space opportunities: {ws_names}")
 # So what action closure for Enter/Expand
+# Confidence based on emerging+white-space data density
+_enter_low_crowd_candidates = [m for m in opportunities if m.get("status") in ("Emerging", "White Space")]
+_enter_with_active = [m for m in _enter_low_crowd_candidates if safe_int(m.get("active_count", 0)) >= 2]
+if len(_enter_low_crowd_candidates) >= 3 and len(_enter_with_active) >= 1:
+    enter_conf = "HIGH"
+elif len(_enter_low_crowd_candidates) >= 2 or len(_enter_with_active) >= 1:
+    enter_conf = "MEDIUM"
+elif len(_enter_low_crowd_candidates) == 1:
+    enter_conf = "LOW"
+else:
+    enter_conf = "ABSTAIN"
+
 if white_space:
     top_ws = white_space[0].get("mechanism", "?")[:40]
     enter_action = f"Explore entry via {top_ws} — white-space mechanism with no current leaders."
-    enter_conf = "MEDIUM"
 elif emerging:
     top_em = emerging[0].get("mechanism", "?")[:40]
     enter_action = f"Evaluate {top_em} — emerging mechanism with growing activity."
-    enter_conf = "MEDIUM"
 else:
     enter_action = None
 if enter_action:
@@ -424,16 +434,29 @@ if academic_targets:
         cpi = s["_cpi"]
         print(f"- {name} (CPI: {cpi:.1f}) — license-in target")
 # So what action closure for Partner/Acquire
+# Confidence based on CPI separation of top Rising Challenger vs median
+_challenger_cpis = [s["_cpi"] for s in quadrants["Rising Challengers"] if s["_cpi"] > 0]
+if _challenger_cpis:
+    _challenger_median = sorted(_challenger_cpis)[len(_challenger_cpis) // 2]
+    _top_challenger_cpi = _challenger_cpis[0] if _challenger_cpis else 0
+    _top_is_academic = bool(academic_targets and commercial_targets == [])
+    if _challenger_median > 0 and _top_challenger_cpi >= 3 * _challenger_median and not _top_is_academic:
+        partner_conf = "HIGH"
+    elif (_challenger_median > 0 and _top_challenger_cpi >= 2 * _challenger_median) or _top_is_academic:
+        partner_conf = "MEDIUM"
+    else:
+        partner_conf = "LOW"
+else:
+    partner_conf = "ABSTAIN"
+
 if commercial_targets:
     top_target = commercial_targets[0].get("company", "?")[:35]
     top_cpi = commercial_targets[0]["_cpi"]
     partner_action = f"Initiate acquisition diligence on {top_target} (CPI: {top_cpi:.1f}) — top commercial momentum target."
-    partner_conf = "MEDIUM"
 elif academic_targets:
     top_target = academic_targets[0].get("company", "?")[:35]
     top_cpi = academic_targets[0]["_cpi"]
     partner_action = f"Engage {top_target} (CPI: {top_cpi:.1f}) for license-in — top academic pipeline candidate."
-    partner_conf = "LOW"
 else:
     partner_action = None
 if partner_action:
@@ -449,13 +472,22 @@ if fading:
 if top_mech_share > 40:
     print(f"- {top_mech_name} is heavily crowded ({top_mech_share:.0f}% share) — consider pivoting to differentiated mechanisms")
 # So what action closure for Double down/Cut
+# Confidence based on Fading Giants count and top mechanism share
+_fading_count = len(quadrants["Fading Giants"])
+if _fading_count >= 3 and top_mech_share > 40:
+    doubledown_conf = "HIGH"
+elif _fading_count >= 2 or top_mech_share > 30:
+    doubledown_conf = "MEDIUM"
+elif _fading_count == 1:
+    doubledown_conf = "LOW"
+else:
+    doubledown_conf = "ABSTAIN"
+
 if fading:
     top_fading = fading[0][:35]
     doubledown_action = f"Review {top_fading} portfolio position — declining momentum signals divestment or partnership opportunity."
-    doubledown_conf = "LOW"
 elif top_mech_share > 40:
     doubledown_action = f"Cut exposure to {top_mech_name[:40]} ({top_mech_share:.0f}% share) — pivot to differentiated mechanisms."
-    doubledown_conf = "MEDIUM"
 else:
     doubledown_action = None
 if doubledown_action:
@@ -474,11 +506,21 @@ if low_crowd:
     for m in low_crowd:
         print(f"- {m.get('mechanism', '?')[:40]}: only {m.get('company_count', '?')} companies, {m.get('active_count', '?')} drugs — low competition")
 # So what action closure for Differentiate
+# Confidence based on count of low-crowd mechanisms (≤3 companies, ≥2 drugs)
+_low_crowd_all = [m for m in mechanisms if safe_int(m.get("company_count", 0)) <= 3 and safe_int(m.get("active_count", 0)) >= 2]
+if len(_low_crowd_all) >= 3:
+    diff_conf = "HIGH"
+elif len(_low_crowd_all) >= 2:
+    diff_conf = "MEDIUM"
+elif len(_low_crowd_all) == 1:
+    diff_conf = "LOW"
+else:
+    diff_conf = "ABSTAIN"
+
 if low_crowd:
     top_lc = low_crowd[0]
     diff_mech = top_lc.get("mechanism", "?")[:40]
     diff_action = f"Invest in {diff_mech} — only {top_lc.get('company_count', '?')} competitors, {top_lc.get('active_count', '?')} drugs in field."
-    diff_conf = "MEDIUM"
 else:
     diff_action = None
 if diff_action:

@@ -25,6 +25,21 @@ To address the independence gap (Joan is both skill author and primary harness o
 
 With this assignment, the former "Joan is both author and owner" caveat is **closed upon Kimon's first independent run landing**. Until that run lands, Gate 2 status is **closed-with-scheduled-independent-pass**; after it lands and passes, Gate 2 is fully closed.
 
+## Third-Party Rubric Reviewer (TBD — v0.9-external BLOCKER)
+
+**Purpose:** Review the retrospective blind test rubric (`decider_trials/retrospective_blind_test_protocol.md`) before scoring begins, to catch ambiguities or scoring-schema bias. Addresses the Joan-as-single-point-of-failure concern raised by the 68% council (2026-04-05 verification follow-up).
+
+**Required fields (fill when assigned):**
+- Name: TBD
+- Relationship to /landscape team: MUST NOT be the harness owner, the blind scorer, the decider, OR the rubric author
+- Assignment date: TBD
+- Review completed date: TBD
+- Review verdict: TBD (accept / accept with changes / reject)
+
+**Acceptance criteria:** reviewer must be a real human outside the Joan/Kimon/Carlos chain with pharma/BD/methodology context.
+
+**Escalation:** if unassigned by the time the first retrospective blind test results are drafted, block the trial verdict until a reviewer is named. Do NOT score-then-assign — that would defeat the independence purpose.
+
 **Version**: v0.9
 **Cadence**: Re-run on every change that touches scoring logic (`strategic_scoring.py`),
 narrative logic (`strategic_narrative.py`), or preset weights.

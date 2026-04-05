@@ -7,7 +7,15 @@ description: /landscape: Competitive Landscape Report
 
 Generate a full competitive landscape for a therapeutic indication.
 
-> **Version: v0.9-internal** (as of 2026-04-05). Validated on a 5-indication internal harness (4/4 available PASS). Cleared for internal BD use. Not yet promoted to public v0.9 — pending first external decider trial with Carlos (uh-carlos) scheduled **2026-04-15** (see `docs/decider_trials/2026-04-15-cs.md`). Harness independence gap closed by Kimon (uh-kimon) as independent co-reviewer, first independent pass scheduled **2026-04-12**. TOS dual-attestation by Joan + Kimon (see `docs/tos_check.md`). Strategic briefings and scores should be reviewed against domain judgment before acting on external commitments until the v0.9 promotion lands.
+> **Version: v0.9-internal** (locked 2026-04-05)
+>
+> **Status:** Cleared for internal BD use. Not promoted to public v0.9 — pending completion of the retrospective blind test (`docs/decider_trials/retrospective_blind_test_protocol.md`, protocol ID `retrospective-blind-v1-20260405`).
+>
+> **Roles (names tracked in referenced docs, not here):** harness owner, independent observer, rubric author, external decider, third-party rubric reviewer (TBD).
+>
+> **Validation status:** 5-indication internal harness 4/4 PASS. Independent harness re-run scheduled. TOS dual-attestation complete (MIT relicense). Retrospective blind test pending.
+>
+> **Caveat:** Strategic briefings and scores should be reviewed against domain judgment before acting on external commitments until v0.9 promotion lands.
 
 ## LICENSING
 

@@ -172,8 +172,6 @@ def scenario_top_exit(landscape_dir, indication_name):
         f"*Preset: top_exit — Specialty-buyer-fit formula: score = overlap × 1/(1 + phase3plus/5)*",
         f"*Assumption: Overlap × specialty-buyer-fit ranking; does not model deal prices.*",
         "",
-        "> **Reading these scenarios:** All scores are heuristic, not calibrated against historical transactions. Tier labels (where shown) are relative to the current indication — not comparable across diseases. ABSTAIN means the data is too thin to produce a confident ranking. See docs/glossary.md.",
-        "",
         f"**Exiting company:** {top_company} (CPI: {top_cpi:.1f})",
         f"**Programs removed:** {len(top_drugs)} drugs across {len(top_mechs)} mechanisms",
         "",
@@ -256,12 +254,13 @@ def scenario_crowded_consolidation(landscape_dir, indication_name):
     company_phase_counts = get_company_phase_counts(drug_rows)
     company_total = {c: sum(v for v in company_phase_counts[c].values()) for c in mech_company_phase_score}
 
-    top5_exposed = sorted(
+    all_exposed = sorted(
         [(c, mech_company_drug_count[c], company_total.get(c, 1))
          for c in mech_company_phase_score],
         key=lambda x: x[1] / x[2],
         reverse=True
-    )[:5]
+    )
+    top5_exposed = all_exposed[:5]  # show top 5 of N; total shown in header
 
     # Confidence scoring for crowded_consolidation
     # HIGH if top mechanism has >= 2× active drug count of #2; MEDIUM if >= 1.5×; LOW otherwise
@@ -279,8 +278,6 @@ def scenario_crowded_consolidation(landscape_dir, indication_name):
         f"*Preset: crowded_consolidation — Top-3 companies win; remainder exit.*",
         f"*Assumption: Phase-score ranking determines winners; no modeling of IP or regulatory moats.*",
         "",
-        "> **Reading these scenarios:** All scores are heuristic, not calibrated against historical transactions. Tier labels (where shown) are relative to the current indication — not comparable across diseases. ABSTAIN means the data is too thin to produce a confident ranking. See docs/glossary.md.",
-        "",
         f"**Crowded mechanism:** {mech_name}",
         f"**Scope:** {mech_drug_count} active drugs, {mech_company_count} companies",
         "",
@@ -297,7 +294,7 @@ def scenario_crowded_consolidation(landscape_dir, indication_name):
         "",
         f"**Shakeout:** {companies_exiting} companies exit → {drugs_lost} drugs/programs removed",
         "",
-        "**Most exposed companies** (% of total pipeline in this mechanism):",
+        f"**Most exposed companies** (top {len(top5_exposed)} of {len(all_exposed)} — % of total pipeline in this mechanism):",
         "",
         "| Company | Mech Drugs | Total Pipeline | Exposure % |",
         "|---------|-----------|----------------|------------|",
@@ -370,8 +367,6 @@ def scenario_loe_wave(landscape_dir, indication_name):
         "",
         f"*Preset: loe_wave — Proxy: all launched drugs treated as LOE-exposed; no exact patent dates.*",
         f"*Assumption: refill_gap = launched - phase3; positive gap = insufficient pipeline backfill.*",
-        "",
-        "> **Reading these scenarios:** All scores are heuristic, not calibrated against historical transactions. Tier labels (where shown) are relative to the current indication — not comparable across diseases. ABSTAIN means the data is too thin to produce a confident ranking. See docs/glossary.md.",
         "",
     ]
 
@@ -496,8 +491,6 @@ def scenario_new_entrant_disruption(landscape_dir, indication_name):
         f"*Preset: new_entrant_disruption — Well-funded entrant exploits white-space mechanisms.*",
         f"*Assumption: Incumbents not present in a mechanism are most threatened by a new entrant claiming it.*",
         "",
-        "> **Reading these scenarios:** All scores are heuristic, not calibrated against historical transactions. Tier labels (where shown) are relative to the current indication — not comparable across diseases. ABSTAIN means the data is too thin to produce a confident ranking. See docs/glossary.md.",
-        "",
     ]
 
     if abstain:
@@ -528,12 +521,13 @@ def scenario_new_entrant_disruption(landscape_dir, indication_name):
             if mech_lower not in company_mechs.get(company, set()):
                 cpi = safe_float(row.get("cpi_score", 0))
                 threatened.append((company, cpi))
-        threatened = threatened[:4]
+        total_threatened = len(threatened)
+        threatened = threatened[:4]  # show top 4 of N; total shown in label
 
         lines += [
             f"### Mechanism: {mech_name}",
             f"- **Status:** {status} | **Companies active:** {companies_in_mech} | **Opportunity score:** {opp_score:.4f}",
-            f"- **Most threatened incumbents** (high CPI, no presence in this mechanism):",
+            f"- **Most threatened incumbents** (top {len(threatened)} of {total_threatened} — high CPI, no presence in this mechanism):",
         ]
         if threatened:
             for company, cpi in threatened:
@@ -676,8 +670,6 @@ def scenario_pivotal_failure(landscape_dir, indication_name):
         "",
         f"*Preset: pivotal_failure — Removes flagship phase-3 drug and recalculates pipeline composition.*",
         f"*Assumption: Drug removal is immediate; no out-licensing or salvage scenarios modeled.*",
-        "",
-        "> **Reading these scenarios:** All scores are heuristic, not calibrated against historical transactions. Tier labels (where shown) are relative to the current indication — not comparable across diseases. ABSTAIN means the data is too thin to produce a confident ranking. See docs/glossary.md.",
         "",
         f"**Company:** {target_company}",
         f"**Flagship drug:** {flagship_name}",
