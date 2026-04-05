@@ -81,9 +81,9 @@ while [ $OFFSET -lt $TOTAL ]; do
     OFFSET=$((OFFSET + HITS))
     PAGE=$((PAGE + 1))
 
-    # Safety: max 6 pages (300 drugs per phase)
-    if [ $PAGE -ge 6 ]; then
-        echo "WARN: hit pagination cap at $((PAGE * HITS)) drugs" >&2
+    # Safety: max 200 pages (10000 drugs) — prevents infinite loops
+    if [ $PAGE -ge 200 ]; then
+        echo "WARN: hit safety limit at $((PAGE * HITS)) drugs" >&2
         break
     fi
 done

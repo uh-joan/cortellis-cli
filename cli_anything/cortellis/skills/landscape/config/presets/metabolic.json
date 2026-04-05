@@ -1,0 +1,11 @@
+{
+  "name": "metabolic",
+  "description": "Deals and trial velocity dominate",
+  "weights": {
+    "pipeline_breadth": 15,
+    "phase_score": 25,
+    "mechanism_diversity": 15,
+    "deal_activity": 25,
+    "trial_intensity": 20
+  }
+}

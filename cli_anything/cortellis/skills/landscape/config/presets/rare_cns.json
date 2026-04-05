@@ -1,0 +1,11 @@
+{
+  "name": "rare_cns",
+  "description": "Rare CNS — phase + deal commitment dominate; thin pipelines reward signal",
+  "weights": {
+    "pipeline_breadth": 15,
+    "phase_score": 35,
+    "mechanism_diversity": 10,
+    "deal_activity": 25,
+    "trial_intensity": 15
+  }
+}
