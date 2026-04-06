@@ -99,9 +99,30 @@ bash $RECIPES/fetch_drugs_paginated.sh C1 $DIR/phase1.csv $PIPELINE_RECIPES --ph
 bash $RECIPES/fetch_drugs_paginated.sh DR $DIR/discovery.csv $PIPELINE_RECIPES --phase-highest --technology $TECH_ID --indication $IND_ID
 ```
 
+### Technology Step 3b: Enrich mechanisms (recommended)
+```bash
+python3 $RECIPES/enrich_mechanisms.py $DIR
+# Fills empty mechanism fields from Drug Design (SI) by name search.
+```
+
+### Technology Step 3c: Group biosimilars (optional, for indications with many biosimilars)
+```bash
+python3 $RECIPES/group_biosimilars.py $DIR
+```
+
 ### Technology Step 4: Key companies
 ```bash
 python3 $RECIPES/company_landscape.py $DIR > $DIR/companies.csv
+```
+
+### Technology Step 4b: Enrich company sizes (recommended)
+```bash
+python3 $RECIPES/enrich_company_sizes.py $DIR
+```
+
+### Technology Step 4c: Normalize company names (recommended)
+```bash
+python3 $RECIPES/company_normalize.py $DIR
 ```
 
 ### Technology Step 5: Recent deals (paginated)
@@ -118,6 +139,8 @@ python3 $RECIPES/landscape_report_generator.py $DIR "$TECH_NAME" "" "<TECH>" | t
 python3 $RECIPES/strategic_scoring.py $DIR | tee $DIR/strategic_scores.md
 python3 $RECIPES/opportunity_matrix.py $DIR | tee $DIR/opportunity_analysis.md
 python3 $RECIPES/strategic_narrative.py $DIR "$TECH_NAME" | tee $DIR/strategic_briefing.md
+python3 $RECIPES/loe_analysis.py $DIR | tee $DIR/loe_analysis.md
+python3 $RECIPES/scenario_library.py $DIR "$TECH_NAME" | tee $DIR/scenario_analysis.md
 python3 $RECIPES/compose_swot.py $DIR | tee $DIR/swot_composition.md
 python3 $RECIPES/narrate.py $DIR "$TECH_NAME"
 # Pass empty string for ID (not applicable in technology mode)
@@ -156,9 +179,30 @@ bash $RECIPES/fetch_drugs_paginated.sh C1 $DIR/phase1.csv $PIPELINE_RECIPES --ph
 bash $RECIPES/fetch_drugs_paginated.sh DR $DIR/discovery.csv $PIPELINE_RECIPES --phase-highest --action "$ACTION_NAME"
 ```
 
+### Target Step 2b: Enrich mechanisms (recommended)
+```bash
+python3 $RECIPES/enrich_mechanisms.py $DIR
+# Fills empty mechanism fields from Drug Design (SI) by name search.
+```
+
+### Target Step 2c: Group biosimilars (optional, for targets with many biosimilars)
+```bash
+python3 $RECIPES/group_biosimilars.py $DIR
+```
+
 ### Target Step 3: Key companies
 ```bash
 python3 $RECIPES/company_landscape.py $DIR > $DIR/companies.csv
+```
+
+### Target Step 3b: Enrich company sizes (recommended)
+```bash
+python3 $RECIPES/enrich_company_sizes.py $DIR
+```
+
+### Target Step 3c: Normalize company names (recommended)
+```bash
+python3 $RECIPES/company_normalize.py $DIR
 ```
 
 ### Target Step 4: Recent deals (paginated)
@@ -175,6 +219,10 @@ python3 $RECIPES/landscape_report_generator.py $DIR "$ACTION_NAME" "" "<TARGET>"
 python3 $RECIPES/strategic_scoring.py $DIR | tee $DIR/strategic_scores.md
 python3 $RECIPES/opportunity_matrix.py $DIR | tee $DIR/opportunity_analysis.md
 python3 $RECIPES/strategic_narrative.py $DIR "$ACTION_NAME" | tee $DIR/strategic_briefing.md
+python3 $RECIPES/loe_analysis.py $DIR | tee $DIR/loe_analysis.md
+python3 $RECIPES/scenario_library.py $DIR "$ACTION_NAME" | tee $DIR/scenario_analysis.md
+python3 $RECIPES/compose_swot.py $DIR | tee $DIR/swot_composition.md
+python3 $RECIPES/narrate.py $DIR "$ACTION_NAME"
 # Pass empty string for ID (not applicable in target mode)
 # USER_INPUT is the original user-supplied target name
 # Report saved to $DIR/report.md
