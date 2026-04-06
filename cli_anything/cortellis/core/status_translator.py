@@ -24,32 +24,50 @@ _SKIP_RE = re.compile(
 
 # Python script basename → (friendly label, show_first_arg)
 _PYTHON_SCRIPTS = {
+    # Resolvers
     "resolve_indication": ("Resolving indication", True),
     "resolve_drug": ("Resolving drug", True),
     "resolve_company": ("Resolving company", True),
     "resolve_technology": ("Resolving technology", True),
+    "resolve_target": ("Resolving target", True),
     "resolve_phase_indications": ("Resolving phase-indication mapping", False),
-    "catch_missing_drugs": ("Checking for missed drugs", False),
+    # Pipeline CSV converters
     "ci_drugs_to_csv": ("Processing drug data", False),
     "si_drugs_to_csv": ("Processing drug design data", False),
     "deals_to_csv": ("Processing deals", False),
     "trials_to_csv": ("Processing trial data", False),
     "merge_dedup": ("Merging and deduplicating data", False),
     "count_by_field": ("Counting results", False),
+    # Landscape enrichment
+    "enrich_mechanisms": ("Enriching mechanism data from SI", False),
+    "enrich_company_sizes": ("Resolving company sizes from Cortellis", False),
+    "enrich_approval_regions": ("Checking regulatory approval regions", False),
+    "group_biosimilars": ("Grouping biosimilar drugs", False),
+    "company_landscape": ("Analyzing company landscape", False),
+    "company_normalize": ("Normalizing company names", False),
+    "catch_missing_drugs": ("Checking for missed drugs", False),
+    "trials_phase_summary": ("Summarizing trial phases", False),
+    "deals_analytics": ("Analyzing deal activity", False),
+    # Report generation
     "landscape_report_generator": ("Generating landscape report", False),
     "drug_report_generator": ("Generating drug profile", False),
     "report_generator": ("Generating pipeline report", False),
-    "company_landscape": ("Analyzing company landscape", False),
-    "enrich_mechanisms": ("Enriching mechanism data from SI", False),
-    "group_biosimilars": ("Grouping biosimilar drugs", False),
-    "trials_phase_summary": ("Summarizing trial phases", False),
+    # Strategic analysis
+    "strategic_scoring": ("Computing competitive position scores", False),
+    "opportunity_matrix": ("Mapping opportunity whitespace", False),
+    "strategic_narrative": ("Generating strategic briefing", False),
+    "loe_analysis": ("Analyzing loss-of-exclusivity exposure", False),
+    "scenario_library": ("Running counterfactual scenarios", False),
+    "compose_swot": ("Composing SWOT analysis", False),
+    "narrate": ("Preparing narration context", False),
 }
 
-# Bash script basename → friendly label
+# Bash script basename → friendly label (used as fallback; phase-aware logic below)
 _BASH_SCRIPTS = {
-    "fetch_phase": "Fetching drugs by phase",
-    "fetch_indication_phase": "Fetching drugs by phase",
-    "fetch_drugs_paginated": "Fetching drugs by phase",
+    "fetch_phase": "Fetching drugs",
+    "fetch_indication_phase": "Fetching drugs",
+    "fetch_drugs_paginated": "Fetching drugs",
+    "fetch_deals_paginated": "Fetching recent deals",
 }
 
 
@@ -81,11 +99,18 @@ def translate_command(cmd: str) -> "str | None":
         return f"Running script: {script_key}"
 
     # Bash script handling
-    bash_m = re.match(r"bash\s+\S*?([a-zA-Z_]+)\.sh\b", cmd)
+    bash_m = re.match(r"bash\s+\S*?([a-zA-Z_]+)\.sh\b(.*)", cmd)
     if bash_m:
         script_key = bash_m.group(1).lower()
+        rest = bash_m.group(2).strip()
         label = _BASH_SCRIPTS.get(script_key)
         if label:
+            # Extract phase code for drug-fetch scripts (first bare arg like L, C3, C2, C1, DR)
+            if "fetch" in script_key and "deals" not in script_key:
+                phase_m = re.search(r"(?:^|\s)(L|C[123]|DR|DX)\b", rest, re.IGNORECASE)
+                if phase_m:
+                    phase = _PHASE_LABELS.get(phase_m.group(1).upper(), phase_m.group(1))
+                    return f"Fetching {phase} drugs"
             return label
         return f"Running script: {script_key}"
 
