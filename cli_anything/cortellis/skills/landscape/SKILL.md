@@ -106,7 +106,9 @@ python3 $RECIPES/company_landscape.py $DIR > $DIR/companies.csv
 
 ### Technology Step 5: Recent deals (paginated)
 ```bash
-bash $RECIPES/fetch_deals_paginated.sh '--query "dealTechnologies:\"$TECH_NAME\""' $DIR/deals.csv $PIPELINE_RECIPES
+# Note: dealTechnologies is not a valid Cortellis deals API field (returns HTTP 500).
+# Use free-text keyword query instead — over-fetches slightly but avoids 500 errors.
+bash $RECIPES/fetch_deals_paginated.sh '--query "\"$TECH_NAME\""' $DIR/deals.csv $PIPELINE_RECIPES
 python3 $RECIPES/deals_analytics.py $DIR/deals.csv $DIR/deals.meta.json | tee $DIR/deals_analytics.md
 ```
 
