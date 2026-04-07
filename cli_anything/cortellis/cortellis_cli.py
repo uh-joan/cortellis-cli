@@ -1727,6 +1727,17 @@ def chat_cmd(debug) -> None:
             f"{wiki_index_content}"
         )
 
+    # Inject strategic signals if wiki has temporal data
+    signals_section = ""
+    try:
+        from cli_anything.cortellis.utils.intelligence import extract_signals, format_signals_for_prompt
+        wiki_path = os.path.join(os.getcwd(), "wiki")
+        if os.path.isdir(wiki_path):
+            signals = extract_signals(wiki_path)
+            signals_section = format_signals_for_prompt(signals) if signals else ""
+    except Exception:
+        pass
+
     # Build the system prompt
     venv_activate = str(Path(__file__).resolve().parents[2] / ".venv" / "bin" / "activate")
     # Prefix that activates venv + runs cortellis in one shot
@@ -1743,6 +1754,7 @@ Never try to run `cortellis` without this prefix. Never try to find or check the
 
 {skill_content}
 {wiki_index_section}
+{signals_section}
 
 WORKFLOW:
 1. User asks a question
@@ -1837,7 +1849,7 @@ All skills and their workflows are included below in the system context."""
 
         # Handle explicit /skill invocations — strip the / to prevent
         # Claude Code from interpreting it as a slash command
-        CORTELLIS_SKILLS = {"pipeline", "landscape", "drug-profile", "drug-comparison", "conference-intel", "target-profile"}
+        CORTELLIS_SKILLS = {"pipeline", "landscape", "drug-profile", "drug-comparison", "conference-intel", "target-profile", "signals"}
         if question.startswith("/"):
             skill_name = question.split()[0][1:].lower()
             if skill_name in CORTELLIS_SKILLS:

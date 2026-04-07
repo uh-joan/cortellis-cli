@@ -520,6 +520,25 @@ python3 $RECIPES/portfolio_report.py
 - Use when: "compare my indications", "portfolio overview", "which area has the most opportunity?"
 - Shows: indication comparison table, company presence across areas, portfolio signals
 
+### Signals: Strategic intelligence report
+```bash
+python3 $RECIPES/signals_report.py
+```
+- Scans all compiled wiki articles for strategic signals (no API calls)
+- Detects: new Phase 3 entrants, top company changes, deal acceleration, pipeline surges
+- Ranks by severity (high/medium/low) with deterministic action templates
+- Use when: "what's happening?", "any strategic signals?", "intelligence report", "what changed across the portfolio?"
+
+### Graph: Knowledge graph from wiki
+```bash
+python3 $RECIPES/graphify_wiki.py
+```
+- Builds NetworkX graph from all wiki article frontmatter (no API calls, no LLM)
+- Detects: god nodes (highest connectivity), clusters (communities), bridge nodes
+- Writes wiki/graph.json + wiki/GRAPH_REPORT.md
+- Use when: "show me the knowledge graph", "what entities are most connected?", "find clusters"
+- Requires: `pip install networkx` (or `pip install cortellis-cli[graph]`)
+
 ### Export: PowerPoint deck (optional)
 ```bash
 python3 $RECIPES/export_pptx.py $DIR "<INDICATION_NAME>"

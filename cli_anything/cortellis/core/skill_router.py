@@ -62,6 +62,17 @@ _SKILLS = [
         "description": "conference intelligence briefing with What's New / So What / What's Next",
     },
     {
+        "name": "signals",
+        "triggers": [
+            re.compile(r"\bsignals?\b(?!.{0,30}\b(?:transduction|pathway|receptor|cascade|kinase|protein)\b)", re.IGNORECASE),
+            re.compile(r"\bstrategic\s+(?:update|report|intelligence)\b", re.IGNORECASE),
+            re.compile(r"\bwhat.s\s+happening\b", re.IGNORECASE),
+            re.compile(r"\bintelligence\s+report\b", re.IGNORECASE),
+        ],
+        "directive": "[SKILL: Use the /signals workflow — run python3 $RECIPES/signals_report.py to generate a strategic intelligence report from compiled wiki data] ",
+        "description": "strategic intelligence report from compiled wiki signals",
+    },
+    {
         "name": "drug-profile",
         "triggers": [
             re.compile(r"\bdrug\s*profile\b", re.IGNORECASE),
@@ -89,7 +100,11 @@ def detect_skill(question: str) -> str | None:
     for skill in _SKILLS:
         for pattern in skill["triggers"]:
             if pattern.search(question):
-                return f'[SKILL: Use the {skill["directive"]} skill workflow for this question] '
+                directive = skill["directive"]
+                # Skills with a pre-formatted directive (already contains [SKILL:) are returned as-is
+                if directive.startswith("[SKILL:"):
+                    return directive
+                return f'[SKILL: Use the {directive} skill workflow for this question] '
 
     return None
 
