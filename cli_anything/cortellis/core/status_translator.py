@@ -75,6 +75,8 @@ _PYTHON_SCRIPTS = {
     "compile_drug": ("Compiling drug profile to knowledge base", False),
     "compile_target": ("Compiling target profile to knowledge base", False),
     "enrich_press_releases": ("Searching recent press releases", False),
+    "signals_report": ("Generating strategic intelligence report", False),
+    "graphify_wiki": ("Building knowledge graph", False),
 }
 
 # Bash script basename → friendly label (used as fallback; phase-aware logic below)

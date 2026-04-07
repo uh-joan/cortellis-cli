@@ -23,7 +23,10 @@ setup(
             "pytest>=7.0",
             "pytest-mock>=3.0",
             "responses>=0.23",
-        ]
+        ],
+        "graph": [
+            "networkx>=3.0",
+        ],
     },
     entry_points={
         "console_scripts": [
