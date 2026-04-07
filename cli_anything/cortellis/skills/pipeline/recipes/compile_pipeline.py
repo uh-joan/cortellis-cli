@@ -24,6 +24,7 @@ from cli_anything.cortellis.utils.wiki import (
     load_index_entries,
     update_index,
     wikilink,
+    log_activity,
 )
 
 
@@ -262,6 +263,8 @@ def main():
     entries = load_index_entries(w_dir)
     update_index(w_dir, entries)
     print(f"  Updated: {os.path.join(w_dir, 'INDEX.md')}")
+
+    log_activity(w_dir, "compile", f"Pipeline: {company_name}")
 
     print(f"Done. Wiki article compiled for {company_name}.")
 

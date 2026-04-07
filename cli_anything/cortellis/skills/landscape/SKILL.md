@@ -547,6 +547,13 @@ python3 $RECIPES/insights_report.py [--days 30] [--indication SLUG]
 - Accumulates automatically on each session flush
 - Use when: "what have we learned?", "previous insights", "accumulated intelligence"
 
+### Lint: Wiki health check
+```bash
+python3 $RECIPES/lint_wiki.py
+```
+- Runs 7 structural checks: broken links, orphans, stale articles, missing refs, empty sections, index consistency, freshness gaps
+- Use when: "check wiki health", "lint", "any broken links?"
+
 ### Graph: Knowledge graph from wiki
 ```bash
 python3 $RECIPES/graphify_wiki.py

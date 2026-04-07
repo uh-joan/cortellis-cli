@@ -29,7 +29,7 @@ try:
 except ImportError:
     _LEIDEN_AVAILABLE = False
 
-from cli_anything.cortellis.utils.wiki import list_articles, wiki_root
+from cli_anything.cortellis.utils.wiki import list_articles, wiki_root, log_activity
 
 
 # ---------------------------------------------------------------------------
@@ -516,6 +516,8 @@ def main() -> None:
     with open(report_path, "w", encoding="utf-8") as f:
         f.write(report)
     print(f"Written: {report_path}")
+
+    log_activity(w_dir, "compile", f"Knowledge graph: {stats['node_count']} nodes, {stats['edge_count']} edges")
 
     # Print summary
     print(report)

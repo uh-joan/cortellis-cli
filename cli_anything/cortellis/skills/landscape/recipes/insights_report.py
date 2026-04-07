@@ -12,7 +12,7 @@ import sys
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "..", "..", "..", ".."))
 
 from cli_anything.cortellis.utils.insights_extractor import load_recent_insights
-from cli_anything.cortellis.utils.wiki import wiki_root
+from cli_anything.cortellis.utils.wiki import wiki_root, log_activity
 
 
 def main():
@@ -73,6 +73,8 @@ def main():
     os.makedirs(w_dir, exist_ok=True)
     with open(report_path, "w", encoding="utf-8") as f:
         f.write(report)
+
+    log_activity(w_dir, "insight", "Generated insights report")
 
 
 if __name__ == "__main__":
