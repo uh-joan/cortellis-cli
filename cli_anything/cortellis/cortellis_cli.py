@@ -1739,6 +1739,17 @@ def chat_cmd(debug) -> None:
     except Exception:
         pass
 
+    # Inject recent analysis insights
+    insights_section = ""
+    try:
+        from cli_anything.cortellis.utils.insights_extractor import load_recent_insights, format_insights_for_prompt
+        wiki_path = os.path.join(os.getcwd(), "wiki")
+        if os.path.isdir(wiki_path):
+            recent = load_recent_insights(wiki_path, max_age_days=30)
+            insights_section = format_insights_for_prompt(recent) if recent else ""
+    except Exception:
+        pass
+
     # Build the system prompt
     venv_activate = str(Path(__file__).resolve().parents[2] / ".venv" / "bin" / "activate")
     # Prefix that activates venv + runs cortellis in one shot
@@ -1756,6 +1767,7 @@ Never try to run `cortellis` without this prefix. Never try to find or check the
 {skill_content}
 {wiki_index_section}
 {signals_section}
+{insights_section}
 
 WORKFLOW:
 1. User asks a question

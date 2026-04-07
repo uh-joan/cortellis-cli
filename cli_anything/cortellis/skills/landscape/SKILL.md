@@ -539,6 +539,14 @@ python3 $RECIPES/signals_report.py
 - Ranks by severity (high/medium/low) with deterministic action templates
 - Use when: "what's happening?", "any strategic signals?", "intelligence report", "what changed across the portfolio?"
 
+### Insights: Accumulated analysis intelligence
+```bash
+python3 $RECIPES/insights_report.py [--days 30] [--indication SLUG]
+```
+- Shows key findings, scenarios, and implications from previous landscape analyses
+- Accumulates automatically on each session flush
+- Use when: "what have we learned?", "previous insights", "accumulated intelligence"
+
 ### Graph: Knowledge graph from wiki
 ```bash
 python3 $RECIPES/graphify_wiki.py

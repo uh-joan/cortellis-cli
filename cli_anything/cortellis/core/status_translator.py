@@ -76,6 +76,7 @@ _PYTHON_SCRIPTS = {
     "compile_target": ("Compiling target profile to knowledge base", False),
     "enrich_press_releases": ("Searching recent press releases", False),
     "signals_report": ("Generating strategic intelligence report", False),
+    "insights_report": ("Loading accumulated insights", False),
     "graphify_wiki": ("Building knowledge graph", False),
     "enrich_historical_timeline": ("Fetching historical pipeline timeline", False),
 }
