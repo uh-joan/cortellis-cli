@@ -388,6 +388,16 @@ python3 $RECIPES/enrich_press_releases.py $DIR "<INDICATION_NAME>"
 # Rate limit: 2s between API calls.
 ```
 
+### Step 8f: Enrich with historical pipeline timeline (optional)
+```bash
+python3 $RECIPES/enrich_historical_timeline.py $DIR --max-drugs 100 --months 24
+# Fetches change_history per drug via Cortellis API (launched + Phase 3 + Phase 2).
+# Reconstructs monthly pipeline snapshots going back 24 months.
+# Writes phase_timeline.csv, historical_snapshots.csv, historical_timeline.md.
+# Rate limit: 1s between API calls. ~1 min for 66 drugs.
+# Use when: "how has the pipeline evolved?", "show me trends", "historical view"
+```
+
 ### Step 9: Generate report
 ```bash
 python3 $RECIPES/landscape_report_generator.py $DIR "<INDICATION_NAME>" "<INDICATION_ID>" "<USER_INPUT>" | tee $DIR/report.md

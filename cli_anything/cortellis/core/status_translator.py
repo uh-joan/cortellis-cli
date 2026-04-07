@@ -77,6 +77,7 @@ _PYTHON_SCRIPTS = {
     "enrich_press_releases": ("Searching recent press releases", False),
     "signals_report": ("Generating strategic intelligence report", False),
     "graphify_wiki": ("Building knowledge graph", False),
+    "enrich_historical_timeline": ("Fetching historical pipeline timeline", False),
 }
 
 # Bash script basename → friendly label (used as fallback; phase-aware logic below)
