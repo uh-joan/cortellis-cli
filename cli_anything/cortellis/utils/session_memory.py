@@ -236,6 +236,16 @@ def flush_session_memory(base_dir: str = None) -> list[str]:
 
             compile_main()
             recompiled.append(slug)
+            # Extract session insights (landscape only — other types don't have strategic_briefing.md)
+            if compiler_type == "landscape":
+                try:
+                    from cli_anything.cortellis.utils.insights_extractor import extract_session_insights, write_session_insight
+                    insights = extract_session_insights(slug, raw_dir, base_dir)
+                    if insights.get("key_findings") or insights.get("scenarios"):
+                        path = write_session_insight(insights, base_dir)
+                        print(f"  Extracted insights: {path}", file=sys.stderr)
+                except Exception as e:
+                    print(f"  Warning: failed to extract insights for {slug}: {e}", file=sys.stderr)
         except Exception as e:
             print(f"  Warning: failed to compile {slug}: {e}", file=sys.stderr)
         finally:

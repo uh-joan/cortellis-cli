@@ -73,6 +73,17 @@ _SKILLS = [
         "description": "strategic intelligence report from compiled wiki signals",
     },
     {
+        "name": "insights",
+        "triggers": [
+            re.compile(r"\binsights?\s+(?:report|summary|accumulated|previous)\b", re.IGNORECASE),
+            re.compile(r"\bprevious\s+(?:analysis|analyses|insights)\b", re.IGNORECASE),
+            re.compile(r"\bwhat\s+have\s+we\s+learned\b", re.IGNORECASE),
+            re.compile(r"\baccumulated\s+(?:intelligence|insights?|analysis)\b", re.IGNORECASE),
+        ],
+        "directive": "[SKILL: Run python3 $RECIPES/insights_report.py to show accumulated analysis insights from the wiki] ",
+        "description": "accumulated analysis insights from previous landscape analyses",
+    },
+    {
         "name": "drug-profile",
         "triggers": [
             re.compile(r"\bdrug\s*profile\b", re.IGNORECASE),
