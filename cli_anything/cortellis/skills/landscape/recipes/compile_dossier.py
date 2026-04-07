@@ -368,6 +368,11 @@ def compile_indication_article(landscape_dir, indication_name, slug):
     if pr_md:
         body_parts.append(f"## Recent Press Releases\n\n{pr_md}\n\n")
 
+    # Historical Pipeline Timeline (from enrich_historical_timeline.py)
+    hist_md = read_md_safe(os.path.join(landscape_dir, "historical_timeline.md"))
+    if hist_md:
+        body_parts.append(f"{hist_md}\n\n")
+
     # Strategic Briefing
     strategic_md = read_md_safe(os.path.join(landscape_dir, "strategic_briefing.md"))
     if strategic_md:
