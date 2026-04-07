@@ -84,6 +84,16 @@ _SKILLS = [
         "description": "accumulated analysis insights from previous landscape analyses",
     },
     {
+        "name": "lint-wiki",
+        "triggers": [
+            re.compile(r"\blint\b", re.IGNORECASE),
+            re.compile(r"\bhealth.check\b", re.IGNORECASE),
+            re.compile(r"\bbroken.links?\b", re.IGNORECASE),
+        ],
+        "directive": "[SKILL: Run python3 $RECIPES/lint_wiki.py to health-check the wiki knowledge base] ",
+        "description": "wiki health check: broken links, orphans, stale articles, missing refs, empty sections, index consistency, freshness gaps",
+    },
+    {
         "name": "drug-profile",
         "triggers": [
             re.compile(r"\bdrug\s*profile\b", re.IGNORECASE),

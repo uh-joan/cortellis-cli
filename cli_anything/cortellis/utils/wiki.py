@@ -121,7 +121,7 @@ def update_index(wiki_dir: str, entries: list[dict]) -> None:
         f"\n> Auto-generated index. Last updated: {_now_iso()}\n",
     ]
 
-    type_order = ["indications", "companies", "drugs", "targets"]
+    type_order = ["indications", "companies", "drugs", "targets", "concepts", "connections"]
     for t in type_order:
         group = by_type.get(t, [])
         if not group:
@@ -183,10 +183,30 @@ def update_index(wiki_dir: str, entries: list[dict]) -> None:
         f.writelines(lines)
 
 
+def log_activity(wiki_dir: str, action: str, details: str) -> None:
+    """Append an entry to wiki/log.md — chronological activity record.
+
+    Format: ## [YYYY-MM-DD HH:MM] action | details
+
+    Actions: ingest, compile, query, lint, diff, signal, insight
+    """
+    log_path = os.path.join(wiki_dir, "log.md")
+    timestamp = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M")
+    entry = f"## [{timestamp}] {action} | {details}\n\n"
+
+    # Create with header if new
+    if not os.path.exists(log_path):
+        with open(log_path, "w", encoding="utf-8") as f:
+            f.write("# Wiki Activity Log\n\n> Append-only chronological record of all wiki operations.\n\n")
+
+    with open(log_path, "a", encoding="utf-8") as f:
+        f.write(entry)
+
+
 def load_index_entries(wiki_dir: str) -> list[dict]:
     """Load existing index entries by scanning article frontmatter."""
     entries = []
-    for article_type in ("indications", "companies", "drugs", "targets"):
+    for article_type in ("indications", "companies", "drugs", "targets", "concepts", "connections"):
         type_dir = os.path.join(wiki_dir, article_type)
         if not os.path.isdir(type_dir):
             continue

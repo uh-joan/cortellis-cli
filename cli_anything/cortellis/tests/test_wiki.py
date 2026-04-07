@@ -20,6 +20,7 @@ from cli_anything.cortellis.utils.wiki import (
     check_freshness,
     wikilink,
     diff_snapshots,
+    log_activity,
 )
 
 
@@ -359,6 +360,27 @@ def _write_csv(path, rows):
         writer = csv.DictWriter(f, fieldnames=list(rows[0].keys()))
         writer.writeheader()
         writer.writerows(rows)
+
+
+class TestLogActivity:
+    def test_creates_log_file(self, tmp_path):
+        wiki_dir = str(tmp_path / "wiki")
+        os.makedirs(wiki_dir)
+        log_activity(wiki_dir, "compile", "Test: Obesity landscape")
+        log_path = os.path.join(wiki_dir, "log.md")
+        assert os.path.exists(log_path)
+        content = open(log_path).read()
+        assert "Wiki Activity Log" in content
+        assert "compile | Test: Obesity landscape" in content
+
+    def test_appends_multiple(self, tmp_path):
+        wiki_dir = str(tmp_path / "wiki")
+        os.makedirs(wiki_dir)
+        log_activity(wiki_dir, "compile", "Entry 1")
+        log_activity(wiki_dir, "query", "Entry 2")
+        content = open(os.path.join(wiki_dir, "log.md")).read()
+        assert "compile | Entry 1" in content
+        assert "query | Entry 2" in content
 
 
 class TestCompileDossierIntegration:

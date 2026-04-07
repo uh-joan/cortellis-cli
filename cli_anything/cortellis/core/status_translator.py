@@ -78,6 +78,7 @@ _PYTHON_SCRIPTS = {
     "signals_report": ("Generating strategic intelligence report", False),
     "insights_report": ("Loading accumulated insights", False),
     "graphify_wiki": ("Building knowledge graph", False),
+    "lint_wiki": ("Linting wiki knowledge base", False),
     "enrich_historical_timeline": ("Fetching historical pipeline timeline", False),
 }
 
