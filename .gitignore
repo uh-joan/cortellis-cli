@@ -13,5 +13,10 @@ build/
 # Raw Cortellis API data — governed by Cortellis/Clarivate subscription, do not redistribute
 raw/
 
+# Compiled wiki knowledge base — derived from raw/, user-specific
+wiki/
+
 # Landscape skill governance/process artifacts (POC-internal, not shipped)
 cli_anything/cortellis/skills/landscape/docs/governance/
+scripts/
+data/

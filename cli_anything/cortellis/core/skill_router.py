@@ -5,7 +5,11 @@ Returns a directive string to prepend to the question, or None if no skill appli
 High-precision patterns only — avoids false positives on simple factual queries.
 """
 
+import os
 import re
+from typing import Optional
+
+from cli_anything.cortellis.utils.wiki import article_path, check_freshness, slugify
 
 # Each skill has trigger patterns and an extraction function for the subject.
 # Patterns are tested in order; first match wins.
@@ -33,6 +37,29 @@ _SKILLS = [
         ],
         "directive": "/landscape",
         "description": "competitive landscape for an indication, target, or technology/modality",
+    },
+    {
+        "name": "drug-comparison",
+        "triggers": [
+            re.compile(r"\bcompare\s+(?:drug|drugs)\b", re.IGNORECASE),
+            re.compile(r"\bdrug\s+comparison\b", re.IGNORECASE),
+            re.compile(r"\bhead\s+to\s+head\b", re.IGNORECASE),
+            re.compile(r"\bversus\b", re.IGNORECASE),
+            re.compile(r"\bvs\.?\s+", re.IGNORECASE),
+        ],
+        "directive": "/drug-comparison",
+        "description": "side-by-side comparison of 2-5 drugs",
+    },
+    {
+        "name": "conference-intel",
+        "triggers": [
+            re.compile(r"\bconferences?\b", re.IGNORECASE),
+            re.compile(r"\bcongress\b", re.IGNORECASE),
+            re.compile(r"\b(?:ASCO|ESMO|ASH|AAN|AACR|EHA|EASL)\b", re.IGNORECASE),
+            re.compile(r"\babstracts?\b", re.IGNORECASE),
+        ],
+        "directive": "/conference-intel",
+        "description": "conference intelligence briefing with What's New / So What / What's Next",
     },
     {
         "name": "drug-profile",
@@ -63,5 +90,63 @@ def detect_skill(question: str) -> str | None:
         for pattern in skill["triggers"]:
             if pattern.search(question):
                 return f'[SKILL: Use the {skill["directive"]} skill workflow for this question] '
+
+    return None
+
+
+# Patterns for extracting indication names from landscape questions.
+_INDICATION_PATTERNS = [
+    re.compile(r"\blandscape\s+for\s+(.+?)(?:\s*\?|$)", re.IGNORECASE),
+    re.compile(r"\bcompetitive\s+(?:landscape|analysis|overview)\s+(?:for\s+|in\s+)?(.+?)(?:\s*\?|$)", re.IGNORECASE),
+    re.compile(r"\bmarket\s+(?:overview|landscape|map)\s+(?:for\s+|in\s+)?(.+?)(?:\s*\?|$)", re.IGNORECASE),
+    re.compile(r"^(.+?)\s+landscape\b", re.IGNORECASE),
+]
+
+
+def check_wiki_fast_path(question: str) -> Optional[str]:
+    """Check if a landscape question can be answered from compiled wiki.
+
+    Returns path to the fresh wiki article if one exists, or None.
+    Extracts the indication name from the question and checks wiki freshness.
+    """
+    # Only applies to landscape-routed questions
+    if not detect_skill(question):
+        return None
+    is_landscape = False
+    for skill in _SKILLS:
+        if skill["name"] == "landscape":
+            for pattern in skill["triggers"]:
+                if pattern.search(question):
+                    is_landscape = True
+                    break
+            break
+    if not is_landscape:
+        return None
+
+    # Try to extract an indication name via regex heuristics
+    indication: Optional[str] = None
+    for pat in _INDICATION_PATTERNS:
+        m = pat.search(question)
+        if m:
+            indication = m.group(1).strip()
+            break
+
+    candidates = [indication] if indication else []
+
+    # Also scan wiki/indications/ for known slugs that appear in the question
+    indications_dir = os.path.join(os.getcwd(), "wiki", "indications")
+    if os.path.isdir(indications_dir):
+        for fname in os.listdir(indications_dir):
+            if fname.endswith(".md"):
+                slug = fname[:-3]
+                if slug in question.lower().replace(" ", "-") or slug.replace("-", " ") in question.lower():
+                    candidates.insert(0, slug)
+
+    for candidate in candidates:
+        if not candidate:
+            continue
+        slug = slugify(candidate)
+        if check_freshness(slug) == "fresh":
+            return article_path("indications", slug)
 
     return None

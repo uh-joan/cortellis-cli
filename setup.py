@@ -14,6 +14,9 @@ setup(
         "rich>=13.0",
         "prompt_toolkit>=3.0",
         "python-dotenv>=1.0",
+        "pyyaml>=6.0",
+        "python-pptx>=0.6.21",
+        "openpyxl>=3.0.0",
     ],
     extras_require={
         "dev": [

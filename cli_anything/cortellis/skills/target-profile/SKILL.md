@@ -144,3 +144,9 @@ python3 $RECIPES/target_report_generator.py $DIR
 # Outputs: formatted markdown with ASCII pipeline chart, tables
 # Skips empty sections automatically
 ```
+
+### compile_target.py — Compile target profile to wiki (optional)
+```bash
+python3 $RECIPES/compile_target.py $DIR "$TARGET_NAME" [--wiki-dir DIR]
+```
+Produces wiki/targets/<slug>.md with frontmatter (gene_symbol, family, organism, disease_count, drug_count) and sections: Biology, Disease Associations, Drug Pipeline, Protein Interactions, Pharmacology, Data Sources. Updates wiki/INDEX.md. Uses [[wikilinks]] for drugs and companies.

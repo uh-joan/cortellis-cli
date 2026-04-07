@@ -238,3 +238,9 @@ bash $RECIPES/fetch_phase.sh <COMPANY_ID> C3 /tmp/pipeline/phase3.csv $RECIPES
 # etc.
 ```
 Fetches up to 150 drugs per phase (3 pages). Sleeps 1s between pages to avoid rate limits.
+
+### Compile pipeline to wiki (Step 8 — optional)
+```bash
+python3 $RECIPES/compile_pipeline.py $DIR "<COMPANY_NAME>" [--wiki-dir DIR]
+```
+Upserts wiki/companies/<slug>.md with pipeline data. Preserves existing landscape CPI data if the article was previously compiled by compile_dossier. Updates wiki/INDEX.md.

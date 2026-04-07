@@ -19,6 +19,8 @@ _FOLLOWUP_PATTERNS = [
     re.compile(r"^(compare|versus|vs\.?|now show|now do|repeat|again)\b", re.IGNORECASE),
     # Very short follow-ups
     re.compile(r"^(why|how|when|really|details|deals|trials|patents)\??\s*$", re.IGNORECASE),
+    # Cross-skill drill-down: user wants to go deeper on a drug/company from previous landscape
+    re.compile(r"\b(drill\s+into|deep\s+dive\s+on|profile|details?\s+on)\b.{1,50}\b[A-Z][a-z]", re.IGNORECASE),
 ]
 
 # Patterns that indicate a NEW topic (fresh start is fine)
