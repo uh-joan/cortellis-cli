@@ -88,6 +88,12 @@ Adds: research codes, pharmacology records, biologic flag, SI phase.
 python3 $RECIPES/drug_report_generator.py $DIR
 ```
 
+### Step 11: Compile to wiki
+```bash
+python3 $RECIPES/compile_drug.py $DIR "<DRUG_NAME>" [--wiki-dir /path/to/wiki-root]
+```
+Reads all JSON files from `$DIR` and writes `wiki/drugs/<slug>.md` plus updates `wiki/INDEX.md`.
+
 ## Output Rules
 
 - **Skip empty sections.** If SWOT, financials, or regulatory return empty, do NOT show that section.

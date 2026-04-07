@@ -60,6 +60,21 @@ _PYTHON_SCRIPTS = {
     "scenario_library": ("Running counterfactual scenarios", False),
     "compose_swot": ("Composing SWOT analysis", False),
     "narrate": ("Preparing narration context", False),
+    "compile_dossier": ("Compiling landscape to knowledge base", False),
+    "diff_landscape": ("Comparing landscape snapshots", False),
+    "portfolio_report": ("Generating cross-portfolio report", False),
+    "enrich_deal_financials": ("Enriching deal financial terms", False),
+    "enrich_regulatory_milestones": ("Enriching regulatory milestones", False),
+    "conference_briefing": ("Generating conference briefing", False),
+    "enrich_literature": ("Searching recent publications", False),
+    "export_pptx": ("Exporting to PowerPoint", False),
+    "export_xlsx": ("Exporting to Excel", False),
+    "drug_comparison_generator": ("Generating drug comparison", False),
+    "format_audience": ("Formatting audience-specific brief", False),
+    "compile_pipeline": ("Compiling pipeline to knowledge base", False),
+    "compile_drug": ("Compiling drug profile to knowledge base", False),
+    "compile_target": ("Compiling target profile to knowledge base", False),
+    "enrich_press_releases": ("Searching recent press releases", False),
 }
 
 # Bash script basename → friendly label (used as fallback; phase-aware logic below)
