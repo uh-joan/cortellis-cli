@@ -8,6 +8,7 @@ Root group: cortellis (with --json flag)
   conferences, literature, press-releases, ontology, analytics, ner
 """
 
+import os
 import sys
 from typing import Optional
 
