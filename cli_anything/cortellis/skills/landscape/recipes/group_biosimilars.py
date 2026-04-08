@@ -4,8 +4,8 @@
 Detects entries with "biosimilar" or "follow-on" in the name, groups them
 under the originator drug, and rewrites the CSV with grouped entries.
 
-Usage: python3 group_biosimilars.py /tmp/landscape/launched.csv
-       python3 group_biosimilars.py /tmp/landscape/  (processes all phase CSVs)
+Usage: python3 group_biosimilars.py raw/landscape/<slug>/launched.csv
+       python3 group_biosimilars.py raw/landscape/<slug>/  (processes all phase CSVs)
 
 Output: Rewrites CSV in-place. Biosimilars become a single row:
   "adalimumab (+ 20 biosimilars)" with the originator's company/mechanism.

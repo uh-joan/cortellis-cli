@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Generate a formatted competitive landscape report from CSV files.
 
-Usage: python3 landscape_report_generator.py /tmp/landscape/ <indication_name> <indication_id>
+Usage: python3 landscape_report_generator.py raw/landscape/<slug>/ <indication_name> <indication_id>
 """
 import csv, json, sys, os
 from collections import Counter

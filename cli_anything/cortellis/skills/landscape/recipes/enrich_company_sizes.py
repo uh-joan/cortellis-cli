@@ -4,7 +4,7 @@
 Resolves top companies by name → ID via NER, then batch-fetches company records
 to get @companySize. Writes company_sizes.json to data directory.
 
-Usage: python3 enrich_company_sizes.py /tmp/landscape
+Usage: python3 enrich_company_sizes.py raw/landscape/<slug>
 """
 import csv, json, re, subprocess, sys, os
 

@@ -3,7 +3,7 @@
 # Handles the 50-hit limit by fetching multiple pages.
 #
 # Usage: ./fetch_indication_phase.sh <indication_id> <phase_code> <output_csv> <pipeline_recipes_dir>
-# Example: ./fetch_indication_phase.sh 238 L /tmp/landscape/launched.csv ../pipeline/recipes
+# Example: ./fetch_indication_phase.sh 238 L raw/landscape/<slug>/launched.csv ../pipeline/recipes
 
 IND_ID="$1"
 PHASE="$2"

@@ -8,11 +8,11 @@ Step 3: After batch fetch, parses development status and rewrites CSVs
 
 Usage:
   # Find overlapping IDs
-  python3 resolve_phase_indications.py find /tmp/pipeline
+  python3 resolve_phase_indications.py find raw/pipeline/<slug>
 
-  # After fetching: cortellis --json drugs records <IDS> > /tmp/pipeline/overlap_records.json
+  # After fetching: cortellis --json drugs records <IDS> > raw/pipeline/<slug>/overlap_records.json
   # Rewrite CSVs with phase-specific indications
-  python3 resolve_phase_indications.py rewrite /tmp/pipeline
+  python3 resolve_phase_indications.py rewrite raw/pipeline/<slug>
 """
 import csv, json, sys, os
 from collections import defaultdict
@@ -117,7 +117,7 @@ def rewrite_csvs(pipeline_dir):
 
 if __name__ == "__main__":
     cmd = sys.argv[1] if len(sys.argv) > 1 else "find"
-    pipeline_dir = sys.argv[2] if len(sys.argv) > 2 else "/tmp/pipeline"
+    pipeline_dir = sys.argv[2] if len(sys.argv) > 2 else "raw/pipeline/unknown"
 
     if cmd == "find":
         find_overlaps(pipeline_dir)

@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Generate a formatted drug profile report from collected JSON data.
 
-Usage: python3 drug_report_generator.py /tmp/drug_profile/<drug_name>/
+Usage: python3 drug_report_generator.py raw/drugs/<slug>/
 
 Reads JSON files from the directory:
   record.json, swot.json, financials.json, history.json, deals.json, trials.json, regulatory.json
@@ -213,7 +213,8 @@ if financials:
 if deals:
     deal_data = deals.get("dealResultsOutput", {})
     total_deals = deal_data.get("@totalResults", "0")
-    deal_list = deal_data.get("SearchResults", {}).get("Deal", [])
+    sr = deal_data.get("SearchResults", {})
+    deal_list = sr.get("Deal", []) if isinstance(sr, dict) else []
     if isinstance(deal_list, dict):
         deal_list = [deal_list]
     if deal_list:
@@ -233,7 +234,8 @@ if deals:
 if trials:
     trial_data = trials.get("trialResultsOutput", {})
     total_trials = trial_data.get("@totalResults", "0")
-    trial_list = trial_data.get("SearchResults", {}).get("Trial", [])
+    sr = trial_data.get("SearchResults", {})
+    trial_list = sr.get("Trial", []) if isinstance(sr, dict) else []
     if isinstance(trial_list, dict):
         trial_list = [trial_list]
     if trial_list:
@@ -254,7 +256,8 @@ if regulatory:
     reg_data = regulatory.get("regulatoryResultsOutput", {})
     total_reg = reg_data.get("@totalResults", "0")
     if int(total_reg) > 0:
-        reg_list = reg_data.get("SearchResults", {}).get("Regulatory", [])
+        sr = reg_data.get("SearchResults", {})
+        reg_list = sr.get("Regulatory", []) if isinstance(sr, dict) else []
         if isinstance(reg_list, dict):
             reg_list = [reg_list]
         print(f"## Regulatory ({total_reg} documents)")
@@ -274,7 +277,10 @@ if regulatory:
 # Competitors
 if competitors:
     comp_data = competitors.get("drugResultsOutput", {})
-    comp_list = comp_data.get("SearchResults", {}).get("Drug", [])
+    search_results = comp_data.get("SearchResults", {})
+    if not isinstance(search_results, dict):
+        search_results = {}
+    comp_list = search_results.get("Drug", [])
     if isinstance(comp_list, dict):
         comp_list = [comp_list]
     if comp_list:

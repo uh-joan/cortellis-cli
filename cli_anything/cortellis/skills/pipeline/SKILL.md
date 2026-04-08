@@ -56,13 +56,13 @@ Note: "Biological Testing" exists as a phase but has 0 active compounds across m
 ### Step 4c: Resolve per-indication phase mapping (1 batch API call)
 ```bash
 # Find overlapping drug IDs
-IDS=$(python3 $RECIPES/resolve_phase_indications.py find /tmp/pipeline)
+IDS=$(python3 $RECIPES/resolve_phase_indications.py find $DIR)
 
 # Batch fetch full records (1 API call, up to 50 IDs)
-cortellis --json drugs records $IDS > /tmp/pipeline/overlap_records.json
+cortellis --json drugs records $IDS > $DIR/overlap_records.json
 
 # Rewrite CSVs with phase-specific indications
-python3 $RECIPES/resolve_phase_indications.py rewrite /tmp/pipeline
+python3 $RECIPES/resolve_phase_indications.py rewrite $DIR
 ```
 This replaces the generic "all indications" with only the indications at that specific phase. For example, semaglutide in the Phase 2 CSV will only show Phase 2 indications (cirrhosis, MASLD), not its Launched indications (T2D, obesity).
 
@@ -151,90 +151,92 @@ Count indications across ALL CI phases (Launched + Phase 3 + Phase 2 + Phase 1 +
 
 ## Recipes (CSV-based data pipeline)
 
-All data flows through CSV files in `/tmp/pipeline/`. Use the recipe scripts in `recipes/` — do NOT write your own parsers.
+All data flows through CSV files in `raw/pipeline/<slug>/`. Use the recipe scripts in `recipes/` — do NOT write your own parsers.
 
 **CSV columns:** `name,id,phase,indication,mechanism,company,source`
 
 ### Setup
 ```bash
 RECIPES="cli_anything/cortellis/skills/pipeline/recipes"
-mkdir -p /tmp/pipeline
+COMPANY_SLUG=$(echo "<COMPANY_NAME>" | tr '[:upper:]' '[:lower:]' | tr ' ' '-' | sed "s/'//g")
+DIR="raw/pipeline/$COMPANY_SLUG"
+mkdir -p "$DIR"
 HEADER="name,id,phase,indication,mechanism,company,source"
 ```
 
 ### Step 3 → Save each CI phase to CSV
 ```bash
-echo "$HEADER" > /tmp/pipeline/launched.csv
-cortellis --json drugs search --company <ID> --phase L --hits 50 | python3 $RECIPES/ci_drugs_to_csv.py >> /tmp/pipeline/launched.csv
+echo "$HEADER" > $DIR/launched.csv
+cortellis --json drugs search --company <ID> --phase L --hits 50 | python3 $RECIPES/ci_drugs_to_csv.py >> $DIR/launched.csv
 
-echo "$HEADER" > /tmp/pipeline/phase3.csv
-cortellis --json drugs search --company <ID> --phase C3 --hits 50 | python3 $RECIPES/ci_drugs_to_csv.py >> /tmp/pipeline/phase3.csv
+echo "$HEADER" > $DIR/phase3.csv
+cortellis --json drugs search --company <ID> --phase C3 --hits 50 | python3 $RECIPES/ci_drugs_to_csv.py >> $DIR/phase3.csv
 
-echo "$HEADER" > /tmp/pipeline/phase2.csv
-cortellis --json drugs search --company <ID> --phase C2 --hits 50 | python3 $RECIPES/ci_drugs_to_csv.py >> /tmp/pipeline/phase2.csv
+echo "$HEADER" > $DIR/phase2.csv
+cortellis --json drugs search --company <ID> --phase C2 --hits 50 | python3 $RECIPES/ci_drugs_to_csv.py >> $DIR/phase2.csv
 
-echo "$HEADER" > /tmp/pipeline/phase1_ci.csv
-cortellis --json drugs search --company <ID> --phase C1 --hits 50 | python3 $RECIPES/ci_drugs_to_csv.py >> /tmp/pipeline/phase1_ci.csv
+echo "$HEADER" > $DIR/phase1_ci.csv
+cortellis --json drugs search --company <ID> --phase C1 --hits 50 | python3 $RECIPES/ci_drugs_to_csv.py >> $DIR/phase1_ci.csv
 
-echo "$HEADER" > /tmp/pipeline/discovery_ci.csv
-cortellis --json drugs search --company <ID> --phase DR --hits 50 | python3 $RECIPES/ci_drugs_to_csv.py >> /tmp/pipeline/discovery_ci.csv
+echo "$HEADER" > $DIR/discovery_ci.csv
+cortellis --json drugs search --company <ID> --phase DR --hits 50 | python3 $RECIPES/ci_drugs_to_csv.py >> $DIR/discovery_ci.csv
 ```
 
 ### Step 4a → Save SI Phase I to CSV
 ```bash
-echo "$HEADER" > /tmp/pipeline/phase1_si.csv
-cortellis --json drug-design search-drugs --query "organizationsOriginator:\"<COMPANY>\" AND developmentIsActive:Yes AND phaseHighest:\"Phase I\"" --hits 50 | python3 $RECIPES/si_drugs_to_csv.py >> /tmp/pipeline/phase1_si.csv
+echo "$HEADER" > $DIR/phase1_si.csv
+cortellis --json drug-design search-drugs --query "organizationsOriginator:\"<COMPANY>\" AND developmentIsActive:Yes AND phaseHighest:\"Phase I\"" --hits 50 | python3 $RECIPES/si_drugs_to_csv.py >> $DIR/phase1_si.csv
 ```
 
 ### Step 4b → Save SI Preclinical to CSV
 ```bash
-echo "$HEADER" > /tmp/pipeline/preclinical_si.csv
-cortellis --json drug-design search-drugs --query "organizationsOriginator:\"<COMPANY>\" AND developmentIsActive:Yes AND phaseHighest:\"Preclinical\"" --hits 50 | python3 $RECIPES/si_drugs_to_csv.py >> /tmp/pipeline/preclinical_si.csv
+echo "$HEADER" > $DIR/preclinical_si.csv
+cortellis --json drug-design search-drugs --query "organizationsOriginator:\"<COMPANY>\" AND developmentIsActive:Yes AND phaseHighest:\"Preclinical\"" --hits 50 | python3 $RECIPES/si_drugs_to_csv.py >> $DIR/preclinical_si.csv
 ```
 
 ### Merge Phase 1 (CI + SI)
 ```bash
-python3 $RECIPES/merge_dedup.py /tmp/pipeline/phase1_ci.csv /tmp/pipeline/phase1_si.csv > /tmp/pipeline/phase1_merged.csv
+python3 $RECIPES/merge_dedup.py $DIR/phase1_ci.csv $DIR/phase1_si.csv > $DIR/phase1_merged.csv
 ```
 
 ### Merge Preclinical (CI Discovery + SI Preclinical)
 ```bash
-python3 $RECIPES/merge_dedup.py /tmp/pipeline/discovery_ci.csv /tmp/pipeline/preclinical_si.csv > /tmp/pipeline/preclinical_merged.csv
+python3 $RECIPES/merge_dedup.py $DIR/discovery_ci.csv $DIR/preclinical_si.csv > $DIR/preclinical_merged.csv
 ```
 
 ### Step 5 → Deals to CSV
 ```bash
-cortellis --json deals search --principal "<COMPANY>" --hits 20 --sort-by "-dealDateStart" | python3 $RECIPES/deals_to_csv.py > /tmp/pipeline/deals.csv
+cortellis --json deals search --principal "<COMPANY>" --hits 20 --sort-by "-dealDateStart" | python3 $RECIPES/deals_to_csv.py > $DIR/deals.csv
 ```
 
 ### Step 6 → Trials to CSV
 ```bash
-cortellis --json trials search --sponsor "<COMPANY>" --recruitment-status Recruiting --hits 50 --sort-by "-trialDateStart" | python3 $RECIPES/trials_to_csv.py > /tmp/pipeline/trials.csv
+cortellis --json trials search --sponsor "<COMPANY>" --recruitment-status Recruiting --hits 50 --sort-by "-trialDateStart" | python3 $RECIPES/trials_to_csv.py > $DIR/trials.csv
 ```
 
 ### Count therapeutic focus across ALL phases
 ```bash
-cat /tmp/pipeline/launched.csv /tmp/pipeline/phase3.csv /tmp/pipeline/phase2.csv /tmp/pipeline/phase1_merged.csv /tmp/pipeline/preclinical_merged.csv | python3 $RECIPES/count_by_field.py indication
+cat $DIR/launched.csv $DIR/phase3.csv $DIR/phase2.csv $DIR/phase1_merged.csv $DIR/preclinical_merged.csv | python3 $RECIPES/count_by_field.py indication
 ```
 
 ### Step 4c → Resolve per-indication phase mapping
 ```bash
-IDS=$(python3 $RECIPES/resolve_phase_indications.py find /tmp/pipeline)
-cortellis --json drugs records $IDS > /tmp/pipeline/overlap_records.json
-python3 $RECIPES/resolve_phase_indications.py rewrite /tmp/pipeline
+IDS=$(python3 $RECIPES/resolve_phase_indications.py find $DIR)
+cortellis --json drugs records $IDS > $DIR/overlap_records.json
+python3 $RECIPES/resolve_phase_indications.py rewrite $DIR
 ```
 
 ### Generate formatted report with ASCII charts
 ```bash
-python3 $RECIPES/report_generator.py /tmp/pipeline "<COMPANY_NAME>" "<COMPANY_ID>" "<ACTIVE_DRUGS>"
+python3 $RECIPES/report_generator.py $DIR "<COMPANY_NAME>" "<COMPANY_ID>" "<ACTIVE_DRUGS>"
 ```
 Produces: ASCII bar charts (pipeline distribution + therapeutic focus), summary table with truncation warnings, full drug tables per phase, deals table, and trials summary.
 
 ### Pagination for large companies (when a phase hits 50 limit)
 ```bash
 # Use fetch_phase.sh instead of direct cortellis call — auto-paginates with rate limit protection
-bash $RECIPES/fetch_phase.sh <COMPANY_ID> L /tmp/pipeline/launched.csv $RECIPES
-bash $RECIPES/fetch_phase.sh <COMPANY_ID> C3 /tmp/pipeline/phase3.csv $RECIPES
+bash $RECIPES/fetch_phase.sh <COMPANY_ID> L $DIR/launched.csv $RECIPES
+bash $RECIPES/fetch_phase.sh <COMPANY_ID> C3 $DIR/phase3.csv $RECIPES
 # etc.
 ```
 Fetches up to 150 drugs per phase (3 pages). Sleeps 1s between pages to avoid rate limits.

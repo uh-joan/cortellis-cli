@@ -4,7 +4,7 @@
 # Includes rate limit protection (1s delay between pages).
 #
 # Usage: ./fetch_phase.sh <company_id> <phase_code> <output_csv> <recipes_dir>
-# Example: ./fetch_phase.sh 18614 L /tmp/pipeline/launched.csv ./recipes
+# Example: ./fetch_phase.sh 18614 L raw/pipeline/novo-nordisk/launched.csv ./recipes
 
 CID="$1"
 PHASE="$2"

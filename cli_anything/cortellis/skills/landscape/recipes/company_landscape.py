@@ -4,7 +4,7 @@
 Counts unique drugs per company (not drug-phase entries), then shows
 how many drugs each company has at each phase.
 
-Usage: python3 company_landscape.py /tmp/landscape/
+Usage: python3 company_landscape.py raw/landscape/<slug>/
 
 Output: company, total_unique_drugs, launched, phase3, phase2, phase1, discovery
 """

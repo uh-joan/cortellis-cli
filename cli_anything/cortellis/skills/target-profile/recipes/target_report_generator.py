@@ -1,13 +1,13 @@
 #!/usr/bin/env python3
 """Generate a formatted target profile report from collected JSON files.
 
-Usage: python3 target_report_generator.py /tmp/target_profile/
+Usage: python3 target_report_generator.py raw/targets/<slug>/
 """
 import json, sys, os
 from collections import Counter
 
 
-data_dir = sys.argv[1] if len(sys.argv) > 1 else "/tmp/target_profile"
+data_dir = sys.argv[1] if len(sys.argv) > 1 else "raw/targets/unknown"
 
 
 def load_json(filename):

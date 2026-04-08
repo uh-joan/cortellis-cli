@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Generate a formatted pipeline report from CSV files.
 
-Usage: python3 report_generator.py /tmp/pipeline <company_name> <company_id> <active_drugs>
+Usage: python3 report_generator.py raw/pipeline/<slug> <company_name> <company_id> <active_drugs>
 
 Reads all CSVs from the pipeline directory and outputs a formatted markdown
 report with ASCII charts.

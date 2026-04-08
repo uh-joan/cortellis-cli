@@ -4,8 +4,8 @@
 For each drug with an empty mechanism in the landscape CSVs, queries the
 Drug Design endpoint for MechanismsMolecular data.
 
-Usage: python3 enrich_mechanisms.py /tmp/landscape/
-       python3 enrich_mechanisms.py /tmp/landscape/launched.csv
+Usage: python3 enrich_mechanisms.py raw/landscape/<slug>/
+       python3 enrich_mechanisms.py raw/landscape/<slug>/launched.csv
 
 Rewrites CSVs in-place with enriched mechanism data.
 Requires cortellis CLI on PATH.

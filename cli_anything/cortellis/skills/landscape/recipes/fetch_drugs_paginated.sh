@@ -4,10 +4,10 @@
 #
 # Usage: ./fetch_drugs_paginated.sh <phase_code> <output_csv> <pipeline_recipes_dir> [--phase-highest] [search_params...]
 # Example:
-#   ./fetch_drugs_paginated.sh L /tmp/launched.csv ../pipeline/recipes --indication 238
-#   ./fetch_drugs_paginated.sh C3 /tmp/phase3.csv ../pipeline/recipes --phase-highest --technology 1164
-#   ./fetch_drugs_paginated.sh L /tmp/launched.csv ../pipeline/recipes --action "GLP-1 receptor agonist"
-#   ./fetch_drugs_paginated.sh DR /tmp/discovery.csv ../pipeline/recipes --phase-highest --technology 1164 --indication 88
+#   ./fetch_drugs_paginated.sh L raw/landscape/<slug>/launched.csv ../pipeline/recipes --indication 238
+#   ./fetch_drugs_paginated.sh C3 raw/landscape/<slug>/phase3.csv ../pipeline/recipes --phase-highest --technology 1164
+#   ./fetch_drugs_paginated.sh L raw/landscape/<slug>/launched.csv ../pipeline/recipes --action "GLP-1 receptor agonist"
+#   ./fetch_drugs_paginated.sh DR raw/landscape/<slug>/discovery.csv ../pipeline/recipes --phase-highest --technology 1164 --indication 88
 
 PHASE="$1"
 OUTPUT="$2"
