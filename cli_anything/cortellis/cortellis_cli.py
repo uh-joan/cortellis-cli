@@ -1757,6 +1757,30 @@ def chat_cmd(debug) -> None:
     except Exception:
         pass
 
+    # Inject daily session log — what happened in previous sessions
+    daily_log_section = ""
+    daily_dir = os.path.join(os.getcwd(), "daily")
+    if os.path.isdir(daily_dir):
+        from datetime import datetime as _dt, timedelta as _td, timezone as _tz
+        now = _dt.now(_tz.utc)
+        for offset in range(3):
+            date_str = (now - _td(days=offset)).strftime("%Y-%m-%d")
+            log_path = os.path.join(daily_dir, f"{date_str}.md")
+            if os.path.exists(log_path):
+                content = Path(log_path).read_text(encoding="utf-8")
+                lines = content.strip().split("\n")
+                if len(lines) > 40:
+                    content = "\n".join(lines[-40:])
+                daily_log_section = (
+                    "\n\n## What Happened in Previous Sessions\n\n"
+                    "You have a persistent knowledge base that accumulates across sessions. "
+                    "The following is a log of recent conversations and analyses. "
+                    "When the user asks what you discussed previously, refer to this — "
+                    "it IS your memory from past sessions.\n\n"
+                    f"{content}\n"
+                )
+                break
+
     # Build the system prompt
     venv_activate = str(Path(__file__).resolve().parents[2] / ".venv" / "bin" / "activate")
     # Prefix that activates venv + runs cortellis in one shot
@@ -1775,6 +1799,7 @@ Never try to run `cortellis` without this prefix. Never try to find or check the
 {wiki_index_section}
 {signals_section}
 {insights_section}
+{daily_log_section}
 
 WORKFLOW:
 1. User asks a question
@@ -1803,7 +1828,7 @@ STRICT DATA RULES:
 2. Give exact numbers. Never say "~8" or "6-7". If the query returned 8 results, say "8".
 3. If data is missing from results, say "not in the Cortellis results". Do NOT fill gaps from memory.
 4. Never mention drugs that did not appear in the query results.
-5. Run the CLI for EVERY pharma question. Never answer from memory.
+5. Check wiki/ articles and compiled knowledge FIRST. Only call the CLI if the wiki doesn't have the answer or the user asks for fresh data.
 6. ALWAYS list ALL items in tables. NEVER truncate with "+ N others" or summaries. Show every entry the API returned. A drug CAN appear in multiple phase tables — that's correct (e.g. semaglutide is Launched for T2D but Phase 3 for Alzheimer's). Show it in BOTH tables with the relevant indication for that phase.
 
 SKILL AUTO-ROUTING (CRITICAL — follow these rules EVERY time):
