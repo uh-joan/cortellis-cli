@@ -24,14 +24,23 @@ Pharma CI analysts spend **70% of their time gathering data** and 30% on actual 
 
 ## The Shift
 
-| Scenario | Before | After |
-|----------|--------|-------|
-| "What's the obesity landscape?" | Run 50+ API calls, 5 minutes | **Seconds** — answer from compiled wiki |
-| "How has the pipeline evolved?" | No way to know | **12-month reconstruction** from API historical data |
-| "Board deck for 3 therapeutic areas" | CI team spends a full day | **2 minutes** — PPTX + exec brief |
-| "What changed since last report?" | Re-run everything, compare manually | **Instant diff** — drug deltas, company shifts, deal velocity |
-| "Evaluate this licensing opportunity" | 2 days across 5 databases | **5 minutes** — deal comps, competitive context, BD brief |
-| Next session, next week, next month | Starts cold, everything forgotten | **Starts with accumulated intelligence** — the system remembers |
+**"What's the obesity landscape?"**
+~Before: 50+ API calls, 5 minutes.~ Now: **Seconds** — from compiled wiki.
+
+**"How has the pipeline evolved?"**
+~Before: No way to know.~ Now: **12-month reconstruction** from API historical data.
+
+**"Board deck for 3 therapeutic areas"**
+~Before: CI team spends a full day.~ Now: **2 minutes** — PPTX + exec brief.
+
+**"What changed since last report?"**
+~Before: Re-run everything, compare manually.~ Now: **Instant diff** — drug deltas, company shifts, deal velocity.
+
+**"Evaluate this licensing opportunity"**
+~Before: 2 days across 5 databases.~ Now: **5 minutes** — deal comps, competitive context, BD brief.
+
+**Next session, next week, next month**
+~Before: Starts cold, everything forgotten.~ Now: **Starts with accumulated intelligence** — the system remembers.
 
 Built on [Karpathy's LLM Wiki pattern](https://gist.github.com/karpathy/442a6bf555914893e9891c11519de94f): knowledge is compiled once and kept current, not re-derived on every query. The wiki is a persistent, compounding artifact.
 
