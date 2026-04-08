@@ -111,37 +111,42 @@ def append_to_daily_log(content: str):
 
 
 async def extract_with_agent_sdk(context: str) -> str:
-    """Use Claude Agent SDK to extract insights from conversation context."""
+    """Use claude CLI to extract insights from conversation context.
+
+    Shells out to the claude CLI with --print flag for reliable extraction.
+    Falls back to basic extraction if claude is not available.
+    """
+    import subprocess as sp
+    import shutil
+
+    claude_bin = shutil.which("claude")
+    if not claude_bin:
+        logging.warning("claude CLI not found, falling back to basic extraction")
+        return extract_basic(context)
+
+    # Truncate context to stay within token limits
+    truncated = context[:12000] if len(context) > 12000 else context
+    prompt = f"{EXTRACTION_PROMPT}\n\n---\n\nCONVERSATION TRANSCRIPT:\n\n{truncated}"
+
     try:
-        from claude_agent_sdk import AgentClient
-
-        client = AgentClient()
-
-        prompt = f"{EXTRACTION_PROMPT}\n\n---\n\nCONVERSATION TRANSCRIPT:\n\n{context}"
-
-        response = await client.process(
-            prompt=prompt,
-            allowed_tools=[],  # No tools needed — pure analysis
-            max_turns=2,
+        result = sp.run(
+            [claude_bin, "--print", "-p", prompt, "--max-turns", "1",
+             "--dangerously-skip-permissions"],
+            capture_output=True, text=True, timeout=120,
+            env={**os.environ, "CLAUDE_INVOKED_BY": "flush-script"},
         )
+        if result.returncode == 0 and result.stdout.strip():
+            logging.info(f"Claude CLI extraction: {len(result.stdout)} chars")
+            return result.stdout.strip()
+        else:
+            logging.warning(f"Claude CLI returned code {result.returncode}, falling back")
+            return extract_basic(context)
 
-        # Extract text from response
-        if hasattr(response, "text"):
-            return response.text
-        elif hasattr(response, "content"):
-            if isinstance(response.content, list):
-                return "\n".join(
-                    block.text for block in response.content
-                    if hasattr(block, "text")
-                )
-            return str(response.content)
-        return str(response)
-
-    except ImportError:
-        logging.warning("claude-agent-sdk not available, falling back to basic extraction")
+    except sp.TimeoutExpired:
+        logging.warning("Claude CLI timed out after 120s, falling back")
         return extract_basic(context)
     except Exception as e:
-        logging.error(f"Agent SDK failed: {e}, falling back to basic extraction")
+        logging.error(f"Claude CLI failed: {e}, falling back to basic extraction")
         return extract_basic(context)
 
 
