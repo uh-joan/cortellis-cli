@@ -6,7 +6,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "/Users/janisaez/code/cortellis-cli/.venv/bin/python3 hooks/session-start.py",
+            "command": ".venv/bin/python3 hooks/session-start.py",
             "timeout": 15
           }
         ]
@@ -18,7 +18,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "/Users/janisaez/code/cortellis-cli/.venv/bin/python3 hooks/pre-compact.py",
+            "command": ".venv/bin/python3 hooks/pre-compact.py",
             "timeout": 10
           }
         ]
@@ -30,7 +30,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "/Users/janisaez/code/cortellis-cli/.venv/bin/python3 hooks/session-end.py",
+            "command": ".venv/bin/python3 hooks/session-end.py",
             "timeout": 10
           }
         ]
