@@ -94,6 +94,18 @@ _SKILLS = [
         "description": "wiki health check: broken links, orphans, stale articles, missing refs, empty sections, index consistency, freshness gaps",
     },
     {
+        "name": "wiki-manage",
+        "triggers": [
+            re.compile(r"\breset\s+(?:the\s+)?(?:wiki|knowledge\s+base|kb)\b", re.IGNORECASE),
+            re.compile(r"\bremove\s+.+\s+from\s+(?:the\s+)?(?:wiki|kb|knowledge)\b", re.IGNORECASE),
+            re.compile(r"\bprune\s+(?:the\s+)?wiki\b", re.IGNORECASE),
+            re.compile(r"\bwiki\s+status\b", re.IGNORECASE),
+            re.compile(r"\bclean\s+(?:up\s+)?(?:the\s+)?(?:wiki|kb|knowledge)\b", re.IGNORECASE),
+        ],
+        "directive": "[SKILL: Run python3 $RECIPES/wiki_manage.py with the appropriate command (reset, remove <slug>, prune, or status)] ",
+        "description": "wiki management: reset, remove indication, prune orphans, status",
+    },
+    {
         "name": "drug-profile",
         "triggers": [
             re.compile(r"\bdrug\s*profile\b", re.IGNORECASE),
