@@ -1881,27 +1881,68 @@ All skills and their workflows are included below in the system context."""
         skill_directive = detect_skill(question)
         routed_question = f"{skill_directive}{question}" if skill_directive else question
 
-        # Wiki fast-path: inject compiled article for landscape questions
+        # Wiki fast-path: inject ANY matching wiki articles (indications, drugs, companies)
         from cli_anything.cortellis.core.skill_router import check_wiki_fast_path
-        from cli_anything.cortellis.utils.wiki import read_article as _read_wiki
+        from cli_anything.cortellis.utils.wiki import read_article as _read_wiki, slugify as _slugify
 
         wiki_context = ""
+
+        # 1. Check landscape fast-path (existing)
         wiki_article_path = check_wiki_fast_path(question)
         if wiki_article_path:
             art = _read_wiki(wiki_article_path)
             if art:
                 wiki_context = (
-                    "\n\n--- COMPILED LANDSCAPE ARTICLE ---\n"
-                    "A fresh compiled landscape article is available. "
-                    "Use it to answer the question. Only run the full /landscape "
-                    "pipeline if the user explicitly requests a refresh or asks "
-                    "for data not in this article.\n\n"
-                    f"Indication: {art['meta'].get('title', 'Unknown')}\n"
-                    f"Compiled: {art['meta'].get('compiled_at', 'Unknown')}\n"
-                    f"Freshness: {art['meta'].get('freshness_level', 'Unknown')}\n\n"
+                    "\n\n--- COMPILED WIKI ARTICLE ---\n"
+                    "A compiled article is available. "
+                    "Use it to answer the question. Only call the API "
+                    "if the user explicitly requests fresh data or asks "
+                    "for something not in this article.\n\n"
+                    f"Title: {art['meta'].get('title', 'Unknown')}\n"
+                    f"Compiled: {art['meta'].get('compiled_at', 'Unknown')}\n\n"
                     f"{art['body']}\n"
                     "--- END COMPILED ARTICLE ---\n"
                 )
+
+        # 2. Scan wiki/drugs/ and wiki/companies/ for entity matches
+        if not wiki_context:
+            wiki_dir = os.path.join(os.getcwd(), "wiki")
+            question_lower = question.lower()
+            matched_articles = []
+            for article_type in ("drugs", "companies"):
+                type_dir = os.path.join(wiki_dir, article_type)
+                if not os.path.isdir(type_dir):
+                    continue
+                for fname in os.listdir(type_dir):
+                    if not fname.endswith(".md"):
+                        continue
+                    slug = fname[:-3]
+                    # Check if slug words appear in question
+                    slug_words = slug.replace("-", " ")
+                    # Match if any significant slug word (>3 chars) appears in question
+                    if any(w in question_lower for w in slug_words.split() if len(w) > 3):
+                        art = _read_wiki(os.path.join(type_dir, fname))
+                        if art and art["meta"]:
+                            matched_articles.append(art)
+                        if len(matched_articles) >= 3:  # cap at 3 to stay within context
+                            break
+                if len(matched_articles) >= 3:
+                    break
+
+            if matched_articles:
+                parts = ["\n\n--- COMPILED WIKI ARTICLES ---\n"
+                         "These wiki articles match your question. "
+                         "Use them to answer. Only call the API if the information is missing.\n\n"]
+                for art in matched_articles:
+                    parts.append(f"### {art['meta'].get('title', 'Unknown')} "
+                                 f"(compiled: {art['meta'].get('compiled_at', '?')[:10]})\n\n")
+                    # Include body but cap per article to manage context
+                    body = art["body"]
+                    if len(body) > 5000:
+                        body = body[:5000] + "\n\n_[Article truncated — read full: cat wiki/...]_\n"
+                    parts.append(f"{body}\n\n")
+                parts.append("--- END COMPILED ARTICLES ---\n")
+                wiki_context = "".join(parts)
 
         effective_prompt = system_prompt + wiki_context
 
