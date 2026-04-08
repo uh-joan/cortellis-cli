@@ -82,6 +82,12 @@ def build_context() -> str:
     from datetime import datetime, timezone
 
     parts = []
+    parts.append(
+        "You have a persistent knowledge base that accumulates across sessions. "
+        "Below is your memory: compiled wiki articles, strategic signals, insights "
+        "from previous analyses, and the most recent session log. When the user asks "
+        "what you discussed previously, refer to this context — it IS your memory.\n"
+    )
     parts.append(f"**Date:** {datetime.now(timezone.utc).strftime('%Y-%m-%d')}")
 
     # Wiki index
@@ -114,10 +120,13 @@ def build_context() -> str:
     if insights:
         parts.append(insights)
 
-    # Recent daily log
+    # Recent daily log — what happened in previous sessions
     daily_log = get_recent_log()
     if daily_log:
-        parts.append(f"\n{daily_log}")
+        parts.append(f"\n## What Happened in Previous Sessions\n\n"
+                     f"The following is a summary of recent conversations. "
+                     f"Use this to answer questions like 'what did we discuss last time?'\n\n"
+                     f"{daily_log}")
 
     context = "\n".join(parts)
 
