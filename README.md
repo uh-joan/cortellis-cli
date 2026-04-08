@@ -1,4 +1,4 @@
-# Cortellis CLI - Intelligence that compounds
+# Cortellis AI-native knowledge base - Intelligence that compounds
 
 ```
   ╔═════════════════════════════════════════════════════════════════════════════╗
@@ -24,23 +24,14 @@ Pharma CI analysts spend **70% of their time gathering data** and 30% on actual 
 
 ## The Shift
 
-**"What's the obesity landscape?"**
-~Before: 50+ API calls, 5 minutes.~ Now: **Seconds** — from compiled wiki.
-
-**"How has the pipeline evolved?"**
-~Before: No way to know.~ Now: **12-month reconstruction** from API historical data.
-
-**"Board deck for 3 therapeutic areas"**
-~Before: CI team spends a full day.~ Now: **2 minutes** — PPTX + exec brief.
-
-**"What changed since last report?"**
-~Before: Re-run everything, compare manually.~ Now: **Instant diff** — drug deltas, company shifts, deal velocity.
-
-**"Evaluate this licensing opportunity"**
-~Before: 2 days across 5 databases.~ Now: **5 minutes** — deal comps, competitive context, BD brief.
-
-**Next session, next week, next month**
-~Before: Starts cold, everything forgotten.~ Now: **Starts with accumulated intelligence** — the system remembers.
+| Scenario | Before | After |
+|:---------|:-------|:------|
+| Obesity landscape? | 50+ API calls, 5 min | **Seconds** — compiled wiki |
+| Pipeline evolution? | No way to know | **12-month** API reconstruction |
+| Board deck, 3 areas | CI team, full day | **2 min** — PPTX + exec brief |
+| What changed? | Re-run, compare manually | **Instant diff** — deltas + signals |
+| Licensing opportunity? | 2 days, 5 databases | **5 min** — deal comps + BD brief |
+| Next session | Cold start, forgotten | **Accumulated intelligence** |
 
 Built on [Karpathy's LLM Wiki pattern](https://gist.github.com/karpathy/442a6bf555914893e9891c11519de94f): knowledge is compiled once and kept current, not re-derived on every query. The wiki is a persistent, compounding artifact.
 
