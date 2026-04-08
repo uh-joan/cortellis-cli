@@ -11,7 +11,13 @@ Output: company, total_unique_drugs, launched, phase3, phase2, phase1, discovery
 import csv, os, sys
 from collections import defaultdict
 
+if len(sys.argv) < 2:
+    print(f"Usage: {sys.argv[0]} <landscape_dir>", file=sys.stderr)
+    sys.exit(1)
 landscape_dir = sys.argv[1]
+if not os.path.isdir(landscape_dir):
+    print(f"Error: {landscape_dir} is not a directory", file=sys.stderr)
+    sys.exit(1)
 
 # Track: company → set of drug IDs per phase
 company_drugs = defaultdict(lambda: defaultdict(set))

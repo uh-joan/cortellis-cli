@@ -15,10 +15,9 @@ from typing import Optional
 import click
 from dotenv import load_dotenv
 
+from cli_anything.cortellis import __version__
 from cli_anything.cortellis.core.client import CortellisClient
-from cli_anything.cortellis.utils.output import print_output, print_error
-
-__version__ = "0.1.0"
+from cli_anything.cortellis.utils.output import print_output
 
 _BANNER = """
   ╔═════════════════════════════════════════════════════════════════════════════╗
@@ -1547,6 +1546,7 @@ def config_cmd(env_file: str) -> None:
 
     with open(env_file, "w") as fh:
         fh.writelines(existing_lines)
+    os.chmod(env_file, 0o600)
 
     click.echo(f"\nCredentials saved to {os.path.abspath(env_file)}")
     click.echo("Run any cortellis command — credentials will be loaded automatically.")
@@ -1599,6 +1599,7 @@ def setup_cmd() -> None:
     existing["CORTELLIS_USERNAME"] = username
     existing["CORTELLIS_PASSWORD"] = password
     env_path.write_text("\n".join(f"{k}={v}" for k, v in existing.items()) + "\n")
+    os.chmod(env_path, 0o600)
     click.echo(f"  Saved to {env_path}\n")
 
     # Step 2: Test API connectivity
@@ -1974,7 +1975,6 @@ All skills and their workflows are included below in the system context."""
         cmd = [claude_bin, "--print", "-p", routed_question,
                "--append-system-prompt", effective_prompt,
                "--allowedTools", "Bash",
-               "--dangerously-skip-permissions",
                "--output-format", "stream-json", "--verbose"]
         if use_context and not first_turn:
             cmd.append("--continue")

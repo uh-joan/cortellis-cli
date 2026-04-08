@@ -1,8 +1,16 @@
 from setuptools import setup, find_namespace_packages
 
+# Single source of truth for version
+_version = {}
+with open("cli_anything/cortellis/__init__.py") as f:
+    for line in f:
+        if line.startswith("__version__"):
+            exec(line, _version)
+            break
+
 setup(
     name="cortellis-cli",
-    version="0.1.0",
+    version=_version["__version__"],
     packages=find_namespace_packages(include=["cli_anything.*"]),
     package_data={
         "cli_anything.cortellis": ["skills/*/SKILL.md"],

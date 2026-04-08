@@ -12,7 +12,13 @@ from _audit_trail import (
     compute_freshness, render_freshness_warning, write_freshness_json,
 )
 
+if len(sys.argv) < 2:
+    print(f"Usage: {sys.argv[0]} <landscape_dir> [indication_name] [indication_id] [user_input] [resolution_method]", file=sys.stderr)
+    sys.exit(1)
 landscape_dir = sys.argv[1]
+if not os.path.isdir(landscape_dir):
+    print(f"Error: {landscape_dir} is not a directory", file=sys.stderr)
+    sys.exit(1)
 indication_name = sys.argv[2] if len(sys.argv) > 2 else "Unknown"
 indication_id = sys.argv[3] if len(sys.argv) > 3 else "?"
 user_input = sys.argv[4] if len(sys.argv) > 4 else ""

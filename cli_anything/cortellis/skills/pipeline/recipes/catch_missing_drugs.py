@@ -35,7 +35,7 @@ def fetch_all_drugs(company_id, hits=200):
             if offset >= total:
                 break
             time.sleep(3)
-        except:
+        except (json.JSONDecodeError, KeyError, TypeError, ValueError):
             break
     return all_drugs
 

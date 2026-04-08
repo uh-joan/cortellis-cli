@@ -8,7 +8,13 @@ Usage: python3 enrich_company_sizes.py raw/landscape/<slug>
 """
 import csv, json, re, subprocess, sys, os
 
+if len(sys.argv) < 2:
+    print(f"Usage: {sys.argv[0]} <data_dir>", file=sys.stderr)
+    sys.exit(1)
 data_dir = sys.argv[1]
+if not os.path.isdir(data_dir):
+    print(f"Error: {data_dir} is not a directory", file=sys.stderr)
+    sys.exit(1)
 MAX_COMPANIES = 20  # Only resolve top N to limit API calls
 
 

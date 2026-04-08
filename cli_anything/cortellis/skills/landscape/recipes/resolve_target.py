@@ -55,7 +55,7 @@ def ner_resolve(name):
         for e in entities:
             if e.get("@type") == "Action":
                 return e.get("@name", "")
-    except:
+    except (json.JSONDecodeError, KeyError, TypeError, ValueError):
         pass
     return ""
 
@@ -90,7 +90,7 @@ def ontology_resolve(name):
         # Fallback: first result
         if nodes:
             return nodes[0].get("@name", "")
-    except:
+    except (json.JSONDecodeError, KeyError, TypeError, ValueError):
         pass
     return ""
 

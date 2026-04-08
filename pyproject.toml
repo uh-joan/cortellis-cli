@@ -1,0 +1,47 @@
+[build-system]
+requires = ["setuptools>=68.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "cortellis-cli"
+dynamic = ["version"]
+description = "Pharmaceutical intelligence CLI for the Cortellis API"
+readme = "README.md"
+license = {text = "MIT"}
+requires-python = ">=3.9"
+dependencies = [
+    "click>=8.1",
+    "requests>=2.31",
+    "rich>=13.0",
+    "prompt_toolkit>=3.0",
+    "python-dotenv>=1.0",
+    "pyyaml>=6.0",
+    "python-pptx>=0.6.21",
+    "openpyxl>=3.0.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.0",
+    "pytest-mock>=3.0",
+    "responses>=0.23",
+]
+graph = [
+    "networkx>=3.0",
+    "graspologic>=3.0",
+]
+
+[project.scripts]
+cortellis = "cli_anything.cortellis.__main__:main"
+
+[tool.setuptools.dynamic]
+version = {attr = "cli_anything.cortellis.__version__"}
+
+[tool.setuptools.packages.find]
+include = ["cli_anything.*"]
+
+[tool.setuptools.package-data]
+"cli_anything.cortellis" = ["skills/*/SKILL.md"]
+
+[tool.pytest.ini_options]
+testpaths = ["cli_anything/cortellis/tests"]

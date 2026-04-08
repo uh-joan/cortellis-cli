@@ -1,10 +1,28 @@
+import logging
 import sys
 import json as _json
 
 import click
 import requests
+from urllib3.exceptions import MaxRetryError
 
 from cli_anything.cortellis.cortellis_cli import cli
+
+
+def _configure_logging() -> None:
+    """Enable debug logging when --debug flag is present."""
+    if "--debug" in sys.argv[1:]:
+        logging.basicConfig(
+            level=logging.DEBUG,
+            format="%(name)s %(levelname)s: %(message)s",
+            stream=sys.stderr,
+        )
+    else:
+        logging.basicConfig(
+            level=logging.WARNING,
+            format="%(name)s %(levelname)s: %(message)s",
+            stream=sys.stderr,
+        )
 
 
 def _emit_error(message: str, error_type: str, details: dict | None = None) -> None:
@@ -24,6 +42,7 @@ def _emit_error(message: str, error_type: str, details: dict | None = None) -> N
 
 
 def main():
+    _configure_logging()
     try:
         cli()
     except click.exceptions.Exit:
@@ -41,7 +60,12 @@ def main():
             error_type="http_error",
             details={"status_code": status},
         )
-    except requests.exceptions.ConnectionError:
+    except requests.exceptions.RetryError as exc:
+        _emit_error(
+            message=f"API request failed after retries: {exc}",
+            error_type="retry_error",
+        )
+    except (requests.exceptions.ConnectionError, MaxRetryError):
         _emit_error(
             message="Could not connect to Cortellis API",
             error_type="connection_error",

@@ -72,7 +72,13 @@ def is_academic(name):
 # Load all scored data
 # ---------------------------------------------------------------------------
 
+if len(sys.argv) < 2:
+    print(f"Usage: {sys.argv[0]} <landscape_dir> [indication_name] [preset]", file=sys.stderr)
+    sys.exit(1)
 landscape_dir = sys.argv[1]
+if not os.path.isdir(landscape_dir):
+    print(f"Error: {landscape_dir} is not a directory", file=sys.stderr)
+    sys.exit(1)
 indication_name = sys.argv[2] if len(sys.argv) > 2 else "Unknown"
 preset_name = sys.argv[3] if len(sys.argv) > 3 else "default"
 

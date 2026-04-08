@@ -36,7 +36,8 @@ def fetch_all_drugs(indication_id, hits=200):
             if offset >= total:
                 break
             time.sleep(3)
-        except:
+        except (json.JSONDecodeError, KeyError, TypeError, ValueError) as e:
+            print(f"Warning: failed to parse page at offset {offset}: {e}", file=sys.stderr)
             break
     return all_drugs
 

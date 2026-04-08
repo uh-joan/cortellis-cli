@@ -11,7 +11,13 @@ Outputs formatted markdown report with ASCII timeline.
 import csv, json, sys, os
 from collections import Counter
 
+if len(sys.argv) < 2:
+    print(f"Usage: {sys.argv[0]} <profile_dir>", file=sys.stderr)
+    sys.exit(1)
 profile_dir = sys.argv[1]
+if not os.path.isdir(profile_dir):
+    print(f"Error: {profile_dir} is not a directory", file=sys.stderr)
+    sys.exit(1)
 
 
 def load_json(filename):
@@ -25,7 +31,7 @@ def load_json(filename):
         if len(str(d)) < 50:
             return None
         return d
-    except:
+    except (json.JSONDecodeError, KeyError, TypeError, ValueError, OSError):
         return None
 
 

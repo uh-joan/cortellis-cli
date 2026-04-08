@@ -39,7 +39,7 @@ def get_si_mechanism(drug_name):
         if isinstance(mech_list, dict):
             mech_list = [mech_list]
         return "; ".join(m.get("$", "") for m in mech_list if isinstance(m, dict) and m.get("$"))
-    except:
+    except (json.JSONDecodeError, KeyError, TypeError, ValueError):
         return ""
 
 

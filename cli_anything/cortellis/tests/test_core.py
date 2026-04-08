@@ -262,13 +262,18 @@ class TestCortellisClientGet:
         monkeypatch.setenv("CORTELLIS_USERNAME", "envuser")
         monkeypatch.setenv("CORTELLIS_PASSWORD", "envpass")
         client = CortellisClient()
-        assert client.username == "envuser"
-        assert client.password == "envpass"
+        assert client._username == "envuser"
+        assert client._password == "envpass"
 
     def test_explicit_credentials_override_env(self, monkeypatch):
         monkeypatch.setenv("CORTELLIS_USERNAME", "envuser")
         client = CortellisClient(username="explicit")
-        assert client.username == "explicit"
+        assert client._username == "explicit"
+
+    def test_password_cleared_after_session_init(self):
+        client = CortellisClient(username="user", password="secret")
+        _ = client.session  # triggers session creation
+        assert client._password is None
 
     @responses_lib.activate
     def test_close_clears_session(self):

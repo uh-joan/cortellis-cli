@@ -1,0 +1,24 @@
+# Pinned dependencies — generated from .venv on 2026-04-08
+# Regenerate with: pip freeze | grep -v claude-agent-sdk > requirements.txt
+certifi==2026.2.25
+charset-normalizer==3.4.6
+click==8.3.1
+et_xmlfile==2.0.0
+idna==3.11
+lxml==6.0.2
+markdown-it-py==4.0.0
+mdurl==0.1.2
+openpyxl==3.1.5
+packaging==26.0
+pillow==12.2.0
+prompt_toolkit==3.0.52
+Pygments==2.19.2
+python-dotenv==1.2.2
+python-pptx==1.0.2
+PyYAML==6.0.3
+requests==2.33.0
+rich==14.3.3
+typing_extensions==4.15.0
+urllib3==2.6.3
+wcwidth==0.6.0
+xlsxwriter==3.2.9

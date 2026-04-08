@@ -37,7 +37,7 @@ def get_trial_count(indication_id, phase=None):
     try:
         d = json.loads(r.stdout)
         return int(d.get("trialResultsOutput", {}).get("@totalResults", 0))
-    except:
+    except (json.JSONDecodeError, KeyError, TypeError, ValueError):
         return 0
 
 

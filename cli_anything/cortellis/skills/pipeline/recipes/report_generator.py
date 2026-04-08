@@ -9,7 +9,13 @@ report with ASCII charts.
 import csv, json, sys, os
 from collections import Counter
 
+if len(sys.argv) < 2:
+    print(f"Usage: {sys.argv[0]} <pipeline_dir> [company_name] [company_id] [active_drugs]", file=sys.stderr)
+    sys.exit(1)
 pipeline_dir = sys.argv[1]
+if not os.path.isdir(pipeline_dir):
+    print(f"Error: {pipeline_dir} is not a directory", file=sys.stderr)
+    sys.exit(1)
 company_name = sys.argv[2] if len(sys.argv) > 2 else "Unknown"
 company_id = sys.argv[3] if len(sys.argv) > 3 else ""
 active_drugs = sys.argv[4] if len(sys.argv) > 4 else "?"

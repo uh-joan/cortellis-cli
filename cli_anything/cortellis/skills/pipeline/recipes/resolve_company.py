@@ -20,7 +20,7 @@ def run_cli(*args):
     r = subprocess.run(["cortellis", "--json"] + list(args), capture_output=True, text=True)
     try:
         return json.loads(r.stdout)
-    except:
+    except (json.JSONDecodeError, ValueError):
         return {}
 
 
@@ -28,7 +28,7 @@ def get_active(cid):
     d = run_cli("companies", "get", cid)
     try:
         return int(d.get("companyRecordOutput", {}).get("Drugs", {}).get("@activeDevelopment", "0"))
-    except:
+    except (KeyError, TypeError, ValueError):
         return 0
 
 
@@ -80,7 +80,7 @@ def resolve(name):
             if e.get("@type") == "Company":
                 if names_match(name, e.get("@name", "")):
                     return e.get("@id", ""), get_active(e["@id"]), "ner"
-    except:
+    except (KeyError, TypeError, ValueError):
         pass
 
     # Strategy 1: ontology depth-1 parents
@@ -111,7 +111,7 @@ def resolve(name):
         pid, active = best_from_search(comps, query_name=name)
         if active >= 10:
             return pid, active, "broad"
-    except:
+    except (KeyError, TypeError, ValueError):
         pass
 
     # Strategy 3: suffix search
@@ -122,7 +122,7 @@ def resolve(name):
             pid, active = best_from_search(comps, query_name=name)
             if active >= 10:
                 return pid, active, f"suffix:{suffix.strip()}"
-        except:
+        except (KeyError, TypeError, ValueError):
             pass
 
     # Last resort: return best from strategy 2 even if <10
@@ -132,7 +132,7 @@ def resolve(name):
         pid, active = best_from_search(comps, query_name=name)
         if active > 0:
             return pid, active, "best-effort"
-    except:
+    except (KeyError, TypeError, ValueError):
         pass
 
     return "", 0, "FAIL"

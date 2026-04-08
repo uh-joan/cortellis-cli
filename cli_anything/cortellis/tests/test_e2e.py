@@ -33,7 +33,7 @@ pytestmark = pytest.mark.skipif(_NO_CREDS, reason=_SKIP_REASON)
 
 @pytest.fixture(scope="module")
 def runner() -> CliRunner:
-    return CliRunner(mix_stderr=False)
+    return CliRunner()
 
 
 def _invoke(runner: CliRunner, args: list) -> tuple:
@@ -54,7 +54,7 @@ def test_drugs_search_returns_results(runner):
     # Cortellis search responses contain a hits/totalHits key or similar
     assert isinstance(data, dict)
     # Accept either "drugs" list or a top-level hits structure
-    assert any(k in data for k in ("drugs", "hits", "totalHits", "data", "results")), (
+    assert any(k in data for k in ("drugResultsOutput", "drugs", "hits", "totalHits", "data", "results")), (
         f"Unexpected response keys: {list(data.keys())}"
     )
 

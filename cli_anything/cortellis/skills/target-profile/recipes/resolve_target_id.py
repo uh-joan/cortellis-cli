@@ -28,7 +28,7 @@ def run_cmd(args):
         return {}
     try:
         return json.loads(r.stdout)
-    except:
+    except (json.JSONDecodeError, ValueError):
         return {}
 
 
@@ -102,7 +102,7 @@ def targets_search(query):
         tname = t.get("NameMain", "")
         gsym = _extract_gene_symbol(t)
         return (tid, tname, gsym)
-    except:
+    except (KeyError, TypeError, IndexError):
         pass
     return None
 
@@ -117,7 +117,7 @@ def ner_resolve_target(name):
         for e in entities:
             if e.get("@type") == "Target":
                 return e.get("@name", "")
-    except:
+    except (KeyError, TypeError):
         pass
     return ""
 

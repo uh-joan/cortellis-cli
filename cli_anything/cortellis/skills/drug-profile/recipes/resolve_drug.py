@@ -68,9 +68,9 @@ def resolve(name):
                         if isinstance(drug, list):
                             drug = drug[0]
                         return ner_id, drug.get("@name", name), drug.get("@phaseHighest", ""), indication_count(drug)
-                    except:
+                    except (json.JSONDecodeError, KeyError, TypeError, ValueError):
                         return ner_id, name, "", 0
-    except:
+    except (json.JSONDecodeError, KeyError, TypeError, ValueError):
         pass
 
     # Strategy 2: drug name search with scoring
@@ -83,7 +83,7 @@ def resolve(name):
         drugs = d.get("drugResultsOutput", {}).get("SearchResults", {}).get("Drug", [])
         if isinstance(drugs, dict):
             drugs = [drugs]
-    except:
+    except (json.JSONDecodeError, KeyError, TypeError, ValueError):
         return "", "", "", 0
 
     if not drugs:
