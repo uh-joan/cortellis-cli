@@ -1719,12 +1719,19 @@ def chat_cmd(debug) -> None:
         wiki_index_content = Path(wiki_index_path).read_text()
         wiki_index_section = (
             "\n\n## Available Compiled Knowledge\n\n"
-            "The following landscape analyses are compiled and available in the wiki/ directory.\n"
-            "Use these to answer questions without running full pipelines when the data is fresh.\n"
-            "To read a compiled article, run: cat wiki/indications/<slug>.md\n"
-            "To read a company profile, run: cat wiki/companies/<slug>.md\n"
-            "To compare indications, run: python3 $RECIPES/portfolio_report.py\n"
-            "To check what changed, run: python3 $RECIPES/diff_landscape.py <slug>\n\n"
+            "CRITICAL RULE: ALWAYS check the wiki BEFORE making any API calls. "
+            "If the answer exists in a compiled article, use it. "
+            "Only call the Cortellis API when the wiki does not have the information "
+            "or the user explicitly asks for a fresh analysis.\n\n"
+            "Before fetching drug lists, company data, or landscape information from the API, "
+            "first read the relevant wiki article. For example, if the user asks about "
+            "approved drugs for obesity, read wiki/indications/obesity.md or raw/obesity/launched.csv "
+            "instead of searching the API again.\n\n"
+            "To read a compiled article: cat wiki/indications/<slug>.md\n"
+            "To read a company profile: cat wiki/companies/<slug>.md\n"
+            "To read raw drug lists: cat raw/<slug>/launched.csv (or phase3.csv, etc.)\n"
+            "To compare indications: python3 $RECIPES/portfolio_report.py\n"
+            "To check what changed: python3 $RECIPES/diff_landscape.py <slug>\n\n"
             f"{wiki_index_content}"
         )
 

@@ -89,10 +89,16 @@ def build_context() -> str:
     if wiki_index:
         parts.append(
             "\n## Available Compiled Knowledge\n\n"
-            "Use compiled wiki articles to answer questions without running full pipelines.\n"
-            "To read an article: `cat wiki/indications/<slug>.md`\n"
-            "To compare: `python3 $RECIPES/portfolio_report.py`\n"
-            "To check changes: `python3 $RECIPES/diff_landscape.py <slug>`\n\n"
+            "CRITICAL: ALWAYS check the wiki BEFORE making API calls. "
+            "If the answer exists in a compiled article, use it. "
+            "Only call the Cortellis API when the wiki lacks the information "
+            "or the user explicitly asks for a fresh analysis.\n\n"
+            "Before fetching drug lists, company data, or landscape info, "
+            "first read the relevant wiki article or raw CSV.\n\n"
+            "Read articles: `cat wiki/indications/<slug>.md`\n"
+            "Read raw data: `cat raw/<slug>/launched.csv`\n"
+            "Compare: `python3 $RECIPES/portfolio_report.py`\n"
+            "Changes: `python3 $RECIPES/diff_landscape.py <slug>`\n\n"
             f"{wiki_index}"
         )
     else:
