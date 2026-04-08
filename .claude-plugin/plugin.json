@@ -1,6 +1,6 @@
 {
   "name": "cortellis",
-  "description": "Pharmaceutical intelligence CLI for Cortellis — drugs, companies, deals, trials, regulatory, ontology, and analytics.",
+  "description": "Pharmaceutical intelligence with AI-native knowledge base — 13 APIs, 8 skills, compiled wiki, strategic signals, and exports.",
   "author": {
     "name": "cortellis-cli contributors"
   }
