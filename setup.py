@@ -14,13 +14,19 @@ setup(
         "rich>=13.0",
         "prompt_toolkit>=3.0",
         "python-dotenv>=1.0",
+        "pyyaml>=6.0",
+        "python-pptx>=0.6.21",
+        "openpyxl>=3.0.0",
     ],
     extras_require={
         "dev": [
             "pytest>=7.0",
             "pytest-mock>=3.0",
             "responses>=0.23",
-        ]
+        ],
+        "graph": [
+            "networkx>=3.0",
+        ],
     },
     entry_points={
         "console_scripts": [

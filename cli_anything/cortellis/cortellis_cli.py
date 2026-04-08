@@ -8,6 +8,7 @@ Root group: cortellis (with --json flag)
   conferences, literature, press-releases, ontology, analytics, ner
 """
 
+import os
 import sys
 from typing import Optional
 
@@ -1711,6 +1712,44 @@ def chat_cmd(debug) -> None:
             skill_parts.append(skill_file.read_text())
     skill_content = "\n\n".join(skill_parts)
 
+    # Inject wiki INDEX if available — enables cross-session knowledge
+    wiki_index_path = os.path.join(os.getcwd(), "wiki", "INDEX.md")
+    wiki_index_section = ""
+    if os.path.exists(wiki_index_path):
+        wiki_index_content = Path(wiki_index_path).read_text()
+        wiki_index_section = (
+            "\n\n## Available Compiled Knowledge\n\n"
+            "The following landscape analyses are compiled and available in the wiki/ directory.\n"
+            "Use these to answer questions without running full pipelines when the data is fresh.\n"
+            "To read a compiled article, run: cat wiki/indications/<slug>.md\n"
+            "To read a company profile, run: cat wiki/companies/<slug>.md\n"
+            "To compare indications, run: python3 $RECIPES/portfolio_report.py\n"
+            "To check what changed, run: python3 $RECIPES/diff_landscape.py <slug>\n\n"
+            f"{wiki_index_content}"
+        )
+
+    # Inject strategic signals if wiki has temporal data
+    signals_section = ""
+    try:
+        from cli_anything.cortellis.utils.intelligence import extract_signals, format_signals_for_prompt
+        wiki_path = os.path.join(os.getcwd(), "wiki")
+        if os.path.isdir(wiki_path):
+            signals = extract_signals(wiki_path)
+            signals_section = format_signals_for_prompt(signals) if signals else ""
+    except Exception:
+        pass
+
+    # Inject recent analysis insights
+    insights_section = ""
+    try:
+        from cli_anything.cortellis.utils.insights_extractor import load_recent_insights, format_insights_for_prompt
+        wiki_path = os.path.join(os.getcwd(), "wiki")
+        if os.path.isdir(wiki_path):
+            recent = load_recent_insights(wiki_path, max_age_days=30)
+            insights_section = format_insights_for_prompt(recent) if recent else ""
+    except Exception:
+        pass
+
     # Build the system prompt
     venv_activate = str(Path(__file__).resolve().parents[2] / ".venv" / "bin" / "activate")
     # Prefix that activates venv + runs cortellis in one shot
@@ -1726,6 +1765,9 @@ CRITICAL RULE: Every Bash command MUST start with this exact prefix:
 Never try to run `cortellis` without this prefix. Never try to find or check the venv path. Just use the prefix above every single time.
 
 {skill_content}
+{wiki_index_section}
+{signals_section}
+{insights_section}
 
 WORKFLOW:
 1. User asks a question
@@ -1787,12 +1829,26 @@ All skills and their workflows are included below in the system context."""
         try:
             question = input("  you> ").strip()
         except (EOFError, KeyboardInterrupt):
+            try:
+                from cli_anything.cortellis.utils.session_memory import flush_session_memory
+                recompiled = flush_session_memory()
+                if recompiled:
+                    click.echo(f"\n  Updated wiki for: {', '.join(recompiled)}")
+            except Exception:
+                pass
             click.echo("\n  Goodbye!")
             break
 
         if not question:
             continue
         if question.lower() in ("exit", "quit", "/exit"):
+            try:
+                from cli_anything.cortellis.utils.session_memory import flush_session_memory
+                recompiled = flush_session_memory()
+                if recompiled:
+                    click.echo(f"  Updated wiki for: {', '.join(recompiled)}")
+            except Exception:
+                pass
             click.echo("  Goodbye!")
             break
 
@@ -1806,7 +1862,7 @@ All skills and their workflows are included below in the system context."""
 
         # Handle explicit /skill invocations — strip the / to prevent
         # Claude Code from interpreting it as a slash command
-        CORTELLIS_SKILLS = {"pipeline", "landscape", "drug-profile"}
+        CORTELLIS_SKILLS = {"pipeline", "landscape", "drug-profile", "drug-comparison", "conference-intel", "target-profile", "signals"}
         if question.startswith("/"):
             skill_name = question.split()[0][1:].lower()
             if skill_name in CORTELLIS_SKILLS:
@@ -1818,8 +1874,32 @@ All skills and their workflows are included below in the system context."""
         skill_directive = detect_skill(question)
         routed_question = f"{skill_directive}{question}" if skill_directive else question
 
+        # Wiki fast-path: inject compiled article for landscape questions
+        from cli_anything.cortellis.core.skill_router import check_wiki_fast_path
+        from cli_anything.cortellis.utils.wiki import read_article as _read_wiki
+
+        wiki_context = ""
+        wiki_article_path = check_wiki_fast_path(question)
+        if wiki_article_path:
+            art = _read_wiki(wiki_article_path)
+            if art:
+                wiki_context = (
+                    "\n\n--- COMPILED LANDSCAPE ARTICLE ---\n"
+                    "A fresh compiled landscape article is available. "
+                    "Use it to answer the question. Only run the full /landscape "
+                    "pipeline if the user explicitly requests a refresh or asks "
+                    "for data not in this article.\n\n"
+                    f"Indication: {art['meta'].get('title', 'Unknown')}\n"
+                    f"Compiled: {art['meta'].get('compiled_at', 'Unknown')}\n"
+                    f"Freshness: {art['meta'].get('freshness_level', 'Unknown')}\n\n"
+                    f"{art['body']}\n"
+                    "--- END COMPILED ARTICLE ---\n"
+                )
+
+        effective_prompt = system_prompt + wiki_context
+
         cmd = [claude_bin, "--print", "-p", routed_question,
-               "--append-system-prompt", system_prompt,
+               "--append-system-prompt", effective_prompt,
                "--allowedTools", "Bash",
                "--dangerously-skip-permissions",
                "--output-format", "stream-json", "--verbose"]

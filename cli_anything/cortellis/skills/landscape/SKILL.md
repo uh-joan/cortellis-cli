@@ -230,6 +230,20 @@ python3 $RECIPES/narrate.py $DIR "$ACTION_NAME"
 
 ## Indication Workflow
 
+### Step 0: Wiki freshness check
+Before running the pipeline, check if a fresh compiled wiki article exists:
+```bash
+python3 -c "
+import sys; sys.path.insert(0, '.')
+from cli_anything.cortellis.utils.wiki import check_freshness, slugify
+slug = slugify('<INDICATION>')
+result = check_freshness(slug)
+print(f'{slug}:{result}')
+"
+```
+- If result is `fresh`: Read `wiki/indications/<slug>.md` and answer from compiled knowledge. **Skip Steps 1–15.**
+- If result is `stale` or `missing`: Proceed with Setup and Steps 1–14, then compile in Step 15.
+
 ### Setup
 ```bash
 RECIPES="cli_anything/cortellis/skills/landscape/recipes"
@@ -309,6 +323,15 @@ python3 $RECIPES/deals_analytics.py $DIR/deals.csv $DIR/deals.meta.json | tee $D
 ```
 Produces: deal type breakdown chart, top deal-makers table, deal velocity by quarter, summary stats.
 
+### Step 6c: Enrich deal financials (recommended)
+```bash
+python3 $RECIPES/enrich_deal_financials.py $DIR
+# Fetches expanded deal records in batches of 30 via deals-intelligence API.
+# Extracts: upfront payments, milestones, royalties, total deal value.
+# Writes deal_financials.csv and deal_comps.md.
+# Rate limit: 3s between batches.
+```
+
 ### Step 7: Trial activity summary
 ```bash
 python3 $RECIPES/trials_phase_summary.py <ID> $DIR/trials_summary.csv $DIR/companies.csv
@@ -338,6 +361,41 @@ python3 $RECIPES/enrich_approval_regions.py $DIR <INDICATION_ID> "<INDICATION_NA
 # approved in US/EU/JP for this indication, the downstream report emits a
 # "no Western-approved drug" FINDING banner. Validated on Sjögren's (0% Western)
 # vs psoriasis (61% Western).
+```
+
+### Step 8c: Enrich regulatory milestones (recommended)
+```bash
+python3 $RECIPES/enrich_regulatory_milestones.py $DIR "<INDICATION_NAME>"
+# Searches regulatory events for top 20 drugs (launched + phase 3) across US, EU, JP.
+# Extracts: submissions, approvals, PDUFA dates, label changes.
+# Writes regulatory_milestones.csv and regulatory_timeline.md.
+# Rate limit: 2s between API calls. Handles 0-result drugs gracefully.
+```
+
+### Step 8d: Enrich with recent publications (optional)
+```bash
+python3 $RECIPES/enrich_literature.py $DIR "<INDICATION_NAME>"
+# Searches literature for top 10 drugs (launched + phase 3).
+# Writes literature_summary.csv and recent_publications.md.
+# Rate limit: 2s between API calls.
+```
+
+### Step 8e: Enrich with recent press releases (optional)
+```bash
+python3 $RECIPES/enrich_press_releases.py $DIR "<INDICATION_NAME>"
+# Searches press releases for top 10 companies.
+# Writes press_releases_summary.csv and recent_press_releases.md.
+# Rate limit: 2s between API calls.
+```
+
+### Step 8f: Enrich with historical pipeline timeline (optional)
+```bash
+python3 $RECIPES/enrich_historical_timeline.py $DIR --max-drugs 100 --months 24
+# Fetches change_history per drug via Cortellis API (launched + Phase 3 + Phase 2).
+# Reconstructs monthly pipeline snapshots going back 24 months.
+# Writes phase_timeline.csv, historical_snapshots.csv, historical_timeline.md.
+# Rate limit: 1s between API calls. ~1 min for 66 drugs.
+# Use when: "how has the pipeline evolved?", "show me trends", "historical view"
 ```
 
 ### Step 9: Generate report
@@ -429,6 +487,123 @@ python3 $RECIPES/narrate.py $DIR "<INDICATION_NAME>"
 # Writes narrate_context.json with top companies, mechanisms, opportunities, risks
 # Outputs a prompt template for the orchestrator to feed to an LLM
 # Honors council recommendation: structured LLM prompts over scored data (no freeform)
+```
+
+### Step 15: Compile landscape to wiki
+```bash
+python3 $RECIPES/compile_dossier.py $DIR "<INDICATION_NAME>"
+# Compiles all landscape outputs into wiki/indications/<slug>.md
+# Creates/updates company articles in wiki/companies/
+# Refreshes wiki/INDEX.md with current entries
+# Saves previous snapshot in frontmatter for temporal diffs
+# Enables future sessions to answer from compiled knowledge (Step 0 fast-path)
+```
+
+### Cross-drill: Deep dive into top drugs (optional)
+After completing the landscape, if the user wants to drill into specific drugs:
+1. Read the compiled wiki article or the Key Drugs section to identify top drugs
+2. For each drug of interest, run the /drug-profile workflow:
+   ```bash
+   # Example for each top drug:
+   DIR_DRUG="raw/drugs/<DRUG_SLUG>"
+   mkdir -p "$DIR_DRUG"
+   # Follow /drug-profile SKILL.md steps 1-10, using $DIR_DRUG as output
+   python3 cli_anything/cortellis/skills/drug-profile/recipes/compile_drug.py "$DIR_DRUG" "<DRUG_NAME>"
+   ```
+3. Drug articles compile to wiki/drugs/<slug>.md with [[wikilinks]] back to the indication
+4. Use when: "drill into the top drugs", "deep dive on semaglutide", "profile the leaders"
+
+### Diff: What changed since last run?
+```bash
+python3 $RECIPES/diff_landscape.py <INDICATION_SLUG>
+```
+- Compares current wiki article with its previous snapshot (no API calls)
+- Use when: "what changed in obesity?", "what's new since last time?", "any pipeline changes?"
+- Requires at least 2 compile runs (current + previous_snapshot in frontmatter)
+- Shows: drug count deltas by phase, deal activity changes, company ranking shifts
+
+### Portfolio: Cross-indication overview
+```bash
+python3 $RECIPES/portfolio_report.py
+```
+- Reads all compiled wiki articles (no API calls)
+- Use when: "compare my indications", "portfolio overview", "which area has the most opportunity?"
+- Shows: indication comparison table, company presence across areas, portfolio signals
+
+### Signals: Strategic intelligence report
+```bash
+python3 $RECIPES/signals_report.py
+```
+- Scans all compiled wiki articles for strategic signals (no API calls)
+- Detects: new Phase 3 entrants, top company changes, deal acceleration, pipeline surges
+- Ranks by severity (high/medium/low) with deterministic action templates
+- Use when: "what's happening?", "any strategic signals?", "intelligence report", "what changed across the portfolio?"
+
+### Insights: Accumulated analysis intelligence
+```bash
+python3 $RECIPES/insights_report.py [--days 30] [--indication SLUG]
+```
+- Shows key findings, scenarios, and implications from previous landscape analyses
+- Accumulates automatically on each session flush
+- Use when: "what have we learned?", "previous insights", "accumulated intelligence"
+
+### Lint: Wiki health check
+```bash
+python3 $RECIPES/lint_wiki.py
+```
+- Runs 7 structural checks: broken links, orphans, stale articles, missing refs, empty sections, index consistency, freshness gaps
+- Use when: "check wiki health", "lint", "any broken links?"
+
+### Graph: Knowledge graph from wiki
+```bash
+python3 $RECIPES/graphify_wiki.py
+```
+- Builds NetworkX graph from all wiki article frontmatter (no API calls, no LLM)
+- Detects: god nodes (highest connectivity), clusters (communities), bridge nodes
+- Writes wiki/graph.json + wiki/GRAPH_REPORT.md
+- Use when: "show me the knowledge graph", "what entities are most connected?", "find clusters"
+- Requires: `pip install networkx` (or `pip install cortellis-cli[graph]`)
+
+### Wiki management
+```bash
+python3 $RECIPES/wiki_manage.py status                    # Show KB health summary
+python3 $RECIPES/wiki_manage.py reset                     # Delete wiki/ + daily/ (fresh start, raw/ preserved)
+python3 $RECIPES/wiki_manage.py reset --keep-daily         # Reset wiki/ only, keep daily logs
+python3 $RECIPES/wiki_manage.py remove <INDICATION_SLUG>   # Remove one indication + company refs + raw data
+python3 $RECIPES/wiki_manage.py prune                     # Remove wiki articles with no raw/ source
+```
+- Use when: "reset the KB", "remove huntingtons from wiki", "wiki status", "clean up the knowledge base"
+- `remove` also cleans company articles (removes indication references, deletes companies with no remaining indications)
+- `reset` preserves raw/ API data so you can recompile without re-fetching
+
+### Export: PowerPoint deck (optional)
+```bash
+python3 $RECIPES/export_pptx.py $DIR "<INDICATION_NAME>"
+# Generates <indication>-landscape.pptx in $DIR
+# Slides: Title, Executive Summary, Pipeline Chart, Competitive Table,
+#   Mechanism Analysis, Deal Landscape, Regulatory (if available), Opportunity Assessment
+# Professional pharma styling: 16:9, Calibri, navy/blue palette
+# Use when: user asks for slides, deck, PowerPoint, presentation
+```
+
+### Export: Excel workbook (optional)
+```bash
+python3 $RECIPES/export_xlsx.py $DIR "<INDICATION_NAME>"
+# Generates <indication>-landscape.xlsx in $DIR
+# Sheets: Pipeline by Phase, Company Rankings, Mechanism Analysis, Deals, Opportunity Matrix
+# Auto-filters, frozen headers, conditional formatting on CPI
+# Use when: user asks for Excel, spreadsheet, workbook, data export
+```
+
+### Audience-specific formatting (optional)
+```bash
+python3 $RECIPES/format_audience.py $DIR "<INDICATION_NAME>" --audience bd
+# Generates <indication>-bd-brief.md — focused on deal comps, white space, licensing targets
+# Use when: BD asks for competitive context, deal evaluation support
+
+python3 $RECIPES/format_audience.py $DIR "<INDICATION_NAME>" --audience exec
+# Generates <indication>-exec-brief.md — 5-bullet summary, plain language, one page
+# Use when: VP/exec asks for board prep, strategic overview, portfolio summary
 ```
 
 ## Output Rules
