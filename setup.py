@@ -26,6 +26,7 @@ setup(
         ],
         "graph": [
             "networkx>=3.0",
+            "graspologic>=3.0",
         ],
     },
     entry_points={

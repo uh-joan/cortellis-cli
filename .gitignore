@@ -1,3 +1,5 @@
+.DS_Store
+**/.DS_Store
 .venv/
 __pycache__/
 *.pyc
@@ -25,3 +27,7 @@ flush.log
 cli_anything/cortellis/skills/landscape/docs/governance/
 scripts/
 data/
+
+# Internal exploration docs (not shipped)
+EXPLORATION-*.md
+BRAINSTORM-*.md
