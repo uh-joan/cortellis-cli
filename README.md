@@ -22,17 +22,6 @@ The pharma analyst that never sleeps. Cortellis data, analytical skills, a self-
 
 Pharma CI analysts spend **70% of their time gathering data** and 30% on actual analysis. Every landscape starts from scratch. Insights from last month's analysis vanish. Five database tabs open to answer one question about a competitor. The quarterly report means rebuilding everything from zero.
 
-## The Shift
-
-| Scenario | Before | After |
-|:---------|:-------|:------|
-| What's the obesity landscape? | 50+ API calls, 5 min | **Seconds** — compiled wiki |
-| How has the pipeline evolved? | No way to know | **12-month** API reconstruction |
-| Board deck for 3 therapeutic areas | CI team, full day | **2 min** — PPTX + exec brief |
-| What changed since last report? | Re-run, compare manually | **Instant diff** — deltas + signals |
-| Evaluate this licensing opportunity | 2 days, 5 databases | **5 min** — deal comps + BD brief |
-| Next session, next week, next month | Cold start, forgotten | **Accumulated intelligence** |
-
 Built on [Karpathy's LLM Wiki pattern](https://gist.github.com/karpathy/442a6bf555914893e9891c11519de94f): knowledge is compiled once and kept current, not re-derived on every query. The wiki is a persistent, compounding artifact.
 
 ## Install
