@@ -375,7 +375,7 @@ class TestWikilinksForCompanies:
 
         _, body = compile_drug_article(drug_dir, "Semaglutide", "semaglutide")
 
-        assert "[[novo-nordisk|Novo Nordisk]]" in body
+        assert r"[[novo-nordisk\|Novo Nordisk]]" in body
 
     def test_wikilinks_for_competitor_companies(self, tmp_path):
         drug_dir = str(tmp_path / "drug")
@@ -383,7 +383,7 @@ class TestWikilinksForCompanies:
 
         _, body = compile_drug_article(drug_dir, "Semaglutide", "semaglutide")
 
-        assert "[[eli-lilly|Eli Lilly]]" in body
+        assert r"[[eli-lilly\|Eli Lilly]]" in body
 
     def test_wikilinks_for_indications(self, tmp_path):
         drug_dir = str(tmp_path / "drug")

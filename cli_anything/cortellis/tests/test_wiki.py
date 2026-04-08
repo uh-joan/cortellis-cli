@@ -221,7 +221,7 @@ class TestCheckFreshness:
 
 class TestWikilink:
     def test_with_display(self):
-        assert wikilink("novo-nordisk", "Novo Nordisk") == "[[novo-nordisk|Novo Nordisk]]"
+        assert wikilink("novo-nordisk", "Novo Nordisk") == r"[[novo-nordisk\|Novo Nordisk]]"
 
     def test_without_display(self):
         assert wikilink("obesity") == "[[obesity]]"

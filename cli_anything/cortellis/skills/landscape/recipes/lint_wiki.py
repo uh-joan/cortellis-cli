@@ -25,8 +25,8 @@ from cli_anything.cortellis.utils.wiki import (
     slugify,
 )
 
-# Matches [[slug]] or [[slug|display]]
-_WIKILINK_RE = re.compile(r"\[\[([^\]|]+)(?:\|[^\]]+)?\]\]")
+# Matches [[slug]] or [[slug\|display]] (escaped pipe for table compatibility)
+_WIKILINK_RE = re.compile(r"\[\[([^\]|\\]+)(?:\\?\|[^\]]+)?\]\]")
 
 _ARTICLE_TYPES = ("indications", "companies", "drugs", "targets")
 

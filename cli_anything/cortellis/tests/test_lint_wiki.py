@@ -56,13 +56,13 @@ class TestBrokenWikilinks:
     def test_valid_links_pass(self, tmp_path):
         wiki_dir = _wiki_dir(tmp_path)
         _write_company(wiki_dir, "novo-nordisk")
-        _write_indication(wiki_dir, "obesity", body="Leader: [[novo-nordisk|Novo Nordisk]].")
+        _write_indication(wiki_dir, "obesity", body=r"Leader: [[novo-nordisk\|Novo Nordisk]].")
         issues = check_broken_wikilinks(wiki_dir)
         assert issues == []
 
     def test_link_with_display_text_broken(self, tmp_path):
         wiki_dir = _wiki_dir(tmp_path)
-        _write_indication(wiki_dir, "obesity", body="See [[missing-slug|Missing Co]].")
+        _write_indication(wiki_dir, "obesity", body=r"See [[missing-slug\|Missing Co]].")
         issues = check_broken_wikilinks(wiki_dir)
         assert len(issues) == 1
         assert issues[0]["broken_link"] == "missing-slug"

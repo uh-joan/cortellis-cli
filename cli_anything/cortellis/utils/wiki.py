@@ -393,13 +393,15 @@ def check_freshness(
 # ---------------------------------------------------------------------------
 
 def wikilink(slug: str, display: Optional[str] = None) -> str:
-    """Generate an Obsidian-style wikilink.
+    r"""Generate an Obsidian-style wikilink.
+
+    Uses escaped pipe (\\|) so links work inside Markdown tables.
 
     >>> wikilink("novo-nordisk", "Novo Nordisk")
-    '[[novo-nordisk|Novo Nordisk]]'
+    '[[novo-nordisk\\|Novo Nordisk]]'
     >>> wikilink("obesity")
     '[[obesity]]'
     """
     if display and display != slug:
-        return f"[[{slug}|{display}]]"
+        return f"[[{slug}\\|{display}]]"
     return f"[[{slug}]]"

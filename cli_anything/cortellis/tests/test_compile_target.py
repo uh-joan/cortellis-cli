@@ -303,13 +303,13 @@ class TestBodyHasSections:
     def test_drug_pipeline_lists_drugs_with_wikilinks(self, tmp_path, monkeypatch):
         """Drug Pipeline uses [[wikilinks]] for drugs."""
         art = self._compile(tmp_path, monkeypatch)
-        assert "[[semaglutide|Semaglutide]]" in art["body"]
-        assert "[[tirzepatide|Tirzepatide]]" in art["body"]
+        assert r"[[semaglutide\|Semaglutide]]" in art["body"]
+        assert r"[[tirzepatide\|Tirzepatide]]" in art["body"]
 
     def test_drug_pipeline_uses_wikilinks_for_companies(self, tmp_path, monkeypatch):
         """Drug Pipeline uses [[wikilinks]] for companies."""
         art = self._compile(tmp_path, monkeypatch)
-        assert "[[novo-nordisk|Novo Nordisk]]" in art["body"]
+        assert r"[[novo-nordisk\|Novo Nordisk]]" in art["body"]
 
     def test_body_has_protein_interactions_section(self, tmp_path, monkeypatch):
         """Article body contains ## Protein Interactions section."""
