@@ -572,8 +572,15 @@ def main():
         print(f"Skipping {landscape_dir}: no landscape CSVs found (not a landscape directory)", file=sys.stderr)
         sys.exit(0)
 
-    # Derive indication name from directory if not provided
-    if not indication_name:
+    # Canonical indication name: ALWAYS prefer narrate_context.json (ontology-resolved),
+    # then CLI argument, then directory name as last resort.
+    # This prevents duplicate wiki articles (e.g., "diabetes" vs "diabetes-mellitus")
+    # when the same indication is compiled with different name arguments.
+    narrate_ctx = read_json_safe(os.path.join(landscape_dir, "narrate_context.json"))
+    canonical_name = narrate_ctx.get("indication", "")
+    if canonical_name:
+        indication_name = canonical_name
+    elif not indication_name:
         indication_name = os.path.basename(landscape_dir).replace("-", " ").title()
 
     slug = slugify(indication_name)
