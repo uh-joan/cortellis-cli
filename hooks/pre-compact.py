@@ -44,11 +44,16 @@ def extract_conversation_context(transcript_path: str) -> tuple[str, int]:
                 except json.JSONDecodeError:
                     continue
 
-                role = entry.get("role", "")
+                # Claude Code JSONL has nested format:
+                # {"type": "user", "message": {"role": "user", "content": "..."}}
+                message = entry.get("message", {})
+                role = message.get("role", "") if isinstance(message, dict) else ""
+                if not role:
+                    role = entry.get("role", "")
                 if role not in ("user", "assistant"):
                     continue
 
-                content = entry.get("content", "")
+                content = message.get("content", "") if isinstance(message, dict) and role else entry.get("content", "")
                 if isinstance(content, list):
                     text_parts = []
                     for block in content:

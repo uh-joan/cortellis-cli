@@ -47,11 +47,19 @@ def extract_conversation_context(transcript_path: str) -> tuple[str, int]:
                 except json.JSONDecodeError:
                     continue
 
-                role = entry.get("role", "")
+                # Claude Code JSONL has nested format:
+                # {"type": "user", "message": {"role": "user", "content": "..."}}
+                entry_type = entry.get("type", "")
+                message = entry.get("message", {})
+                role = message.get("role", "") if isinstance(message, dict) else ""
+
+                # Accept both nested and flat formats
+                if not role:
+                    role = entry.get("role", "")
                 if role not in ("user", "assistant"):
                     continue
 
-                content = entry.get("content", "")
+                content = message.get("content", "") if isinstance(message, dict) and role else entry.get("content", "")
                 if isinstance(content, list):
                     # Handle structured content blocks
                     text_parts = []
@@ -99,13 +107,35 @@ def main():
     session_id = hook_data.get("session_id", "unknown")
     transcript_path = hook_data.get("transcript_path", "")
 
+    # Debug: log raw hook data to understand the format
     logging.info(f"Session end: {session_id}")
+    logging.info(f"Hook data keys: {list(hook_data.keys())}")
+    logging.info(f"Transcript path: '{transcript_path}' exists={os.path.exists(transcript_path) if transcript_path else 'N/A'}")
 
     if not transcript_path or not os.path.exists(transcript_path):
-        logging.info(f"No transcript found at: {transcript_path}")
-        return
+        logging.info(f"No transcript at provided path: '{transcript_path}'")
+        # Claude Code stores transcripts as <session_id>.jsonl in the project dir
+        # Discover the project slug from the cwd
+        cwd_slug = str(PROJECT_ROOT).replace("/", "-").lstrip("-")
+        possible_paths = [
+            os.path.expanduser(f"~/.claude/projects/{cwd_slug}/{session_id}.jsonl"),
+            os.path.expanduser(f"~/.claude/projects/-{cwd_slug}/{session_id}.jsonl"),
+        ]
+        # Also try glob for any matching jsonl
+        import glob
+        possible_paths += glob.glob(os.path.expanduser(f"~/.claude/projects/*/{session_id}.jsonl"))
+
+        for pp in possible_paths:
+            if os.path.exists(pp):
+                logging.info(f"Found transcript at: {pp}")
+                transcript_path = pp
+                break
+        else:
+            logging.info(f"No transcript found for session {session_id}")
+            return
 
     context, turn_count = extract_conversation_context(transcript_path)
+    logging.info(f"Extracted context: {turn_count} turns, {len(context)} chars")
 
     if turn_count < MIN_TURNS_TO_FLUSH:
         logging.info(f"Only {turn_count} turns, skipping flush (min: {MIN_TURNS_TO_FLUSH})")
