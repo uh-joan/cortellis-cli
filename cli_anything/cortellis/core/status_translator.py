@@ -80,6 +80,7 @@ _PYTHON_SCRIPTS = {
     "graphify_wiki": ("Building knowledge graph", False),
     "lint_wiki": ("Linting wiki knowledge base", False),
     "enrich_historical_timeline": ("Fetching historical pipeline timeline", False),
+    "wiki_manage": ("Managing wiki knowledge base", False),
 }
 
 # Bash script basename → friendly label (used as fallback; phase-aware logic below)

@@ -564,6 +564,18 @@ python3 $RECIPES/graphify_wiki.py
 - Use when: "show me the knowledge graph", "what entities are most connected?", "find clusters"
 - Requires: `pip install networkx` (or `pip install cortellis-cli[graph]`)
 
+### Wiki management
+```bash
+python3 $RECIPES/wiki_manage.py status                    # Show KB health summary
+python3 $RECIPES/wiki_manage.py reset                     # Delete wiki/ + daily/ (fresh start, raw/ preserved)
+python3 $RECIPES/wiki_manage.py reset --keep-daily         # Reset wiki/ only, keep daily logs
+python3 $RECIPES/wiki_manage.py remove <INDICATION_SLUG>   # Remove one indication + company refs + raw data
+python3 $RECIPES/wiki_manage.py prune                     # Remove wiki articles with no raw/ source
+```
+- Use when: "reset the KB", "remove huntingtons from wiki", "wiki status", "clean up the knowledge base"
+- `remove` also cleans company articles (removes indication references, deletes companies with no remaining indications)
+- `reset` preserves raw/ API data so you can recompile without re-fetching
+
 ### Export: PowerPoint deck (optional)
 ```bash
 python3 $RECIPES/export_pptx.py $DIR "<INDICATION_NAME>"
