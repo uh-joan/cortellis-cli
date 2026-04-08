@@ -30,6 +30,18 @@ def make_csv(path: str, rows=None):
             writer.writerow(row)
 
 
+def make_landscape_dir(dir_path):
+    """Create a minimal landscape directory that compile_dossier will accept."""
+    os.makedirs(dir_path, exist_ok=True)
+    make_csv(os.path.join(dir_path, "strategic_scores.csv"))
+    # compile_dossier requires at least one phase CSV
+    phase_path = os.path.join(dir_path, "launched.csv")
+    with open(phase_path, "w", newline="", encoding="utf-8") as f:
+        writer = csv.DictWriter(f, fieldnames=["name", "id", "phase", "indication", "mechanism", "company", "source"])
+        writer.writeheader()
+        writer.writerow({"name": "TestDrug", "id": "1", "phase": "Launched", "indication": "Test", "mechanism": "Mech", "company": "Acme", "source": "src"})
+
+
 def make_wiki_article(base_dir, slug, compiled_at_iso):
     """Write a minimal wiki indication article with a given compiled_at."""
     path = article_path("indications", slug, str(base_dir))
@@ -188,10 +200,9 @@ class TestGetStaleIndications:
 
 class TestFlushSessionMemory:
     def test_compiles_stale(self, tmp_path):
-        # Create raw/test-indication/ with minimal CSVs, no wiki article
+        # Create raw/test-indication/ with landscape CSVs, no wiki article
         raw_dir = tmp_path / "raw" / "test-indication"
-        raw_dir.mkdir(parents=True)
-        make_csv(str(raw_dir / "strategic_scores.csv"))
+        make_landscape_dir(str(raw_dir))
 
         recompiled = flush_session_memory(str(tmp_path))
 
@@ -218,11 +229,10 @@ class TestFlushSessionMemory:
         assert recompiled == []
 
     def test_handles_compile_error(self, tmp_path):
-        # Create raw/bad-data/ with an empty directory (no csvs would be filtered,
-        # so we need at least one csv but compile_dossier should still handle it)
+        # Create raw/bad-data/ with landscape CSVs but empty strategic_scores
         bad_dir = tmp_path / "raw" / "bad-data"
-        bad_dir.mkdir(parents=True)
-        # Write a csv with intentionally odd data
+        make_landscape_dir(str(bad_dir))
+        # Overwrite strategic_scores with empty data to trigger edge case
         make_csv(str(bad_dir / "strategic_scores.csv"), rows=[])
 
         # Should not raise, even if compile encounters an issue
@@ -237,8 +247,7 @@ class TestFlushSessionMemory:
         # Two stale indications
         for slug in ("alpha", "beta"):
             d = tmp_path / "raw" / slug
-            d.mkdir(parents=True)
-            make_csv(str(d / "strategic_scores.csv"))
+            make_landscape_dir(str(d))
 
         recompiled = flush_session_memory(str(tmp_path))
         assert set(recompiled) == {"alpha", "beta"}

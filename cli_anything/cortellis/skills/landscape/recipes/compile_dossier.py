@@ -563,6 +563,15 @@ def main():
         print(f"Error: landscape directory not found: {landscape_dir}", file=sys.stderr)
         sys.exit(1)
 
+    # Validate this is a landscape directory (has phase CSVs), not a container like raw/drugs/
+    has_landscape_data = any(
+        os.path.exists(os.path.join(landscape_dir, f"{phase}.csv"))
+        for phase in ("launched", "phase3", "phase2", "phase1", "discovery")
+    )
+    if not has_landscape_data:
+        print(f"Skipping {landscape_dir}: no landscape CSVs found (not a landscape directory)", file=sys.stderr)
+        sys.exit(0)
+
     # Derive indication name from directory if not provided
     if not indication_name:
         indication_name = os.path.basename(landscape_dir).replace("-", " ").title()
