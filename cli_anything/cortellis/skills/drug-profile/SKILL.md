@@ -20,7 +20,8 @@ Everything about a single drug from Cortellis data.
 ### Setup
 ```bash
 RECIPES="cli_anything/cortellis/skills/drug-profile/recipes"
-DIR="/tmp/drug_profile"
+DRUG_SLUG=$(echo "<DRUG_NAME>" | tr '[:upper:]' '[:lower:]' | tr ' ' '-' | sed "s/'//g")
+DIR="raw/drugs/$DRUG_SLUG"
 mkdir -p "$DIR"
 ```
 

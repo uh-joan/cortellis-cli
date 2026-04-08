@@ -22,7 +22,8 @@ Everything about a biological target as a drug target: biology, disease associat
 ### Setup
 ```bash
 RECIPES="cli_anything/cortellis/skills/target-profile/recipes"
-DIR="/tmp/target_profile"
+TARGET_SLUG=$(echo "<TARGET_NAME>" | tr '[:upper:]' '[:lower:]' | tr ' ' '-' | sed "s/'//g")
+DIR="raw/targets/$TARGET_SLUG"
 mkdir -p "$DIR"
 ```
 

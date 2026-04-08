@@ -23,7 +23,7 @@ head to head tirzepatide semaglutide
 ```bash
 RECIPES="cli_anything/cortellis/skills/drug-comparison/recipes"
 PROFILE_RECIPES="cli_anything/cortellis/skills/drug-profile/recipes"
-DIR="/tmp/drug_comparison"
+DIR="raw/comparisons/$(date +%Y%m%d-%H%M%S)"
 mkdir -p "$DIR"
 ```
 
