@@ -18,6 +18,7 @@ from cli_anything.cortellis.utils.data_helpers import read_csv_safe, safe_int
 from cli_anything.cortellis.utils.wiki import (
     slugify,
     normalize_company_name,
+    find_company_slug,
     wiki_root,
     article_path,
     read_article,
@@ -249,9 +250,9 @@ def main():
     if not company_name:
         company_name = os.path.basename(pipeline_dir).replace("-", " ").title()
 
-    slug = slugify(normalize_company_name(company_name))
     base_dir = wiki_dir_override or os.getcwd()
     w_dir = wiki_root(base_dir)
+    slug = find_company_slug(company_name, base_dir)
 
     print(f"Compiling {company_name} pipeline to wiki...")
 

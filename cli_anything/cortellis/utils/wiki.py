@@ -72,6 +72,54 @@ def normalize_company_name(name: str) -> str:
     return normalized or name  # never return empty string
 
 
+def find_company_slug(company_name: str, base_dir: Optional[str] = None) -> str:
+    """Return the canonical wiki slug for a company, reusing existing articles.
+
+    1. Tries the normalized slug directly.
+    2. Scans existing company articles for a title/alias exact match.
+    3. Scans for a word-prefix overlap (e.g. "Regeneron Pharmaceuticals" matches
+       an existing "Regeneron" article).
+
+    Falls back to the computed normalized slug if no match is found.
+    """
+    slug = slugify(normalize_company_name(company_name))
+    companies_dir = os.path.join(wiki_root(base_dir), "companies")
+
+    if not os.path.isdir(companies_dir):
+        return slug
+
+    normalized_name = normalize_company_name(company_name).lower()
+    normalized_words = normalized_name.split()
+
+    for fname in os.listdir(companies_dir):
+        if not fname.endswith(".md"):
+            continue
+        existing_slug = fname[:-3]
+        # Skip if this is exactly the computed slug — we scan for BETTER matches
+        if existing_slug == slug:
+            continue
+        fpath = os.path.join(companies_dir, fname)
+        existing = read_article(fpath)
+        if not existing:
+            continue
+        meta = existing.get("meta", {}) or {}
+        existing_title = meta.get("title", "")
+        all_names = [existing_title] + (meta.get("aliases") or [])
+
+        # Exact match on any alias/title after normalization
+        for name in all_names:
+            if normalize_company_name(name).lower() == normalized_name:
+                return existing_slug
+
+        # Word-prefix match: existing title is a leading-word prefix of incoming name
+        # e.g. "Regeneron" matches "Regeneron Pharmaceuticals Inc"
+        ex_words = normalize_company_name(existing_title).lower().split()
+        if ex_words and len(ex_words) >= 1 and normalized_words[:len(ex_words)] == ex_words:
+            return existing_slug
+
+    return slug
+
+
 def wiki_root(base_dir: Optional[str] = None) -> str:
     """Return the wiki/ directory path. Creates it if needed."""
     root = os.path.join(base_dir or os.getcwd(), "wiki")

@@ -28,6 +28,7 @@ from cli_anything.cortellis.utils.data_helpers import (
 from cli_anything.cortellis.utils.wiki import (
     slugify,
     normalize_company_name,
+    find_company_slug,
     wiki_root,
     article_path,
     read_article,
@@ -411,7 +412,7 @@ def compile_company_articles(landscape_dir, indication_name, indication_slug, ba
         if not company_name:
             continue
 
-        company_slug = slugify(normalize_company_name(company_name))
+        company_slug = find_company_slug(company_name, base_dir)
         path = article_path("companies", company_slug, base_dir)
 
         # Upsert: read existing article, update indication data, preserve rest
