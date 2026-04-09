@@ -110,22 +110,29 @@ def compile_pipeline_article(pipeline_dir, company_name, slug, base_dir=None):
         meta["type"] = "company"
     if "slug" not in meta:
         meta["slug"] = slug
+    # Register the pipeline-API name as an alias if it differs from canonical title
+    if company_name != meta.get("title"):
+        aliases = meta.get("aliases") or []
+        if company_name not in aliases:
+            aliases.append(company_name)
+        meta["aliases"] = aliases
 
     # Build body — preserve existing body sections where possible
     body_parts = []
+    display_name = meta.get("title", company_name)  # use canonical title, not raw API name
 
     # Overview section
     body_parts.append("## Overview\n\n")
     indications = meta.get("indications", {})
     if indications:
         body_parts.append(
-            f"**{company_name}** has competitive positions across "
+            f"**{display_name}** has competitive positions across "
             f"**{len(indications)}** indication(s) in the compiled knowledge base "
             f"and a pipeline of **{phase_counts['total']} drugs** across all development phases.\n\n"
         )
     else:
         body_parts.append(
-            f"**{company_name}** has a pipeline of **{phase_counts['total']} drugs** "
+            f"**{display_name}** has a pipeline of **{phase_counts['total']} drugs** "
             f"across all development phases.\n\n"
         )
 
