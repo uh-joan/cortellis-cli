@@ -32,24 +32,28 @@ Tested on 50 major pharma companies — 98% success rate.
 cortellis --json companies get <COMPANY_ID>
 ```
 
-### Step 3: CI pipeline — Drugs by phase
-Run for each phase:
+### Step 3: CI pipeline — Drugs by phase (paginated, up to 150 per phase)
+Use `fetch_phase.sh` — auto-paginates with rate limit protection:
 ```bash
-cortellis --json drugs search --company <COMPANY_ID> --phase L --hits 50
-cortellis --json drugs search --company <COMPANY_ID> --phase C3 --hits 50
-cortellis --json drugs search --company <COMPANY_ID> --phase C2 --hits 50
-cortellis --json drugs search --company <COMPANY_ID> --phase C1 --hits 50
-cortellis --json drugs search --company <COMPANY_ID> --phase DR --hits 50
+bash $RECIPES/fetch_phase.sh <COMPANY_ID> L  $DIR/launched.csv     $RECIPES
+bash $RECIPES/fetch_phase.sh <COMPANY_ID> C3 $DIR/phase3.csv       $RECIPES
+bash $RECIPES/fetch_phase.sh <COMPANY_ID> C2 $DIR/phase2.csv       $RECIPES
+bash $RECIPES/fetch_phase.sh <COMPANY_ID> C1 $DIR/phase1_ci.csv    $RECIPES
+bash $RECIPES/fetch_phase.sh <COMPANY_ID> DR $DIR/discovery_ci.csv $RECIPES
 ```
 
-### Step 4a: Drug Design (SI) — Phase I compounds (merge with CI Phase 1)
+### Step 4a: Drug Design (SI) — Phase I compounds (paginated, up to 150)
 ```bash
-cortellis --json drug-design search-drugs --query "organizationsOriginator:\"<COMPANY>\" AND developmentIsActive:Yes AND phaseHighest:\"Phase I\"" --hits 50
+bash $RECIPES/fetch_phase_si.sh \
+  "organizationsOriginator:\"<COMPANY>\" AND developmentIsActive:Yes AND phaseHighest:\"Phase I\"" \
+  $DIR/phase1_si.csv $RECIPES
 ```
 
-### Step 4b: Drug Design (SI) — Preclinical compounds (merge with CI Discovery)
+### Step 4b: Drug Design (SI) — Preclinical compounds (paginated, up to 150)
 ```bash
-cortellis --json drug-design search-drugs --query "organizationsOriginator:\"<COMPANY>\" AND developmentIsActive:Yes AND phaseHighest:\"Preclinical\"" --hits 50
+bash $RECIPES/fetch_phase_si.sh \
+  "organizationsOriginator:\"<COMPANY>\" AND developmentIsActive:Yes AND phaseHighest:\"Preclinical\"" \
+  $DIR/preclinical_si.csv $RECIPES
 ```
 Note: "Biological Testing" exists as a phase but has 0 active compounds across major pharma. Skip unless results are needed.
 
@@ -168,34 +172,27 @@ mkdir -p "$DIR"
 HEADER="name,id,phase,indication,mechanism,company,source"
 ```
 
-### Step 3 → Save each CI phase to CSV
+### Step 3 → Save each CI phase to CSV (paginated, up to 150 per phase)
 ```bash
-echo "$HEADER" > $DIR/launched.csv
-cortellis --json drugs search --company <ID> --phase L --hits 50 | python3 $RECIPES/ci_drugs_to_csv.py >> $DIR/launched.csv
-
-echo "$HEADER" > $DIR/phase3.csv
-cortellis --json drugs search --company <ID> --phase C3 --hits 50 | python3 $RECIPES/ci_drugs_to_csv.py >> $DIR/phase3.csv
-
-echo "$HEADER" > $DIR/phase2.csv
-cortellis --json drugs search --company <ID> --phase C2 --hits 50 | python3 $RECIPES/ci_drugs_to_csv.py >> $DIR/phase2.csv
-
-echo "$HEADER" > $DIR/phase1_ci.csv
-cortellis --json drugs search --company <ID> --phase C1 --hits 50 | python3 $RECIPES/ci_drugs_to_csv.py >> $DIR/phase1_ci.csv
-
-echo "$HEADER" > $DIR/discovery_ci.csv
-cortellis --json drugs search --company <ID> --phase DR --hits 50 | python3 $RECIPES/ci_drugs_to_csv.py >> $DIR/discovery_ci.csv
+bash $RECIPES/fetch_phase.sh <ID> L    $DIR/launched.csv    $RECIPES
+bash $RECIPES/fetch_phase.sh <ID> C3   $DIR/phase3.csv      $RECIPES
+bash $RECIPES/fetch_phase.sh <ID> C2   $DIR/phase2.csv      $RECIPES
+bash $RECIPES/fetch_phase.sh <ID> C1   $DIR/phase1_ci.csv   $RECIPES
+bash $RECIPES/fetch_phase.sh <ID> DR   $DIR/discovery_ci.csv $RECIPES
 ```
 
-### Step 4a → Save SI Phase I to CSV
+### Step 4a → Save SI Phase I to CSV (paginated, up to 150)
 ```bash
-echo "$HEADER" > $DIR/phase1_si.csv
-cortellis --json drug-design search-drugs --query "organizationsOriginator:\"<COMPANY>\" AND developmentIsActive:Yes AND phaseHighest:\"Phase I\"" --hits 50 | python3 $RECIPES/si_drugs_to_csv.py >> $DIR/phase1_si.csv
+bash $RECIPES/fetch_phase_si.sh \
+  "organizationsOriginator:\"<COMPANY>\" AND developmentIsActive:Yes AND phaseHighest:\"Phase I\"" \
+  $DIR/phase1_si.csv $RECIPES
 ```
 
-### Step 4b → Save SI Preclinical to CSV
+### Step 4b → Save SI Preclinical to CSV (paginated, up to 150)
 ```bash
-echo "$HEADER" > $DIR/preclinical_si.csv
-cortellis --json drug-design search-drugs --query "organizationsOriginator:\"<COMPANY>\" AND developmentIsActive:Yes AND phaseHighest:\"Preclinical\"" --hits 50 | python3 $RECIPES/si_drugs_to_csv.py >> $DIR/preclinical_si.csv
+bash $RECIPES/fetch_phase_si.sh \
+  "organizationsOriginator:\"<COMPANY>\" AND developmentIsActive:Yes AND phaseHighest:\"Preclinical\"" \
+  $DIR/preclinical_si.csv $RECIPES
 ```
 
 ### Merge Phase 1 (CI + SI)
@@ -235,15 +232,6 @@ python3 $RECIPES/resolve_phase_indications.py rewrite $DIR
 python3 $RECIPES/report_generator.py $DIR "<COMPANY_NAME>" "<COMPANY_ID>" "<ACTIVE_DRUGS>"
 ```
 Produces: ASCII bar charts (pipeline distribution + therapeutic focus), summary table with truncation warnings, full drug tables per phase, deals table, and trials summary.
-
-### Pagination for large companies (when a phase hits 50 limit)
-```bash
-# Use fetch_phase.sh instead of direct cortellis call — auto-paginates with rate limit protection
-bash $RECIPES/fetch_phase.sh <COMPANY_ID> L $DIR/launched.csv $RECIPES
-bash $RECIPES/fetch_phase.sh <COMPANY_ID> C3 $DIR/phase3.csv $RECIPES
-# etc.
-```
-Fetches up to 150 drugs per phase (3 pages). Sleeps 1s between pages to avoid rate limits.
 
 ### Compile pipeline to wiki (Step 8 — optional)
 ```bash
