@@ -102,7 +102,7 @@ python3 $RECIPES/catch_missing_drugs.py <COMPANY_ID> $DIR
 
 ## Output Rules
 
-- **ALWAYS list ALL drugs in EVERY table.** NEVER truncate with "+ N others", "+ more", "and others", or similar. Every single drug must have its own row. Up to 50 per phase.
+- **ALWAYS list ALL drugs in EVERY table.** NEVER truncate with "+ N others", "+ more", "and others", or similar. Every single drug must have its own row. The fetch limit is 150 per phase — list every row in the CSV.
 - Give exact counts from the API `@totalResults` field.
 - Never approximate. Never say "~8" or "6-7".
 - Do not add drugs from training data. Only report what the CLI returned.
