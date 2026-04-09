@@ -302,7 +302,7 @@ Outputs deduplicated company counts with phase breakdown.
 ```bash
 python3 $RECIPES/enrich_company_sizes.py $DIR
 ```
-Resolves top 20 companies via NER → batch-fetches `@companySize` (Large/Medium/Small) from Cortellis company-analytics. Writes `company_sizes.json`. Used by report generator for dynamic company classification (no hardcoded pharma lists).
+Resolves top 30 companies via NER → batch-fetches `@companySize` (Large/Medium/Small) from Cortellis company-analytics. Writes `company_sizes.json`. Used by report generator for dynamic company classification (no hardcoded pharma lists).
 
 ### Step 5c: Normalize company names (recommended)
 ```bash
@@ -605,6 +605,10 @@ python3 $RECIPES/format_audience.py $DIR "<INDICATION_NAME>" --audience exec
 # Generates <indication>-exec-brief.md — 5-bullet summary, plain language, one page
 # Use when: VP/exec asks for board prep, strategic overview, portfolio summary
 ```
+
+## Execution Rules
+
+- Once the final report has been delivered to the user, **do not respond to background task completion notifications**. Discard them silently — they are late arrivals for steps already processed. One-line acknowledgement at most if unavoidable; never repeat the full summary.
 
 ## Output Rules
 

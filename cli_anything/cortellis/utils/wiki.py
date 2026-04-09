@@ -41,6 +41,37 @@ def slugify(name: str) -> str:
     return s.strip("-")
 
 
+# Trailing legal-entity suffixes stripped by normalize_company_name()
+_LEGAL_SUFFIX_RE = re.compile(
+    r",?\s*(?:&\s*Co\.?|and\s+Company|&\s+Company|Incorporated|Inc\.?|"
+    r"Corporation|Corp\.?|Limited|Ltd\.?|A/S|GmbH|S\.?A\.?|N\.?V\.?|"
+    r"B\.?V\.?|P\.?L\.?C\.?|LLC|(?<!\w)AG(?!\w)|(?<!\w)AS(?!\w)|"
+    r"(?<!\w)Co\.?(?!\w))\s*$",
+    re.IGNORECASE,
+)
+
+
+def normalize_company_name(name: str) -> str:
+    """Strip trailing legal entity suffixes for canonical company slugs.
+
+    >>> normalize_company_name("Eli Lilly & Co")
+    'Eli Lilly'
+    >>> normalize_company_name("Eli Lilly and Company")
+    'Eli Lilly'
+    >>> normalize_company_name("Novo Nordisk A/S")
+    'Novo Nordisk'
+    >>> normalize_company_name("Pfizer Inc.")
+    'Pfizer'
+    """
+    normalized = name
+    while True:
+        candidate = _LEGAL_SUFFIX_RE.sub("", normalized).strip().strip(",").strip()
+        if candidate == normalized or not candidate:
+            break
+        normalized = candidate
+    return normalized or name  # never return empty string
+
+
 def wiki_root(base_dir: Optional[str] = None) -> str:
     """Return the wiki/ directory path. Creates it if needed."""
     root = os.path.join(base_dir or os.getcwd(), "wiki")

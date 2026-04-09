@@ -17,6 +17,7 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "..", "..", "..
 from cli_anything.cortellis.utils.data_helpers import read_csv_safe, safe_int
 from cli_anything.cortellis.utils.wiki import (
     slugify,
+    normalize_company_name,
     wiki_root,
     article_path,
     read_article,
@@ -178,7 +179,8 @@ def compile_pipeline_article(pipeline_dir, company_name, slug, base_dir=None):
             dname = drug.get("name") or drug.get("drug_name") or drug.get("drug") or "-"
             indication = drug.get("indication") or "-"
             mech = drug.get("mechanism") or drug.get("moa") or "-"
-            parts.append(f"| {dname} | {indication} | {mech} |\n")
+            drug_str = wikilink(slugify(dname), dname) if dname != "-" else "-"
+            parts.append(f"| {drug_str} | {indication} | {mech} |\n")
         parts.append("\n")
         return "".join(parts)
 
@@ -247,7 +249,7 @@ def main():
     if not company_name:
         company_name = os.path.basename(pipeline_dir).replace("-", " ").title()
 
-    slug = slugify(company_name)
+    slug = slugify(normalize_company_name(company_name))
     base_dir = wiki_dir_override or os.getcwd()
     w_dir = wiki_root(base_dir)
 

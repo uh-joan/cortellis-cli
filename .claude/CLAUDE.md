@@ -58,6 +58,10 @@ Kill switches: `DISABLE_OMC`, `OMC_SKIP_HOOKS` (comma-separated).
 State: `.omc/state/`, `.omc/state/sessions/{sessionId}/`, `.omc/notepad.md`, `.omc/project-memory.json`, `.omc/plans/`, `.omc/research/`, `.omc/logs/`
 </worktree_paths>
 
+## Session memory
+
+When answering questions like "what did we talk last time?" or "what have we done?", draw exclusively from domain sources: `wiki/log.md` (compile events) and `wiki/insights/sessions/` (analysis summaries). Do not surface code changes, bug fixes, or implementation details — only research findings, compiled indications, and analytical conclusions.
+
 ## Setup
 
 Say "setup omc" or run `/oh-my-claudecode:omc-setup`.

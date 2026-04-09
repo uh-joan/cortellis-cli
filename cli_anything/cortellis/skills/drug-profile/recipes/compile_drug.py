@@ -95,6 +95,36 @@ def extract_drug_overview(record):
         else:
             therapy_areas.append(str(a))
 
+    # Aliases: brand names + full formulation DrugName + research codes
+    aliases = []
+    # DrugName itself (full formulation name) is an alias if different from base INN
+    if name:
+        aliases.append(name)
+    brand_names_raw = rec.get("DrugNamesKey", {}).get("Name", [])
+    if isinstance(brand_names_raw, dict):
+        brand_names_raw = [brand_names_raw]
+    for n in brand_names_raw:
+        val = n.get("$", "") if isinstance(n, dict) else str(n)
+        if val and val not in aliases:
+            aliases.append(val)
+    synonyms_raw = rec.get("DrugSynonyms", {}).get("Name", [])
+    if isinstance(synonyms_raw, dict):
+        synonyms_raw = [synonyms_raw]
+    for s in synonyms_raw:
+        val = s.get("Value", "") if isinstance(s, dict) else str(s)
+        if val and val not in aliases:
+            aliases.append(val)
+
+    # Targets from Targets.Target
+    targets_raw = rec.get("Targets", {}).get("Target", [])
+    if isinstance(targets_raw, dict):
+        targets_raw = [targets_raw]
+    targets = []
+    for t in targets_raw:
+        tname = t.get("Name", "") if isinstance(t, dict) else str(t)
+        if tname and tname not in targets:
+            targets.append(tname)
+
     return {
         "name": name,
         "id": drug_id,
@@ -104,6 +134,8 @@ def extract_drug_overview(record):
         "technology": technology,
         "originator": originator,
         "therapy_areas": therapy_areas,
+        "aliases": aliases,
+        "targets": targets,
     }
 
 
@@ -200,6 +232,8 @@ def compile_drug_article(drug_dir, drug_name, slug):
     technology = overview.get("technology", "")
     indications = overview.get("indications", [])
     therapy_areas = overview.get("therapy_areas", [])
+    aliases = overview.get("aliases", [])
+    targets = overview.get("targets", [])
 
     deals_summary = extract_deals_summary(deals_json)
     trials_summary = extract_trials_summary(trials_json)
@@ -230,6 +264,13 @@ def compile_drug_article(drug_dir, drug_name, slug):
         "indications": [slugify(i) for i in indications],
         "related": related,
     }
+    # Aliases: Obsidian resolves any alias to this article
+    # Includes brand names, research codes, and full Cortellis formulation names
+    if aliases:
+        # Remove the canonical slug/name from aliases to avoid redundancy
+        clean_aliases = [a for a in aliases if slugify(a) != slug and a != name]
+        if clean_aliases:
+            meta["aliases"] = clean_aliases
 
     # ---------------------------------------------------------------------------
     # Body
@@ -240,7 +281,15 @@ def compile_drug_article(drug_dir, drug_name, slug):
     body_parts.append("## Overview\n\n")
     body_parts.append("| Field | Value |\n|---|---|\n")
     body_parts.append(f"| Phase | {phase} |\n")
-    body_parts.append(f"| Mechanism | {mechanism} |\n")
+    if mechanism:
+        # Link individual mechanism/target terms to target articles
+        mech_parts = [m.strip() for m in mechanism.split(";")]
+        mech_links = "; ".join(
+            wikilink(slugify(m), m) if m else m for m in mech_parts
+        )
+        body_parts.append(f"| Mechanism | {mech_links} |\n")
+    else:
+        body_parts.append(f"| Mechanism | - |\n")
     if technology:
         body_parts.append(f"| Technology | {technology} |\n")
     if originator:

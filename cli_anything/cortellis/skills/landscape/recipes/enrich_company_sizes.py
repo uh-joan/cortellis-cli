@@ -15,7 +15,7 @@ data_dir = sys.argv[1]
 if not os.path.isdir(data_dir):
     print(f"Error: {data_dir} is not a directory", file=sys.stderr)
     sys.exit(1)
-MAX_COMPANIES = 20  # Only resolve top N to limit API calls
+MAX_COMPANIES = 30  # Only resolve top N to limit API calls
 
 
 def read_csv(filename):

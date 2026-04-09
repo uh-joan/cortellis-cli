@@ -27,6 +27,7 @@ from cli_anything.cortellis.utils.data_helpers import (
 )
 from cli_anything.cortellis.utils.wiki import (
     slugify,
+    normalize_company_name,
     wiki_root,
     article_path,
     read_article,
@@ -111,7 +112,7 @@ def compile_indication_article(landscape_dir, indication_name, slug):
 
     # Frontmatter
     now = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
-    company_slugs = [slugify(r["company"]) for r in scores[:10] if r.get("company")]
+    company_slugs = [slugify(normalize_company_name(r["company"])) for r in scores[:20] if r.get("company")]
 
     # Derive tags: preset + top 3 mechanism slugs + indication slug
     tags = [slugify(preset)] if preset else []
@@ -151,7 +152,7 @@ def compile_indication_article(landscape_dir, indication_name, slug):
         },
         "company_rankings": [
             {"company": r["company"], "cpi_score": safe_float(r.get("cpi_score")), "tier": r.get("cpi_tier", "")}
-            for r in scores[:10]
+            for r in scores[:20]
         ],
     }
 
@@ -166,7 +167,7 @@ def compile_indication_article(landscape_dir, indication_name, slug):
     )
     if scores:
         top3 = ", ".join(
-            f"{wikilink(slugify(r['company']), r['company'])} (CPI {safe_float(r.get('cpi_score')):.1f})"
+            f"{wikilink(slugify(normalize_company_name(r['company'])), r['company'])} (CPI {safe_float(r.get('cpi_score')):.1f})"
             for r in scores[:3]
         )
         body_parts.append(f"Top 3 companies by CPI: {top3}.\n\n")
@@ -190,8 +191,8 @@ def compile_indication_article(landscape_dir, indication_name, slug):
             f"| Rank | Company | Tier | CPI | Position | Pipeline | Phase Score | Mechs | Deals | Trials |\n"
             f"|---|---|---|---|---|---|---|---|---|---|\n"
         )
-        for i, r in enumerate(scores[:20], 1):
-            company_link = wikilink(slugify(r["company"]), r["company"])
+        for i, r in enumerate(scores[:30], 1):
+            company_link = wikilink(slugify(normalize_company_name(r["company"])), r["company"])
             body_parts.append(
                 f"| {i} | {company_link}"
                 f" | {r.get('cpi_tier', '-')}"
@@ -290,8 +291,10 @@ def compile_indication_article(landscape_dir, indication_name, slug):
             f"|---|---|---|---|---|---|---|---|---|\n"
         )
         for r in mechanisms[:15]:
+            mname = r.get('mechanism', '-')
+            mech_link = wikilink(slugify(mname), mname) if mname != '-' else '-'
             body_parts.append(
-                f"| {r.get('mechanism', '-')}"
+                f"| {mech_link}"
                 f" | {safe_int(r.get('active_count'))}"
                 f" | {safe_int(r.get('launched'))}"
                 f" | {safe_int(r.get('phase3'))}"
@@ -403,12 +406,12 @@ def compile_company_articles(landscape_dir, indication_name, indication_slug, ba
     now = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
     compiled_companies = []
 
-    for r in scores[:10]:  # Top 10 companies get articles
+    for r in scores[:20]:  # Top 20 companies get articles
         company_name = r.get("company", "")
         if not company_name:
             continue
 
-        company_slug = slugify(company_name)
+        company_slug = slugify(normalize_company_name(company_name))
         path = article_path("companies", company_slug, base_dir)
 
         # Upsert: read existing article, update indication data, preserve rest
