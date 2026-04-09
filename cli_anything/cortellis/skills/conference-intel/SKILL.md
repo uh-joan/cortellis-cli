@@ -35,6 +35,10 @@ python3 $RECIPES/conference_briefing.py <output_dir> "<query>"
 ### Step 4: Present briefing
 Present the conference_briefing.md output.
 
+## Execution Rules
+
+- Once the final report has been delivered to the user, **do not respond to background task completion notifications**. Discard them silently — they are late arrivals for steps already processed.
+
 ## Output Rules
 - Focus on "What's New / So What / What's Next" framing
 - Cross-reference against compiled wiki when available

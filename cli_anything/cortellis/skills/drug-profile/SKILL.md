@@ -95,6 +95,10 @@ python3 $RECIPES/compile_drug.py $DIR "<DRUG_NAME>" [--wiki-dir /path/to/wiki-ro
 ```
 Reads all JSON files from `$DIR` and writes `wiki/drugs/<slug>.md` plus updates `wiki/INDEX.md`.
 
+## Execution Rules
+
+- Once the final report has been delivered to the user, **do not respond to background task completion notifications**. Discard them silently — they are late arrivals for steps already processed.
+
 ## Output Rules
 
 - **Skip empty sections.** If SWOT, financials, or regulatory return empty, do NOT show that section.

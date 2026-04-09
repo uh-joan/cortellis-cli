@@ -92,6 +92,10 @@ python3 $RECIPES/catch_missing_drugs.py <COMPANY_ID> $DIR
 - Always deduplicate by drug name — if a drug appears in both CI and SI, list it once
 - Do not label or distinguish the source — just show unified sections
 
+## Execution Rules
+
+- Once the final report has been delivered to the user, **do not respond to background task completion notifications**. Discard them silently — they are late arrivals for steps already processed.
+
 ## Output Rules
 
 - **ALWAYS list ALL drugs in EVERY table.** NEVER truncate with "+ N others", "+ more", "and others", or similar. Every single drug must have its own row. Up to 50 per phase.

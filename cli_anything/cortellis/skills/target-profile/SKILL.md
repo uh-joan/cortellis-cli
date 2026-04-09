@@ -80,6 +80,10 @@ If this fails, write `{}` to briefings.json and continue — the report generato
 python3 $RECIPES/target_report_generator.py $DIR
 ```
 
+## Execution Rules
+
+- Once the final report has been delivered to the user, **do not respond to background task completion notifications**. Discard them silently — they are late arrivals for steps already processed.
+
 ## Output Rules
 
 - Skip empty sections automatically.

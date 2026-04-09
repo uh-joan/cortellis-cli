@@ -64,6 +64,10 @@ cortellis --json deals search --drug "<DRUG_CANONICAL_N>" --hits 10 --sort-by "-
 python3 $RECIPES/drug_comparison_generator.py $DIR
 ```
 
+## Execution Rules
+
+- Once the final report has been delivered to the user, **do not respond to background task completion notifications**. Discard them silently — they are late arrivals for steps already processed.
+
 ## Output Rules
 
 - Only report data from Cortellis results. No training data.
