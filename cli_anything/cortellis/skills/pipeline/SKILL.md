@@ -32,7 +32,7 @@ Tested on 50 major pharma companies — 98% success rate.
 cortellis --json companies get <COMPANY_ID>
 ```
 
-### Step 3: CI pipeline — Drugs by phase (paginated, up to 150 per phase)
+### Step 3: CI pipeline — Drugs by phase (paginated, fetches all)
 Use `fetch_phase.sh` — auto-paginates with rate limit protection:
 ```bash
 bash $RECIPES/fetch_phase.sh <COMPANY_ID> L  $DIR/launched.csv     $RECIPES
@@ -102,7 +102,7 @@ python3 $RECIPES/catch_missing_drugs.py <COMPANY_ID> $DIR
 
 ## Output Rules
 
-- **ALWAYS list ALL drugs in EVERY table.** NEVER truncate with "+ N others", "+ more", "and others", or similar. Every single drug must have its own row. The fetch limit is 150 per phase — list every row in the CSV.
+- **ALWAYS list ALL drugs in EVERY table.** NEVER truncate with "+ N others", "+ more", "and others", or similar. Every single drug must have its own row — list every row in every CSV.
 - Give exact counts from the API `@totalResults` field.
 - Never approximate. Never say "~8" or "6-7".
 - Do not add drugs from training data. Only report what the CLI returned.
@@ -172,7 +172,7 @@ mkdir -p "$DIR"
 HEADER="name,id,phase,indication,mechanism,company,source"
 ```
 
-### Step 3 → Save each CI phase to CSV (paginated, up to 150 per phase)
+### Step 3 → Save each CI phase to CSV (paginated, fetches all)
 ```bash
 bash $RECIPES/fetch_phase.sh <ID> L    $DIR/launched.csv    $RECIPES
 bash $RECIPES/fetch_phase.sh <ID> C3   $DIR/phase3.csv      $RECIPES

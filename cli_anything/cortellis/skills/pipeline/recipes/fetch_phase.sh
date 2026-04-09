@@ -42,11 +42,6 @@ while [ $OFFSET -lt $TOTAL ]; do
 
     OFFSET=$((OFFSET + HITS))
     PAGE=$((PAGE + 1))
-
-    # Safety: max 3 pages (150 drugs per phase)
-    if [ $PAGE -ge 3 ]; then
-        break
-    fi
 done
 
 COUNT=$(($(wc -l < "$OUTPUT") - 1))

@@ -40,10 +40,6 @@ while [ $OFFSET -lt $TOTAL ]; do
 
     OFFSET=$((OFFSET + HITS))
     PAGE=$((PAGE + 1))
-
-    if [ $PAGE -ge 3 ]; then
-        break
-    fi
 done
 
 COUNT=$(($(wc -l < "$OUTPUT") - 1))
