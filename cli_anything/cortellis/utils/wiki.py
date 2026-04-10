@@ -90,6 +90,63 @@ def normalize_drug_name(name: str) -> str:
     return base or name
 
 
+def find_target_slug_for_mechanism(mechanism: str, base_dir: Optional[str] = None) -> Optional[str]:
+    """Find a target wiki article slug that best matches a mechanism string.
+
+    Matches by checking if the target's title appears as a substring of the
+    mechanism text (case-insensitive, punctuation-normalized). Returns the slug
+    of the longest-matching target, or None if no match found.
+
+    >>> # "Glucagon-like peptide 1 receptor agonist" → glp1r slug
+    """
+    targets_dir = os.path.join(wiki_root(base_dir), "targets")
+    if not os.path.isdir(targets_dir):
+        return None
+
+    _ROMAN = {"iv": "4", "iii": "3", "ii": "2", "vi": "6", "vii": "7", "viii": "8"}
+
+    def _norm(s: str) -> str:
+        t = re.sub(r"[^a-z0-9 ]", " ", s.lower())
+        # Normalize Roman numerals (standalone words only)
+        words = [_ROMAN.get(w, w) for w in t.split()]
+        return " ".join(words).strip()
+
+    mech_norm = _norm(mechanism)
+    best_slug = None
+    best_len = 0
+    mech_words = set(mech_norm.split())
+
+    for fname in os.listdir(targets_dir):
+        if not fname.endswith(".md"):
+            continue
+        slug = fname[:-3]
+        existing = read_article(os.path.join(targets_dir, fname))
+        if not existing:
+            continue
+        meta = existing.get("meta", {}) or {}
+        title = meta.get("title", "")
+        if not title:
+            continue
+        title_norm = _norm(title)
+        if not title_norm:
+            continue
+        # Exact substring match (primary, score = title length)
+        if title_norm in mech_norm and len(title_norm) > best_len:
+            best_slug = slug
+            best_len = len(title_norm)
+            continue
+        # Word-overlap fallback for long titles (≥4 significant words)
+        title_words = set(title_norm.split()) - {"and", "or", "of", "the", "a"}
+        if len(title_words) >= 4:
+            overlap = len(title_words & mech_words)
+            score = overlap * 5  # weight overlap matches lower than exact
+            if overlap >= len(title_words) * 0.7 and score > best_len:
+                best_slug = slug
+                best_len = score
+
+    return best_slug
+
+
 def find_company_slug(company_name: str, base_dir: Optional[str] = None) -> str:
     """Return the canonical wiki slug for a company, reusing existing articles.
 

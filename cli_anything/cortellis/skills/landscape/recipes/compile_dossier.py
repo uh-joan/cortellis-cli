@@ -30,6 +30,7 @@ from cli_anything.cortellis.utils.wiki import (
     normalize_company_name,
     normalize_drug_name,
     find_company_slug,
+    find_target_slug_for_mechanism,
     wiki_root,
     article_path,
     read_article,
@@ -95,7 +96,7 @@ def detect_preset(landscape_dir):
 # Indication article compilation
 # ---------------------------------------------------------------------------
 
-def compile_indication_article(landscape_dir, indication_name, slug):
+def compile_indication_article(landscape_dir, indication_name, slug, base_dir=None):
     """Compile a full indication landscape article."""
     phases = load_phase_counts(landscape_dir)
     scores = load_strategic_scores(landscape_dir)
@@ -292,9 +293,13 @@ def compile_indication_article(landscape_dir, indication_name, slug):
             f"| Mechanism | Active | Launched | P3 | P2 | P1 | Discovery | Companies | Crowding |\n"
             f"|---|---|---|---|---|---|---|---|---|\n"
         )
+        matched_targets = {}  # mechanism → target_slug
         for r in mechanisms[:15]:
             mname = r.get('mechanism', '-')
-            mech_link = wikilink(slugify(mname), mname) if mname != '-' else '-'
+            target_slug = find_target_slug_for_mechanism(mname, base_dir) if mname != '-' else None
+            if target_slug:
+                matched_targets[mname] = target_slug
+            mech_link = wikilink(target_slug or slugify(mname), mname) if mname != '-' else '-'
             body_parts.append(
                 f"| {mech_link}"
                 f" | {safe_int(r.get('active_count'))}"
@@ -307,6 +312,16 @@ def compile_indication_article(landscape_dir, indication_name, slug):
                 f" | {safe_int(r.get('crowding_index'))}"
                 f" |\n"
             )
+        body_parts.append("\n")
+
+    # Key Targets — compiled target articles relevant to this indication's mechanisms
+    if matched_targets:
+        body_parts.append("## Key Targets\n\n")
+        seen_slugs = set()
+        for mname, t_slug in matched_targets.items():
+            if t_slug not in seen_slugs:
+                body_parts.append(f"- {wikilink(t_slug, t_slug.replace('-', ' ').title())}\n")
+                seen_slugs.add(t_slug)
         body_parts.append("\n")
 
     # Opportunity Assessment
@@ -535,6 +550,14 @@ def compile_company_articles(landscape_dir, indication_name, indication_slug, ba
                 body_parts.append(f"| {deal_type} | {deal_date} | {details} |\n")
             body_parts.append("\n")
 
+        # Preserve pipeline sections from compile_pipeline.py if they exist
+        if existing and existing.get("body") and meta.get("pipeline"):
+            pipeline_marker = "## Pipeline Overview"
+            existing_body = existing["body"]
+            if pipeline_marker in existing_body:
+                pipeline_body = existing_body[existing_body.index(pipeline_marker):]
+                body_parts.append(pipeline_body)
+
         write_article(path, meta, "".join(body_parts))
         compiled_companies.append({
             "slug": company_slug,
@@ -595,7 +618,7 @@ def main():
     print(f"Compiling {indication_name} landscape to wiki...")
 
     # 1. Compile indication article
-    meta, body = compile_indication_article(landscape_dir, indication_name, slug)
+    meta, body = compile_indication_article(landscape_dir, indication_name, slug, base_dir)
     ind_path = article_path("indications", slug, base_dir)
 
     # Capture previous snapshot before overwriting
