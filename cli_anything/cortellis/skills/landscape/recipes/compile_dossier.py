@@ -226,7 +226,7 @@ def compile_indication_article(landscape_dir, indication_name, slug):
             cname = c.get("company", "")
             if not cname:
                 continue
-            clink = wikilink(slugify(cname), cname)
+            clink = wikilink(find_company_slug(cname), cname)
             rank = c.get("rank", "")
             position = c.get("position", "")
             cpi = safe_float(c.get("cpi_score"))
@@ -250,7 +250,7 @@ def compile_indication_article(landscape_dir, indication_name, slug):
             cname = r.get("company", "")
             if not cname:
                 continue
-            clink = wikilink(slugify(cname), cname)
+            clink = wikilink(find_company_slug(cname), cname)
             position = r.get("position", "")
             cpi = safe_float(r.get("cpi_score"))
             pipeline = safe_int(r.get("pipeline_breadth"))
