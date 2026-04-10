@@ -117,7 +117,7 @@ def ner_resolve_target(name):
         for e in entities:
             if e.get("@type") == "Target":
                 return e.get("@name", "")
-    except (KeyError, TypeError):
+    except (KeyError, TypeError, AttributeError):
         pass
     return ""
 
