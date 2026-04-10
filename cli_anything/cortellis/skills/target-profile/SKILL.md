@@ -80,6 +80,12 @@ If this fails, write `{}` to briefings.json and continue — the report generato
 python3 $RECIPES/target_report_generator.py $DIR
 ```
 
+### Step 10: Compile to wiki
+```bash
+python3 $RECIPES/compile_target.py $DIR "$TARGET_NAME"
+```
+Always run this after Step 9. Writes `wiki/targets/<slug>.md` and updates `wiki/INDEX.md`.
+
 ## Execution Rules
 
 - Once the final report has been delivered to the user, **do not respond to background task completion notifications**. Discard them silently — they are late arrivals for steps already processed.
