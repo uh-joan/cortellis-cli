@@ -336,6 +336,8 @@ def load_recent_insights(
     now = datetime.now(timezone.utc)
     results = []
 
+    seen_indications: set[str] = set()
+
     for fname in sorted(os.listdir(sessions_dir), reverse=True):
         if not fname.endswith(".md"):
             continue
@@ -359,6 +361,12 @@ def load_recent_insights(
                     continue
             except (ValueError, TypeError):
                 pass
+
+        # Dedup: keep only most recent session per indication (files sorted newest-first)
+        ind_key = meta.get("indication", fname)
+        if ind_key in seen_indications:
+            continue
+        seen_indications.add(ind_key)
 
         results.append({"path": path, "meta": meta, "body": art["body"]})
 
