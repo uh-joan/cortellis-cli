@@ -14,7 +14,9 @@ Usage:
 
 Output: drug_id,drug_name,phase,indication_count
 """
-import json, subprocess, sys
+import json, subprocess, sys, os
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "..", "..", "..", ".."))
+from cli_anything.cortellis.utils.wiki import normalize_drug_name, slugify
 
 PHASE_ORDER = {
     "Launched": 10, "Registered": 9, "Pre-registration": 8,
@@ -126,4 +128,5 @@ if __name__ == "__main__":
         sys.exit(1)
 
     drug_id, drug_name, phase, indics = resolve(name)
-    print(f"{drug_id},{drug_name},{phase},{indics}")
+    inn_slug = slugify(normalize_drug_name(drug_name))
+    print(f"{drug_id},{drug_name},{phase},{indics},{inn_slug}")

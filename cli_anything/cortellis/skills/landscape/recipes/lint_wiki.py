@@ -20,6 +20,7 @@ import re
 from datetime import datetime, timezone
 
 from cli_anything.cortellis.utils.wiki import (
+    find_company_slug,
     list_articles,
     read_article,
     slugify,
@@ -145,7 +146,7 @@ def check_missing_cross_refs(wiki_dir: str) -> list[dict]:
             company_name = entry.get("company", "") if isinstance(entry, dict) else str(entry)
             if not company_name:
                 continue
-            expected_slug = slugify(company_name)
+            expected_slug = find_company_slug(company_name, os.path.dirname(wiki_dir))
             if expected_slug not in existing:
                 issues.append({
                     "indication": indication,
@@ -156,12 +157,16 @@ def check_missing_cross_refs(wiki_dir: str) -> list[dict]:
 
 
 def check_empty_sections(wiki_dir: str) -> list[dict]:
-    """Find articles with ## headers followed by no content before next header.
+    """Find articles with headers followed by no content before the next same-or-higher-level header.
+
+    A section is considered empty only if there is no text content AND the next header
+    is at the same or higher level (equal or fewer #s). Subsections (deeper headers)
+    count as content for their parent section.
 
     Returns [{article_path, title, empty_section}]
     """
     issues = []
-    header_re = re.compile(r"^#{1,6}\s+(.+)$", re.MULTILINE)
+    header_re = re.compile(r"^(#{1,6})\s+(.+)$", re.MULTILINE)
     for art in list_articles(wiki_dir):
         article = read_article(art["path"])
         if not article:
@@ -169,14 +174,23 @@ def check_empty_sections(wiki_dir: str) -> list[dict]:
         body = article["body"]
         matches = list(header_re.finditer(body))
         for i, m in enumerate(matches):
+            current_depth = len(m.group(1))
             start = m.end()
-            end = matches[i + 1].start() if i + 1 < len(matches) else len(body)
+
+            # Find next header at equal or higher level (same or fewer #s)
+            end = len(body)
+            for j in range(i + 1, len(matches)):
+                next_depth = len(matches[j].group(1))
+                if next_depth <= current_depth:
+                    end = matches[j].start()
+                    break
+
             section_content = body[start:end].strip()
             if not section_content:
                 issues.append({
                     "article_path": os.path.relpath(art["path"], wiki_dir),
                     "title": article["meta"].get("title", ""),
-                    "empty_section": m.group(1).strip(),
+                    "empty_section": m.group(2).strip(),
                 })
     return issues
 

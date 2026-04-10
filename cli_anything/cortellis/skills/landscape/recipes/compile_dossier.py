@@ -96,6 +96,17 @@ def detect_preset(landscape_dir):
 # Indication article compilation
 # ---------------------------------------------------------------------------
 
+def _embed_md(header: str, content: str) -> str:
+    """Wrap content under a section header.
+
+    If content already starts with a header (the file has its own title),
+    embed it directly to avoid creating an empty wrapper section.
+    """
+    if content.lstrip().startswith("#"):
+        return f"{content}\n\n"
+    return f"{header}\n\n{content}\n\n"
+
+
 def compile_indication_article(landscape_dir, indication_name, slug, base_dir=None):
     """Compile a full indication landscape article."""
     phases = load_phase_counts(landscape_dir)
@@ -115,7 +126,7 @@ def compile_indication_article(landscape_dir, indication_name, slug, base_dir=No
 
     # Frontmatter
     now = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
-    company_slugs = [slugify(normalize_company_name(r["company"])) for r in scores[:20] if r.get("company")]
+    company_slugs = [find_company_slug(r["company"], base_dir) for r in scores[:20] if r.get("company")]
 
     # Derive tags: preset + top 3 mechanism slugs + indication slug
     tags = [slugify(preset)] if preset else []
@@ -170,7 +181,7 @@ def compile_indication_article(landscape_dir, indication_name, slug, base_dir=No
     )
     if scores:
         top3 = ", ".join(
-            f"{wikilink(slugify(normalize_company_name(r['company'])), r['company'])} (CPI {safe_float(r.get('cpi_score')):.1f})"
+            f"{wikilink(find_company_slug(r['company'], base_dir), r['company'])} (CPI {safe_float(r.get('cpi_score')):.1f})"
             for r in scores[:3]
         )
         body_parts.append(f"Top 3 companies by CPI: {top3}.\n\n")
@@ -195,7 +206,7 @@ def compile_indication_article(landscape_dir, indication_name, slug, base_dir=No
             f"|---|---|---|---|---|---|---|---|---|---|\n"
         )
         for i, r in enumerate(scores[:30], 1):
-            company_link = wikilink(slugify(normalize_company_name(r["company"])), r["company"])
+            company_link = wikilink(find_company_slug(r["company"], base_dir), r["company"])
             body_parts.append(
                 f"| {i} | {company_link}"
                 f" | {r.get('cpi_tier', '-')}"
@@ -227,7 +238,7 @@ def compile_indication_article(landscape_dir, indication_name, slug, base_dir=No
             cname = c.get("company", "")
             if not cname:
                 continue
-            clink = wikilink(find_company_slug(cname), cname)
+            clink = wikilink(find_company_slug(cname, base_dir), cname)
             rank = c.get("rank", "")
             position = c.get("position", "")
             cpi = safe_float(c.get("cpi_score"))
@@ -251,7 +262,7 @@ def compile_indication_article(landscape_dir, indication_name, slug, base_dir=No
             cname = r.get("company", "")
             if not cname:
                 continue
-            clink = wikilink(find_company_slug(cname), cname)
+            clink = wikilink(find_company_slug(cname, base_dir), cname)
             position = r.get("position", "")
             cpi = safe_float(r.get("cpi_score"))
             pipeline = safe_int(r.get("pipeline_breadth"))
@@ -282,7 +293,7 @@ def compile_indication_article(landscape_dir, indication_name, slug, base_dir=No
             mech = drug.get("mechanism") or drug.get("moa") or drug.get("mechanism_of_action") or "-"
             comp = drug.get("company") or drug.get("company_name") or "-"
             drug_str = wikilink(slugify(normalize_drug_name(dname)), dname) if dname != "-" else "-"
-            comp_str = wikilink(slugify(comp), comp) if comp != "-" else "-"
+            comp_str = wikilink(find_company_slug(comp, base_dir), comp) if comp != "-" else "-"
             body_parts.append(f"| {drug_str} | {phase} | {mech} | {comp_str} |\n")
         body_parts.append("\n")
 
@@ -353,42 +364,42 @@ def compile_indication_article(landscape_dir, indication_name, slug, base_dir=No
     # Deal Landscape
     deals_md = read_md_safe(os.path.join(landscape_dir, "deals_analytics.md"))
     if deals_md:
-        body_parts.append(f"## Deal Landscape\n\n{deals_md}\n\n")
+        body_parts.append(_embed_md("## Deal Landscape", deals_md))
 
     # Deal Financial Terms (from enrich_deal_financials.py)
     deal_comps_md = read_md_safe(os.path.join(landscape_dir, "deal_comps.md"))
     if deal_comps_md:
-        body_parts.append(f"## Deal Financial Terms\n\n{deal_comps_md}\n\n")
+        body_parts.append(_embed_md("## Deal Financial Terms", deal_comps_md))
 
     # Risk Zones — LOE
     loe_md = read_md_safe(os.path.join(landscape_dir, "loe_analysis.md"))
     if loe_md:
-        body_parts.append(f"## Loss-of-Exclusivity Exposure\n\n{loe_md}\n\n")
+        body_parts.append(_embed_md("## Loss-of-Exclusivity Exposure", loe_md))
 
     # Scenarios
     scenario_md = read_md_safe(os.path.join(landscape_dir, "scenario_analysis.md"))
     if scenario_md:
-        body_parts.append(f"## Strategic Scenarios\n\n{scenario_md}\n\n")
+        body_parts.append(_embed_md("## Strategic Scenarios", scenario_md))
 
     # Regulatory Status
     approval_md = read_md_safe(os.path.join(landscape_dir, "approval_regions.md"))
     if approval_md:
-        body_parts.append(f"## Regulatory Status\n\n{approval_md}\n\n")
+        body_parts.append(_embed_md("## Regulatory Status", approval_md))
 
     # Regulatory Timeline (from enrich_regulatory_milestones.py)
     reg_timeline_md = read_md_safe(os.path.join(landscape_dir, "regulatory_timeline.md"))
     if reg_timeline_md:
-        body_parts.append(f"## Regulatory Timeline\n\n{reg_timeline_md}\n\n")
+        body_parts.append(_embed_md("## Regulatory Timeline", reg_timeline_md))
 
     # Recent Publications (from enrich_literature.py)
     lit_md = read_md_safe(os.path.join(landscape_dir, "recent_publications.md"))
     if lit_md:
-        body_parts.append(f"## Recent Publications\n\n{lit_md}\n\n")
+        body_parts.append(_embed_md("## Recent Publications", lit_md))
 
     # Recent Press Releases (from enrich_press_releases.py)
     pr_md = read_md_safe(os.path.join(landscape_dir, "recent_press_releases.md"))
     if pr_md:
-        body_parts.append(f"## Recent Press Releases\n\n{pr_md}\n\n")
+        body_parts.append(_embed_md("## Recent Press Releases", pr_md))
 
     # Historical Pipeline Timeline (from enrich_historical_timeline.py)
     hist_md = read_md_safe(os.path.join(landscape_dir, "historical_timeline.md"))
@@ -398,7 +409,7 @@ def compile_indication_article(landscape_dir, indication_name, slug, base_dir=No
     # Strategic Briefing
     strategic_md = read_md_safe(os.path.join(landscape_dir, "strategic_briefing.md"))
     if strategic_md:
-        body_parts.append(f"## Strategic Briefing\n\n{strategic_md}\n\n")
+        body_parts.append(_embed_md("## Strategic Briefing", strategic_md))
 
     # Data Sources
     body_parts.append(f"## Data Sources\n\n")

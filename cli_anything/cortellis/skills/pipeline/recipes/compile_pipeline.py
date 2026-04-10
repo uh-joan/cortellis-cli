@@ -177,7 +177,9 @@ def compile_pipeline_article(pipeline_dir, company_name, slug, base_dir=None):
     body_parts.append(f"| **Total** | **{phase_counts['total']}** |\n\n")
 
     # Pipeline Drugs by Phase section
-    body_parts.append("## Pipeline Drugs by Phase\n\n")
+    _all_drug_rows = launched_rows + phase3_rows + phase2_rows + phase1_rows + preclinical_rows + other_rows
+    if _all_drug_rows:
+        body_parts.append("## Pipeline Drugs by Phase\n\n")
 
     def _drugs_table(rows, phase_label):
         if not rows:

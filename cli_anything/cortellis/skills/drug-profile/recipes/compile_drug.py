@@ -16,6 +16,9 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "..", "..", "..
 
 from cli_anything.cortellis.utils.data_helpers import read_json_safe
 from cli_anything.cortellis.utils.wiki import (
+    find_company_slug,
+    find_target_slug_for_mechanism,
+    normalize_drug_name,
     slugify,
     wiki_root,
     article_path,
@@ -181,40 +184,12 @@ def extract_trials_summary(trials_json):
     }
 
 
-def extract_competitors(competitors_json):
-    """Extract list of competitors from competitors.json."""
-    if not competitors_json:
-        return []
-    comp_data = competitors_json.get("drugResultsOutput", competitors_json)
-    comp_list = comp_data.get("SearchResults", {}).get("Drug", [])
-    if isinstance(comp_list, dict):
-        comp_list = [comp_list]
-    result = []
-    for c in comp_list:
-        name = c.get("@name", c.get("DrugName", ""))
-        phase = c.get("@phaseHighest", c.get("PhaseHighest", {}).get("$", ""))
-        company = c.get("CompanyOriginator", "")
-        if isinstance(company, dict):
-            company = company.get("$", company.get("@name", ""))
-        actions_raw = c.get("ActionsPrimary", {}).get("Action", [])
-        if isinstance(actions_raw, dict):
-            actions_raw = [actions_raw]
-        actions = []
-        for a in actions_raw:
-            if isinstance(a, dict):
-                actions.append(a.get("$", str(a)))
-            else:
-                actions.append(str(a))
-        mechanism = "; ".join(actions[:2]) if actions else ""
-        result.append({"name": name, "phase": phase, "mechanism": mechanism, "company": company})
-    return result
-
 
 # ---------------------------------------------------------------------------
 # Article compiler
 # ---------------------------------------------------------------------------
 
-def compile_drug_article(drug_dir, drug_name, slug):
+def compile_drug_article(drug_dir, drug_name, slug, base_dir=None):
     """Compile all drug profile JSON files into (meta, body)."""
     record = read_json_safe(os.path.join(drug_dir, "record.json"))
     swot = read_json_safe(os.path.join(drug_dir, "swot.json"))
@@ -222,10 +197,12 @@ def compile_drug_article(drug_dir, drug_name, slug):
     history = read_json_safe(os.path.join(drug_dir, "history.json"))
     deals_json = read_json_safe(os.path.join(drug_dir, "deals.json"))
     trials_json = read_json_safe(os.path.join(drug_dir, "trials.json"))
-    competitors_json = read_json_safe(os.path.join(drug_dir, "competitors.json"))
-
     overview = extract_drug_overview(record) if record else {}
     name = overview.get("name") or drug_name
+    # Recompute canonical slug from normalized INN name (not directory name)
+    canonical_name = normalize_drug_name(name)
+    if canonical_name:
+        slug = slugify(canonical_name)
     phase = overview.get("phase", "")
     originator = overview.get("originator", "")
     mechanism = overview.get("mechanism", "")
@@ -237,14 +214,12 @@ def compile_drug_article(drug_dir, drug_name, slug):
 
     deals_summary = extract_deals_summary(deals_json)
     trials_summary = extract_trials_summary(trials_json)
-    competitors = extract_competitors(competitors_json)
-
     now = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
 
     # Build related: originator slug + indication slugs
     related = []
     if originator:
-        related.append(slugify(originator))
+        related.append(find_company_slug(originator, base_dir))
     for ind in indications[:5]:
         ind_slug = slugify(ind)
         if ind_slug not in related:
@@ -285,7 +260,7 @@ def compile_drug_article(drug_dir, drug_name, slug):
         # Link individual mechanism/target terms to target articles
         mech_parts = [m.strip() for m in mechanism.split(";")]
         mech_links = "; ".join(
-            wikilink(slugify(m), m) if m else m for m in mech_parts
+            wikilink(find_target_slug_for_mechanism(m, base_dir) or slugify(m), m) if m else m for m in mech_parts
         )
         body_parts.append(f"| Mechanism | {mech_links} |\n")
     else:
@@ -293,7 +268,7 @@ def compile_drug_article(drug_dir, drug_name, slug):
     if technology:
         body_parts.append(f"| Technology | {technology} |\n")
     if originator:
-        originator_link = wikilink(slugify(originator), originator)
+        originator_link = wikilink(find_company_slug(originator, base_dir), originator)
         body_parts.append(f"| Originator | {originator_link} |\n")
     if indications:
         ind_links = "; ".join(
@@ -353,17 +328,6 @@ def compile_drug_article(drug_dir, drug_name, slug):
             for section, content in swot_sections:
                 body_parts.append(f"### {section}\n\n{content}\n\n")
 
-    # Competitive Landscape
-    if competitors:
-        body_parts.append("## Competitive Landscape\n\n")
-        body_parts.append("| Drug | Phase | Mechanism | Company |\n|---|---|---|---|\n")
-        for c in competitors:
-            comp_link = wikilink(slugify(c["company"]), c["company"]) if c["company"] else "-"
-            body_parts.append(
-                f"| {c['name']} | {c['phase']} | {c['mechanism']} | {comp_link} |\n"
-            )
-        body_parts.append("\n")
-
     # Deals
     if deals_summary.get("deals"):
         deal_list = deals_summary["deals"]
@@ -384,7 +348,7 @@ def compile_drug_article(drug_dir, drug_name, slug):
         total = trials_summary.get("total", len(trial_list))
         body_parts.append(f"## Clinical Trials ({total} total)\n\n")
         body_parts.append("| Title | Phase | Status | Enrollment |\n|---|---|---|---|\n")
-        for t in trial_list[:10]:
+        for t in trial_list:
             title = t.get("TitleDisplay", t.get("Title", "-"))[:60]
             tphase = t.get("Phase", "-")
             status = t.get("RecruitmentStatus", "-")
@@ -449,7 +413,8 @@ def main():
 
     print(f"Compiling {drug_name} drug profile to wiki...")
 
-    meta, body = compile_drug_article(drug_dir, drug_name, slug)
+    meta, body = compile_drug_article(drug_dir, drug_name, slug, base_dir)
+    slug = meta.get("slug", slug)  # use canonical slug from record (may differ from dir name)
     drug_art_path = article_path("drugs", slug, base_dir)
 
     write_article(drug_art_path, meta, body)

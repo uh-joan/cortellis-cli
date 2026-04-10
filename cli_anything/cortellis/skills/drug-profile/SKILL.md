@@ -20,15 +20,18 @@ Everything about a single drug from Cortellis data.
 ### Setup
 ```bash
 RECIPES="cli_anything/cortellis/skills/drug-profile/recipes"
-DRUG_SLUG=$(echo "<DRUG_NAME>" | tr '[:upper:]' '[:lower:]' | tr ' ' '-' | sed "s/'//g")
-DIR="raw/drugs/$DRUG_SLUG"
-mkdir -p "$DIR"
 ```
 
-### Step 1: Resolve drug ID
+### Step 1: Resolve drug ID and INN slug
 ```bash
 RESULT=$(python3 $RECIPES/resolve_drug.py "<DRUG_NAME>")
-# Output: drug_id,drug_name,phase,indication_count
+DRUG_ID=$(echo "$RESULT" | cut -d',' -f1)
+DRUG_NAME_RESOLVED=$(echo "$RESULT" | cut -d',' -f2)
+DRUG_SLUG=$(echo "$RESULT" | cut -d',' -f5)
+DIR="raw/drugs/$DRUG_SLUG"
+mkdir -p "$DIR"
+# Output: drug_id,drug_name,phase,indication_count,inn_slug
+# DRUG_SLUG is always the normalized INN (e.g. "ozempic" → "semaglutide")
 ```
 The recipe searches by name, prefers exact matches over combinations, picks highest phase.
 If user provides a numeric ID, skip this step.
@@ -57,30 +60,25 @@ cortellis --json drugs history <DRUG_ID> > $DIR/history.json
 
 ### Step 6: Related deals
 ```bash
-cortellis --json deals search --drug "<DRUG_NAME>" --hits 10 --sort-by "-dealDateStart" > $DIR/deals.json
+cortellis --json deals search --drug "$DRUG_SLUG" --hits 10 --sort-by "-dealDateStart" > $DIR/deals.json
 ```
 
-### Step 7: Active trials
+### Step 7: Active trials (paginated)
 ```bash
-cortellis --json trials search --query "trialInterventionsPrimaryAloneNameDisplay:<DRUG_NAME>" --hits 10 --sort-by "-trialDateStart" > $DIR/trials.json
+bash $RECIPES/fetch_trials.sh "$DRUG_SLUG" $DIR/trials.json
 ```
+Fetches all Recruiting + Active-not-recruiting trials with pagination. No cap.
 
 ### Step 8: Regulatory status
 ```bash
-cortellis --json regulations search --query "<DRUG_NAME>" --hits 10 --sort-by "-regulatoryDateSort" > $DIR/regulatory.json
+cortellis --json regulations search --query "$DRUG_SLUG" --hits 10 --sort-by "-regulatoryDateSort" > $DIR/regulatory.json
 ```
 
-### Step 9: Competitive landscape (drugs with same primary mechanism)
-Extract the primary action from the drug record, then search for other drugs with the same mechanism:
-```bash
-cortellis --json drugs search --action "<PRIMARY_ACTION>" --phase L --hits 15 > $DIR/competitors.json
-```
-
-### Step 10: Drug Design (SI) enrichment (for early-stage drugs)
+### Step 9: Drug Design (SI) enrichment (for early-stage drugs)
 If the drug is Phase 1 or Preclinical:
 ```bash
-cortellis --json drug-design search-drugs --query "<DRUG_NAME>" --hits 1
-cortellis --json drug-design pharmacology --query "<DRUG_NAME>" --hits 5
+cortellis --json drug-design search-drugs --query "$DRUG_SLUG" --hits 1
+cortellis --json drug-design pharmacology --query "$DRUG_SLUG" --hits 5
 ```
 Adds: research codes, pharmacology records, biologic flag, SI phase.
 
@@ -91,7 +89,7 @@ python3 $RECIPES/drug_report_generator.py $DIR
 
 ### Step 11: Compile to wiki
 ```bash
-python3 $RECIPES/compile_drug.py $DIR "<DRUG_NAME>" [--wiki-dir /path/to/wiki-root]
+python3 $RECIPES/compile_drug.py $DIR "$DRUG_NAME_RESOLVED" [--wiki-dir /path/to/wiki-root]
 ```
 Reads all JSON files from `$DIR` and writes `wiki/drugs/<slug>.md` plus updates `wiki/INDEX.md`.
 
@@ -131,10 +129,6 @@ Reads all JSON files from `$DIR` and writes `wiki/drugs/<slug>.md` plus updates 
 ## Financial Data (if available)
 Sales and forecast commentary.
 
-## Competitive Landscape (same mechanism)
-| Drug | Company | Phase | Indications |
-|------|---------|-------|-------------|
-
 ## Deals
 | Deal | Partner | Type | Date |
 |------|---------|------|------|
@@ -153,16 +147,25 @@ Sales and forecast commentary.
 ### Step 1 → Resolve drug name to ID
 ```bash
 python3 $RECIPES/resolve_drug.py "<DRUG_NAME>"
-# Output: drug_id,drug_name,phase,indication_count
+# Output: drug_id,drug_name,phase,indication_count,inn_slug
+# inn_slug is always the normalized INN (e.g. "ozempic" → "semaglutide")
 # Prefers: non-combo drugs, highest phase, most indications
 # Tested: tirzepatide, semaglutide, amycretin, setmelanotide, durvalumab, orlistat
 ```
 
-### Steps 2-10 → Collect data, then generate report
+### fetch_trials.sh — Paginated active trial fetch
+```bash
+bash $RECIPES/fetch_trials.sh "<DRUG_NAME>" $DIR/trials.json
+# Fetches Recruiting + Active-not-recruiting trials with pagination
+# Deduplicates by trial ID across status passes
+# Output: trials.json with trialResultsOutput structure
+```
+
+### Steps 2-9 → Collect data, then generate report
 ```bash
 python3 $RECIPES/drug_report_generator.py $DIR
 # Reads: record.json, swot.json, financials.json, history.json,
-#         deals.json, trials.json, regulatory.json, competitors.json
+#         deals.json, trials.json, regulatory.json
 # Outputs: formatted markdown with ASCII timeline, tables, charts
 # Skips empty sections automatically
 ```

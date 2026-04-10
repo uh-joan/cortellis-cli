@@ -59,6 +59,13 @@ For each drug canonical name:
 cortellis --json deals search --drug "<DRUG_CANONICAL_N>" --hits 10 --sort-by "-dealDateStart" > $DIR/deals_N.json
 ```
 
+### Step 5b: Fetch financial data
+For each resolved drug ID (run in parallel with steps 4 and 5):
+```bash
+cortellis --json drugs financials $DRUG_ID_N > $DIR/financials_N.json
+```
+May be empty for non-launched drugs — generator skips chart silently if no data.
+
 ### Step 6: Generate comparison
 ```bash
 python3 $RECIPES/drug_comparison_generator.py $DIR

@@ -20,6 +20,7 @@ from cli_anything.cortellis.utils.wiki import (
     normalize_company_name,
     normalize_drug_name,
     find_company_slug,
+    find_indication_slug_for_disease,
     wiki_root,
     article_path,
     write_article,
@@ -365,7 +366,7 @@ def compile_target_article(target_dir, target_name, slug, base_dir=None):
         body_parts.append(f"## Disease Associations ({len(disease_associations)} diseases)\n\n")
         body_parts.append("| Disease | Total Drugs | Active | Highest Phase |\n|---|---|---|---|\n")
         for assoc in disease_associations:
-            dis_slug = slugify(assoc["disease"])
+            dis_slug = find_indication_slug_for_disease(assoc["disease"], base_dir)
             dis_link = wikilink(dis_slug, assoc["disease"])
             body_parts.append(
                 f"| {dis_link}"
@@ -381,7 +382,7 @@ def compile_target_article(target_dir, target_name, slug, base_dir=None):
         body_parts.append(f"## Genetic Evidence ({len(gene_assocs)} associations)\n\n")
         body_parts.append("| Disease | Evidence Sources |\n|---|---|\n")
         for item in gene_assocs:
-            dis_slug = slugify(item["disease"])
+            dis_slug = find_indication_slug_for_disease(item["disease"], base_dir)
             dis_link = wikilink(dis_slug, item["disease"])
             body_parts.append(f"| {dis_link} | {item['sources']} |\n")
         body_parts.append("\n")

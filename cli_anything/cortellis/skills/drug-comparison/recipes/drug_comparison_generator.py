@@ -43,84 +43,44 @@ def _safe_get(obj: Any, *keys: str, default: Any = None) -> Any:
 def extract_drug_profile(record: dict) -> dict:
     """Extract key fields from a Cortellis drug record.
 
-    Handles the nested JSON structure defensively — missing fields return None.
+    Handles the nested drugRecordOutput structure from the Cortellis API.
     """
-    # Top-level drug data may be nested under a 'drug' key or at root
-    drug = record.get("drug", record)
+    drug = record.get("drugRecordOutput", record)
 
-    name = (
-        drug.get("drugNameDisplay")
-        or drug.get("drugName")
-        or drug.get("name")
-        or "Unknown"
-    )
+    full_name = drug.get("DrugName") or drug.get("drugName") or "Unknown"
+    # Use just the INN (first word/phrase before parenthesis or comma)
+    import re
+    name = re.split(r"\s*[\(,]", full_name)[0].strip() or full_name
 
-    phase = (
-        drug.get("highestPhaseDisplay")
-        or drug.get("highestPhase")
-        or drug.get("phase")
-        or "Unknown"
-    )
+    # Phase: {"@id": "L", "$": "Launched"}
+    phase_raw = drug.get("PhaseHighest") or drug.get("phase") or {}
+    phase = phase_raw.get("$") if isinstance(phase_raw, dict) else str(phase_raw) or "Unknown"
 
-    # Indications: may be a list or a count field
-    indications_raw = drug.get("indications") or drug.get("indicationList") or []
-    if isinstance(indications_raw, list):
-        indications = [
-            ind.get("indicationDisplay") or ind.get("indication") or str(ind)
-            for ind in indications_raw
-            if isinstance(ind, dict)
-        ]
-        if not indications and indications_raw:
-            indications = [str(i) for i in indications_raw]
-    else:
-        indications = []
+    # Indications: {"Indication": [{"@id": "...", "$": "Obesity"}, ...]}
+    ind_raw = drug.get("IndicationsPrimary") or drug.get("IndicationsSecondary") or {}
+    ind_list = ind_raw.get("Indication", []) if isinstance(ind_raw, dict) else []
+    if isinstance(ind_list, dict):
+        ind_list = [ind_list]
+    indications = [i.get("$", "") for i in ind_list if isinstance(i, dict)]
+    indication_count = len(indications)
 
-    indication_count = drug.get("indicationCount") or len(indications) or 0
+    # Mechanism: {"Action": [{"@id": "...", "$": "GLP-1 receptor agonist"}, ...]}
+    actions_raw = drug.get("ActionsPrimary") or {}
+    actions_list = actions_raw.get("Action", []) if isinstance(actions_raw, dict) else []
+    if isinstance(actions_list, dict):
+        actions_list = [actions_list]
+    mechanism = "; ".join(a.get("$", "") for a in actions_list if isinstance(a, dict)) or "Unknown"
 
-    # Mechanism / action
-    mechanism = (
-        _safe_get(drug, "actions", "0", "actionDisplay")
-        or _safe_get(drug, "actions", "0", "action")
-        or drug.get("actionDisplay")
-        or drug.get("primaryAction")
-        or "Unknown"
-    )
-    if isinstance(drug.get("actions"), list) and drug["actions"]:
-        first = drug["actions"][0]
-        if isinstance(first, dict):
-            mechanism = first.get("actionDisplay") or first.get("action") or mechanism
+    # Technology: {"Technology": [{"@id": "...", "$": "Peptide"}, ...]}
+    tech_raw = drug.get("Technologies") or {}
+    tech_list = tech_raw.get("Technology", []) if isinstance(tech_raw, dict) else []
+    if isinstance(tech_list, dict):
+        tech_list = [tech_list]
+    technology = "; ".join(t.get("$", "") for t in tech_list if isinstance(t, dict)) or "Unknown"
 
-    # Technology / modality
-    technology = (
-        _safe_get(drug, "technologies", "0", "technologyDisplay")
-        or _safe_get(drug, "technologies", "0", "technology")
-        or drug.get("technologyDisplay")
-        or drug.get("technology")
-        or "Unknown"
-    )
-    if isinstance(drug.get("technologies"), list) and drug["technologies"]:
-        first = drug["technologies"][0]
-        if isinstance(first, dict):
-            technology = (
-                first.get("technologyDisplay") or first.get("technology") or technology
-            )
-
-    # Company / originator
-    company = (
-        _safe_get(drug, "originators", "0", "companyNameDisplay")
-        or _safe_get(drug, "originators", "0", "companyName")
-        or drug.get("originatorDisplay")
-        or drug.get("originator")
-        or "Unknown"
-    )
-    if isinstance(drug.get("originators"), list) and drug["originators"]:
-        first = drug["originators"][0]
-        if isinstance(first, dict):
-            company = (
-                first.get("companyNameDisplay")
-                or first.get("companyName")
-                or company
-            )
+    # Company: {"@id": "...", "$": "Eli Lilly & Co"}
+    orig_raw = drug.get("CompanyOriginator") or {}
+    company = orig_raw.get("$") if isinstance(orig_raw, dict) else str(orig_raw) or "Unknown"
 
     return {
         "name": name,
@@ -135,32 +95,25 @@ def extract_drug_profile(record: dict) -> dict:
 
 def extract_trial_summary(trials_json: dict) -> dict:
     """Extract trial counts from a Cortellis trials search result."""
-    hits = (
-        trials_json.get("hits")
-        or trials_json.get("trials")
-        or trials_json.get("results")
-        or []
-    )
-    if not isinstance(hits, list):
-        hits = []
+    # API returns: {"trialResultsOutput": {"@totalResults": "324", "SearchResults": {"Trial": [...]}}}
+    output = trials_json.get("trialResultsOutput", trials_json)
+    total = int(output.get("@totalResults") or output.get("totalResults") or 0)
 
-    total = trials_json.get("totalResults") or trials_json.get("total") or len(hits)
+    search = output.get("SearchResults") or {}
+    hits = search.get("Trial", [])
+    if isinstance(hits, dict):
+        hits = [hits]
 
     recruiting = sum(
-        1
-        for t in hits
+        1 for t in hits
         if isinstance(t, dict)
-        and str(
-            t.get("trialStatusDisplay") or t.get("trialStatus") or t.get("status") or ""
-        ).lower()
-        in ("recruiting", "enrolling")
+        and str(t.get("RecruitmentStatus") or "").lower() in ("recruiting", "enrolling by invitation")
     )
 
     phase3 = sum(
-        1
-        for t in hits
+        1 for t in hits
         if isinstance(t, dict)
-        and "3" in str(t.get("trialPhaseDisplay") or t.get("trialPhase") or t.get("phase") or "")
+        and "3" in str(t.get("Phase") or "")
     )
 
     return {
@@ -172,25 +125,23 @@ def extract_trial_summary(trials_json: dict) -> dict:
 
 def extract_deal_summary(deals_json: dict) -> dict:
     """Extract deal counts and metadata from a Cortellis deals search result."""
-    hits = (
-        deals_json.get("hits")
-        or deals_json.get("deals")
-        or deals_json.get("results")
-        or []
-    )
-    if not isinstance(hits, list):
-        hits = []
+    # API returns: {"dealResultsOutput": {"@totalResults": "12", "SearchResults": {"Deal": [...]}}}
+    output = deals_json.get("dealResultsOutput", deals_json)
+    total = int(output.get("@totalResults") or output.get("totalResults") or 0)
 
-    total = deals_json.get("totalResults") or deals_json.get("total") or len(hits)
+    search = output.get("SearchResults") or {}
+    hits = search.get("Deal", [])
+    if isinstance(hits, dict):
+        hits = [hits]
 
     # Latest deal date
     dates = []
     for d in hits:
         if not isinstance(d, dict):
             continue
-        date = d.get("dealDateStartDisplay") or d.get("dealDateStart") or d.get("date")
+        date = d.get("StartDate") or d.get("MostRecentEventDate")
         if date:
-            dates.append(str(date))
+            dates.append(str(date)[:10])  # trim to YYYY-MM-DD
     latest_date = sorted(dates, reverse=True)[0] if dates else None
 
     # Deal types
@@ -198,7 +149,7 @@ def extract_deal_summary(deals_json: dict) -> dict:
     for d in hits:
         if not isinstance(d, dict):
             continue
-        dtype = d.get("dealTypeDisplay") or d.get("dealType") or d.get("type")
+        dtype = d.get("Type")
         if dtype:
             types_seen.add(str(dtype))
     deal_types = "; ".join(sorted(types_seen)) if types_seen else None
@@ -208,6 +159,97 @@ def extract_deal_summary(deals_json: dict) -> dict:
         "latest_date": latest_date,
         "deal_types": deal_types,
     }
+
+
+def extract_financials(financials_json: dict) -> dict:
+    """Extract WW actual + forecast sales from a Cortellis financials response."""
+    output = financials_json.get("drugFinancialsOutput", {})
+    if not output or isinstance(output, str):
+        return {"actual": {}, "forecast": {}}
+
+    entries = output.get("Financials", {})
+    if not entries:
+        return {"actual": {}, "forecast": {}}
+
+    items = entries.get("Financial", [])
+    if isinstance(items, dict):
+        items = [items]
+
+    actual: dict[int, float] = {}
+    forecast: dict[int, float] = {}
+    for item in items:
+        if not isinstance(item, dict) or item.get("Region") != "WW":
+            continue
+        year = item.get("Year")
+        sales = item.get("Sales", 0)
+        if year is None or not sales:
+            continue
+        if item.get("Forecast") == "Y":
+            forecast[int(year)] = float(sales)
+        else:
+            actual[int(year)] = float(sales)
+
+    return {"actual": actual, "forecast": forecast}
+
+
+def sales_trajectory_chart(
+    names: list[str],
+    financials_list: list[dict],
+    max_width: int = 35,
+) -> str:
+    """Render an ASCII multi-drug sales trajectory chart (actual + forecast)."""
+    # Collect all years with data across all drugs
+    all_years: set[int] = set()
+    for fin in financials_list:
+        all_years.update(fin["actual"].keys())
+        all_years.update(fin["forecast"].keys())
+
+    if not all_years:
+        return ""
+
+    years = sorted(all_years)
+
+    # Find global max for scaling
+    all_values = []
+    for fin in financials_list:
+        all_values.extend(fin["actual"].values())
+        all_values.extend(fin["forecast"].values())
+    global_max = max(all_values) if all_values else 1
+
+    chars = ["█", "▓", "░", "▒"]
+    lines = ["## Sales Trajectory (WW, $M)", ""]
+    lines.append("```")
+    lines.append(f"{'Year':<6}  " + "  ".join(f"{n[:18]:<18}" for n in names))
+    lines.append("─" * (6 + 2 + 20 * len(names)))
+
+    for year in years:
+        row_parts = []
+        for i, fin in enumerate(financials_list):
+            actual_val = fin["actual"].get(year)
+            forecast_val = fin["forecast"].get(year)
+            val = actual_val if actual_val is not None else forecast_val
+            is_forecast = actual_val is None and forecast_val is not None
+            if val:
+                bar_len = max(1, int(val / global_max * max_width))
+                char = "░" if is_forecast else chars[i % 2]
+                bar = char * bar_len
+                suffix = "~" if is_forecast else " "
+                row_parts.append(f"{bar:<35} {suffix}{val:>7,.0f}M")
+            else:
+                row_parts.append(f"{'—':<35}  {'N/A':>7}")
+        lines.append(f"{year:<6}  " + "  ".join(row_parts))
+
+    lines.append("")
+    lines.append(f"  {'█'} = actual   {'░'} = forecast   ~ = forecast")
+    lines.append("```")
+    lines.append("")
+
+    # Legend
+    for i, name in enumerate(names):
+        lines.append(f"  {chars[i % 2] * 3}  {name}")
+    lines.append("")
+
+    return "\n".join(lines)
 
 
 def identify_differentiators(profiles: list[dict]) -> list[str]:
@@ -261,6 +303,7 @@ def generate_comparison_markdown(
     profiles: list[dict],
     trial_summaries: list[dict],
     deal_summaries: list[dict],
+    financials_list: list[dict] | None = None,
 ) -> str:
     """Build full comparison with side-by-side tables."""
     names = [p["name"] for p in profiles]
@@ -303,6 +346,12 @@ def generate_comparison_markdown(
     lines.append(row("Deal Types", [d["deal_types"] or "N/A" for d in deal_summaries]))
     lines.append("")
 
+    # --- Sales Trajectory ---
+    if financials_list:
+        chart = sales_trajectory_chart(names, financials_list)
+        if chart:
+            lines.append(chart)
+
     # --- Key Differentiators ---
     differentiators = identify_differentiators(profiles)
     if differentiators:
@@ -332,17 +381,26 @@ def main(directory: str) -> None:
     profiles = []
     trial_summaries = []
     deal_summaries = []
+    financials_list = []
 
     for n in indices:
         drug_record = _load_json(os.path.join(directory, f"drug_{n}.json"))
         trials_data = _load_json(os.path.join(directory, f"trials_{n}.json"))
         deals_data = _load_json(os.path.join(directory, f"deals_{n}.json"))
+        financials_data = _load_json(os.path.join(directory, f"financials_{n}.json"))
 
         profiles.append(extract_drug_profile(drug_record))
         trial_summaries.append(extract_trial_summary(trials_data))
         deal_summaries.append(extract_deal_summary(deals_data))
+        financials_list.append(extract_financials(financials_data))
 
-    markdown = generate_comparison_markdown(profiles, trial_summaries, deal_summaries)
+    has_financials = any(
+        f["actual"] or f["forecast"] for f in financials_list
+    )
+    markdown = generate_comparison_markdown(
+        profiles, trial_summaries, deal_summaries,
+        financials_list=financials_list if has_financials else None,
+    )
     print(markdown)
 
 

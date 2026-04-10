@@ -74,19 +74,31 @@ def normalize_company_name(name: str) -> str:
 
 # Parenthetical variant + company suffix: "semaglutide (oral, once-daily), Novo Nordisk" → "semaglutide"
 _DRUG_VARIANT_RE = re.compile(r"\s*\([^)]*\).*$")
+_DRUG_SALT_RE = re.compile(
+    r"\s+(?:propanediol|acetate|hydrochloride|hcl|sodium|potassium|maleate|"
+    r"tartrate|sulfate|sulphate|mesylate|tosylate|fumarate|phosphate|citrate|"
+    r"bromide|chloride|succinate|oxalate|gluconate|lactate|besylate|pamoate|"
+    r"monohydrate|dihydrate|trihydrate)$",
+    re.IGNORECASE,
+)
 
 
 def normalize_drug_name(name: str) -> str:
-    """Extract base drug name by stripping parenthetical variant and company suffix.
+    """Extract base drug name by stripping parenthetical variant, salt suffixes, and company suffix.
 
     >>> normalize_drug_name("semaglutide (subcutaneous, diabetes/obesity/NASH), Novo Nordisk")
     'semaglutide'
+    >>> normalize_drug_name("dapagliflozin propanediol")
+    'dapagliflozin'
+    >>> normalize_drug_name("setmelanotide acetate")
+    'setmelanotide'
     >>> normalize_drug_name("tirzepatide")
     'tirzepatide'
     >>> normalize_drug_name("CT-868")
     'CT-868'
     """
     base = _DRUG_VARIANT_RE.sub("", name).strip().rstrip(",").strip()
+    base = _DRUG_SALT_RE.sub("", base).strip()
     return base or name
 
 
@@ -145,6 +157,63 @@ def find_target_slug_for_mechanism(mechanism: str, base_dir: Optional[str] = Non
                 best_len = score
 
     return best_slug
+
+
+# Known Cortellis disease-name → canonical wiki slug overrides.
+# Needed when Cortellis uses a completely different vocabulary than the
+# landscape API (not just parenthetical noise).
+_INDICATION_SLUG_OVERRIDES: dict[str, str] = {
+    "diabetes, type 2": "non-insulin-dependent-diabetes",
+    "diabetes mellitus, type 2": "non-insulin-dependent-diabetes",
+    "type 2 diabetes": "non-insulin-dependent-diabetes",
+    "type 2 diabetes mellitus": "non-insulin-dependent-diabetes",
+    "non-alcoholic steatohepatitis": "metabolic-dysfunction-associated-steatohepatitis",
+    "nash": "metabolic-dysfunction-associated-steatohepatitis",
+    "nafld": "metabolic-dysfunction-associated-steatotic-liver-disease-masld-nafld",
+    "metabolic dysfunction-associated steatotic liver disease": "metabolic-dysfunction-associated-steatotic-liver-disease-masld-nafld",
+}
+
+_PAREN_RE = re.compile(r"\s*\([^)]*\)")
+
+
+def find_indication_slug_for_disease(disease: str, base_dir: Optional[str] = None) -> str:
+    """Resolve a Cortellis disease name to the canonical wiki indication slug.
+
+    Resolution order:
+    1. Hardcoded alias overrides for vocabulary mismatches (e.g. Cortellis
+       "Diabetes, type 2" vs wiki "Non-insulin dependent diabetes").
+    2. Strip parenthetical aliases, slugify, check for existing page.
+    3. Scan existing indication pages for a title match.
+    4. Fall back to plain slugify of the parenthetical-stripped name.
+    """
+    # 1. Alias override (case-insensitive substring)
+    key = disease.lower().strip()
+    for alias, slug in _INDICATION_SLUG_OVERRIDES.items():
+        if key == alias or key.startswith(alias):
+            return slug
+
+    # 2. Strip parentheticals, slugify, check for existing page
+    clean = _PAREN_RE.sub("", disease).strip().rstrip(";,").strip()
+    candidate_slug = slugify(clean)
+    indications_dir = os.path.join(wiki_root(base_dir), "indications")
+    if os.path.isfile(os.path.join(indications_dir, f"{candidate_slug}.md")):
+        return candidate_slug
+
+    # 3. Scan existing indication pages for a title match
+    if os.path.isdir(indications_dir):
+        clean_lower = clean.lower()
+        for fname in os.listdir(indications_dir):
+            if not fname.endswith(".md"):
+                continue
+            existing = read_article(os.path.join(indications_dir, fname))
+            if not existing:
+                continue
+            title = (existing.get("meta") or {}).get("title", "")
+            if title and title.lower() == clean_lower:
+                return fname[:-3]
+
+    # 4. Fallback
+    return candidate_slug
 
 
 def find_company_slug(company_name: str, base_dir: Optional[str] = None) -> str:
