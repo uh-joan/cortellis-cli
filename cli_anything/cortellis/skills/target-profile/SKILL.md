@@ -59,13 +59,13 @@ cortellis --json targets interactions $TARGET_ID > $DIR/interactions.json
 
 ### Step 6: Drug pipeline by mechanism (CI domain)
 ```bash
-cortellis --json drugs search --action "$ACTION_NAME" --hits 50 > $DIR/drugs_pipeline.json
+bash $RECIPES/fetch_drugs_by_action.sh "$ACTION_NAME" $DIR/drugs_pipeline.json
 ```
-If ACTION_NAME is empty, skip this step.
+If ACTION_NAME is empty, skip this step. Fetches ALL drugs (paginated, no cap).
 
 ### Step 7: Pharmacology data (Drug Design / SI)
 ```bash
-cortellis --json drug-design pharmacology --query "$GENE_SYMBOL" --hits 20 > $DIR/pharmacology.json
+cortellis --json drug-design pharmacology --query "$GENE_SYMBOL" --hits 50 > $DIR/pharmacology.json
 ```
 Note: Use plain gene symbol as query, NOT `targetSynonyms:` prefix (not supported by pharmacology endpoint).
 
@@ -89,7 +89,7 @@ python3 $RECIPES/target_report_generator.py $DIR
 - Skip empty sections automatically.
 - Only report data from Cortellis results. No training data.
 - Give exact numbers. No approximations.
-- ALWAYS list ALL items in tables. No truncation.
+- **ALWAYS list ALL items in every table. No truncation.** This applies to disease associations, genetic evidence, drug pipeline, protein interactions, and pharmacology — every row must appear.
 
 ## Output Format
 

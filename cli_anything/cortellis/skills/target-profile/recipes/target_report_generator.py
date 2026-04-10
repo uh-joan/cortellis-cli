@@ -147,7 +147,7 @@ if condition_drugs:
         print()
         print("| Disease | Total Drugs | Active | Highest Phase |")
         print("|---------|-------------|--------|---------------|")
-        for cname, total, active, best_phase in disease_data[:25]:
+        for cname, total, active, best_phase in disease_data:
             print(f"| {cname[:50]} | {total} | {active} | {best_phase} |")
         print()
 
@@ -164,7 +164,7 @@ if condition_genes:
         print()
         print("| Disease | Evidence Sources |")
         print("|---------|-----------------|")
-        for a in gene_assocs[:15]:
+        for a in gene_assocs:
             cname = a.get("@name", "?")
             sources = a.get("Source", [])
             if isinstance(sources, dict):
@@ -237,7 +237,7 @@ if interactions:
         print()
         print("| Partner | Direction | Effect | Mechanism |")
         print("|---------|-----------|--------|-----------|")
-        for i in meaningful[:20]:
+        for i in meaningful:
             partner = i.get("CounterpartObject", {}).get("$", "?")
             direction = i.get("Direction", "?")
             effect = i.get("Effect", "?")
@@ -256,7 +256,7 @@ if pharmacology:
         print()
         print("| Compound | Assay | Value | Unit |")
         print("|----------|-------|-------|------|")
-        for p in pharm_list[:20]:
+        for p in pharm_list:
             compound = p.get("@drugName", p.get("Drug", {}).get("@name", "?"))
             assay = p.get("@assayType", p.get("AssayType", ""))
             if isinstance(assay, dict):

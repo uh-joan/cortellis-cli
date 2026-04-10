@@ -17,6 +17,9 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "..", "..", "..
 from cli_anything.cortellis.utils.data_helpers import read_json_safe, safe_int
 from cli_anything.cortellis.utils.wiki import (
     slugify,
+    normalize_company_name,
+    normalize_drug_name,
+    find_company_slug,
     wiki_root,
     article_path,
     write_article,
@@ -28,200 +31,278 @@ from cli_anything.cortellis.utils.wiki import (
 
 
 # ---------------------------------------------------------------------------
-# Data extraction
+# Data extraction — uses actual Cortellis API response structure
 # ---------------------------------------------------------------------------
 
+def _unwrap_target(data):
+    """Extract the Target dict from TargetRecordsOutput.Targets.Target."""
+    if not data or not isinstance(data, dict):
+        return {}
+    target = data.get("TargetRecordsOutput", {}).get("Targets", {}).get("Target", {})
+    if isinstance(target, list):
+        target = target[0] if target else {}
+    return target if isinstance(target, dict) else {}
+
+
 def extract_target_overview(record):
-    """Extract core fields from record.json.
-
-    Returns dict with: name, gene_symbol, family, organism, function.
-    record.json is the raw Cortellis targets record response.
-    """
-    if not record:
+    """Extract core fields from record.json. Returns dict."""
+    target = _unwrap_target(record)
+    if not target:
         return {}
 
-    # Handle wrapped response (list or dict with 'targets' key)
-    target = record
-    if isinstance(record, dict):
-        targets = record.get("targets") or record.get("data") or []
-        if isinstance(targets, list) and targets:
-            target = targets[0]
-        elif isinstance(targets, dict):
-            target = targets
-    elif isinstance(record, list) and record:
-        target = record[0]
+    name = target.get("@namemain", "")
+    target_id = target.get("@id", "")
 
-    if not isinstance(target, dict):
-        return {}
+    # Gene symbol: shortest all-caps synonym
+    syn_list = target.get("Synonyms", {}).get("Synonym", [])
+    if isinstance(syn_list, str):
+        syn_list = [syn_list]
+    synonyms = [s for s in syn_list if isinstance(s, str)]
+    gene_symbol = ""
+    for s in synonyms:
+        if s.isupper() and len(s) <= 10:
+            gene_symbol = s
+            break
 
-    name = (
-        target.get("targetName")
-        or target.get("name")
-        or target.get("preferredName")
-        or ""
-    )
-    gene_symbol = (
-        target.get("geneSymbol")
-        or target.get("gene_symbol")
-        or target.get("geneId")
-        or ""
-    )
-    family = (
-        target.get("targetFamily")
-        or target.get("family")
-        or target.get("proteinFamily")
-        or ""
-    )
-    organism = (
-        target.get("organism")
-        or target.get("species")
-        or "Human"
-    )
-    function = (
-        target.get("function")
-        or target.get("biologicalFunction")
-        or target.get("description")
-        or ""
-    )
-    location = (
-        target.get("subcellularLocation")
-        or target.get("location")
-        or ""
-    )
-    synonyms = target.get("synonyms") or target.get("aliases") or []
-    if isinstance(synonyms, str):
-        synonyms = [s.strip() for s in synonyms.split(",") if s.strip()]
+    # Family
+    fam = target.get("Family", "")
+    if isinstance(fam, dict):
+        family = fam.get("$", fam.get("@name", ""))
+    else:
+        family = str(fam) if fam else ""
+
+    # Subcellular location
+    locs = target.get("Localizations", {}).get("Localization", [])
+    if isinstance(locs, dict):
+        locs = [locs]
+    if isinstance(locs, list) and locs:
+        loc_names = [l.get("$", l) if isinstance(l, dict) else str(l) for l in locs[:5]]
+        location = "; ".join(loc_names)
+    else:
+        location = ""
+
+    # Function / description
+    function_desc = target.get("Description", "")
+    if isinstance(function_desc, dict):
+        function_desc = function_desc.get("$", str(function_desc))
 
     return {
         "name": name,
+        "target_id": target_id,
         "gene_symbol": gene_symbol,
         "family": family,
-        "organism": organism,
-        "function": function,
         "location": location,
-        "synonyms": synonyms,
+        "function": str(function_desc)[:500] if function_desc else "",
+        "synonyms": synonyms[:10],
     }
 
 
 def extract_disease_associations(condition_drugs):
     """Extract disease associations from condition_drugs.json.
 
-    Returns list of {disease, drug_count, highest_phase}.
+    Returns list of {disease, drug_count, active_count, highest_phase}.
     """
-    if not condition_drugs:
+    target = _unwrap_target(condition_drugs)
+    conditions = target.get("ConditionDrugAssociations", {}).get("Condition", [])
+    if isinstance(conditions, dict):
+        conditions = [conditions]
+    if not isinstance(conditions, list):
         return []
 
-    # Handle wrapped response
-    items = condition_drugs
-    if isinstance(condition_drugs, dict):
-        items = (
-            condition_drugs.get("conditionDrugs")
-            or condition_drugs.get("conditions")
-            or condition_drugs.get("data")
-            or []
-        )
-    if not isinstance(items, list):
-        return []
+    phase_order = {
+        "Launched": 0, "Pre-registration": 1, "Phase III": 2,
+        "Phase II": 3, "Phase I": 4, "Preclinical": 5,
+        "Biological Testing": 6, "Discovery": 7,
+    }
 
     associations = []
-    for item in items:
-        if not isinstance(item, dict):
+    for c in conditions:
+        if not isinstance(c, dict):
             continue
-        disease = (
-            item.get("conditionName")
-            or item.get("condition")
-            or item.get("disease")
-            or item.get("name")
-            or ""
-        )
-        drug_count = safe_int(
-            item.get("drugCount")
-            or item.get("drug_count")
-            or item.get("totalDrugs")
-            or len(item.get("drugs", []))
-        )
-        highest_phase = (
-            item.get("highestPhase")
-            or item.get("highest_phase")
-            or item.get("phase")
-            or "-"
-        )
-        if disease:
-            associations.append({
-                "disease": disease,
-                "drug_count": drug_count,
-                "highest_phase": highest_phase,
-            })
+        cname = c.get("@name", "")
+        if not cname:
+            continue
+        drug_ids = c.get("DrugId", [])
+        if isinstance(drug_ids, dict):
+            drug_ids = [drug_ids]
+        if not isinstance(drug_ids, list):
+            drug_ids = []
+        active = [d for d in drug_ids if isinstance(d, dict) and d.get("@status") == "Active"]
+        best_phase = "-"
+        if drug_ids:
+            valid = [d for d in drug_ids if isinstance(d, dict)]
+            if valid:
+                best = min(valid, key=lambda d: phase_order.get(d.get("@highestphase", "?"), 99))
+                best_phase = best.get("@highestphase", "-")
+        associations.append({
+            "disease": cname,
+            "drug_count": len(drug_ids),
+            "active_count": len(active),
+            "highest_phase": best_phase,
+        })
 
+    associations.sort(key=lambda x: -x["drug_count"])
     return associations
+
+
+def extract_gene_associations(condition_genes):
+    """Extract genetic evidence from condition_genes.json.
+
+    Returns list of {disease, sources}.
+    """
+    target = _unwrap_target(condition_genes)
+    gene_assocs = target.get("ConditionGeneAssociations", {}).get("Condition", [])
+    if isinstance(gene_assocs, dict):
+        gene_assocs = [gene_assocs]
+    if not isinstance(gene_assocs, list):
+        return []
+
+    items = []
+    for a in gene_assocs:
+        if not isinstance(a, dict):
+            continue
+        cname = a.get("@name", "")
+        if not cname:
+            continue
+        sources = a.get("Source", [])
+        if isinstance(sources, dict):
+            sources = [sources]
+        if isinstance(sources, str):
+            sources = [{"$": sources}]
+        src_names = [s.get("$", s) if isinstance(s, dict) else str(s) for s in sources[:5]]
+        items.append({"disease": cname, "sources": "; ".join(src_names)})
+
+    return items
 
 
 def extract_drug_pipeline(drugs_pipeline):
     """Extract drug pipeline from drugs_pipeline.json.
 
-    Returns list of {drug, company, phase, indications}.
+    Returns (total_count, list of {drug, company, phase, indications}).
     """
-    if not drugs_pipeline:
-        return []
+    if not drugs_pipeline or not isinstance(drugs_pipeline, dict):
+        return 0, []
 
-    # Handle wrapped response
-    items = drugs_pipeline
-    if isinstance(drugs_pipeline, dict):
-        items = (
-            drugs_pipeline.get("drugs")
-            or drugs_pipeline.get("data")
-            or drugs_pipeline.get("results")
-            or []
-        )
-    if not isinstance(items, list):
-        return []
+    results = drugs_pipeline.get("drugResultsOutput", {})
+    total = safe_int(results.get("@totalResults", 0))
+    drug_list = results.get("SearchResults", {}).get("Drug", [])
+    if isinstance(drug_list, dict):
+        drug_list = [drug_list]
+    if not isinstance(drug_list, list):
+        return total, []
 
     pipeline = []
-    for item in items:
-        if not isinstance(item, dict):
+    for d in drug_list:
+        if not isinstance(d, dict):
             continue
-        drug = (
-            item.get("drugName")
-            or item.get("drug_name")
-            or item.get("name")
-            or ""
-        )
-        company = (
-            item.get("company")
-            or item.get("companyName")
-            or item.get("originator")
-            or ""
-        )
-        phase = (
-            item.get("highestPhase")
-            or item.get("phase")
-            or item.get("developmentPhase")
-            or "-"
-        )
-        indications = (
-            item.get("indications")
-            or item.get("indication")
-            or item.get("conditions")
-            or ""
-        )
-        if isinstance(indications, list):
-            indications = "; ".join(str(i) for i in indications if i)
-        if drug:
-            pipeline.append({
-                "drug": drug,
-                "company": company,
-                "phase": phase,
-                "indications": indications,
-            })
+        name = d.get("@name", "")
+        if not name:
+            continue
+        phase = d.get("@phaseHighest", "-")
 
-    return pipeline
+        co = d.get("CompanyOriginator", {})
+        if isinstance(co, dict):
+            company = co.get("@name", "")
+        elif isinstance(co, list) and co:
+            company = co[0].get("@name", "") if isinstance(co[0], dict) else ""
+        else:
+            company = ""
+
+        inds = d.get("IndicationsPrimary", {}).get("Indication", [])
+        if isinstance(inds, dict):
+            inds = [inds]
+        ind_names = "; ".join(
+            i.get("@name", "") for i in inds[:3] if isinstance(i, dict) and i.get("@name")
+        )
+
+        pipeline.append({
+            "drug": name,
+            "company": company,
+            "phase": phase,
+            "indications": ind_names,
+        })
+
+    return total, pipeline
+
+
+def extract_interactions(interactions):
+    """Extract protein interactions from interactions.json.
+
+    Returns list of {partner, direction, effect, mechanism}.
+    """
+    target = _unwrap_target(interactions)
+    inter_list = target.get("Interactions", {}).get("Interaction", [])
+    if isinstance(inter_list, dict):
+        inter_list = [inter_list]
+    if not isinstance(inter_list, list):
+        return []
+
+    items = []
+    for i in inter_list:
+        if not isinstance(i, dict):
+            continue
+        partner = i.get("CounterpartObject", {})
+        if isinstance(partner, dict):
+            partner = partner.get("$", "")
+        elif not isinstance(partner, str):
+            partner = ""
+        if not partner:
+            continue
+        items.append({
+            "partner": partner,
+            "direction": i.get("Direction", "-"),
+            "effect": i.get("Effect", "-"),
+            "mechanism": i.get("Mechanism", "-"),
+        })
+
+    return items
+
+
+def extract_pharmacology(pharmacology):
+    """Extract pharmacology records from pharmacology.json.
+
+    Returns list of {compound, assay, value, unit}.
+    """
+    if not pharmacology or not isinstance(pharmacology, dict):
+        return []
+
+    pharm_list = (
+        pharmacology.get("drugDesignResultsOutput", {})
+        .get("SearchResults", {})
+        .get("PharmacologyRecord", [])
+    )
+    if isinstance(pharm_list, dict):
+        pharm_list = [pharm_list]
+    if not isinstance(pharm_list, list):
+        return []
+
+    items = []
+    for p in pharm_list:
+        if not isinstance(p, dict):
+            continue
+        compound = p.get("@drugName", "")
+        if not compound:
+            drug = p.get("Drug", {})
+            compound = drug.get("@name", "") if isinstance(drug, dict) else ""
+        assay = p.get("@assayType", "")
+        if not assay:
+            at = p.get("AssayType", {})
+            assay = at.get("@name", "") if isinstance(at, dict) else str(at)
+        value = p.get("@value", p.get("Value", "-"))
+        unit = p.get("@unit", "")
+        if not unit:
+            u = p.get("Unit", {})
+            unit = u.get("@name", "") if isinstance(u, dict) else str(u)
+        items.append({"compound": compound, "assay": assay, "value": value, "unit": unit})
+
+    return items
 
 
 # ---------------------------------------------------------------------------
 # Article compilation
 # ---------------------------------------------------------------------------
 
-def compile_target_article(target_dir, target_name, slug):
+def compile_target_article(target_dir, target_name, slug, base_dir=None):
     """Compile a full target profile article. Returns (meta, body)."""
     now = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
 
@@ -234,45 +315,18 @@ def compile_target_article(target_dir, target_name, slug):
 
     overview = extract_target_overview(record)
     disease_associations = extract_disease_associations(condition_drugs)
-    drug_pipeline = extract_drug_pipeline(drugs_pipeline)
+    gene_assocs = extract_gene_associations(condition_genes)
+    total_drugs, drug_pipeline = extract_drug_pipeline(drugs_pipeline)
+    interaction_items = extract_interactions(interactions)
+    pharm_items = extract_pharmacology(pharmacology)
 
-    # Extract interactions list
-    interaction_items = interactions
-    if isinstance(interactions, dict):
-        interaction_items = (
-            interactions.get("interactions")
-            or interactions.get("data")
-            or interactions.get("results")
-            or []
-        )
-
-    # Extract pharmacology records
-    pharm_items = pharmacology
-    if isinstance(pharmacology, dict):
-        pharm_items = (
-            pharmacology.get("pharmacology")
-            or pharmacology.get("data")
-            or pharmacology.get("results")
-            or []
-        )
-
-    # Extract gene associations from condition_genes
-    gene_items = condition_genes
-    if isinstance(condition_genes, dict):
-        gene_items = (
-            condition_genes.get("conditionGenes")
-            or condition_genes.get("genes")
-            or condition_genes.get("data")
-            or []
-        )
-
-    # Frontmatter
     gene_symbol = overview.get("gene_symbol", "")
     family = overview.get("family", "")
     organism = overview.get("organism", "Human")
+    display_name = overview.get("name") or target_name
 
     meta = {
-        "title": target_name,
+        "title": display_name,
         "type": "target",
         "slug": slug,
         "compiled_at": now,
@@ -281,10 +335,9 @@ def compile_target_article(target_dir, target_name, slug):
         "family": family,
         "organism": organism,
         "disease_count": len(disease_associations),
-        "drug_count": len(drug_pipeline),
+        "drug_count": total_drugs,
     }
 
-    # Build body
     body_parts = []
 
     # Biology section
@@ -299,67 +352,52 @@ def compile_target_article(target_dir, target_name, slug):
     if organism:
         bio_rows.append(("Organism", organism))
     if overview.get("synonyms"):
-        synonyms_str = ", ".join(overview["synonyms"][:10])
-        bio_rows.append(("Synonyms", synonyms_str))
+        bio_rows.append(("Synonyms", ", ".join(overview["synonyms"][:10])))
 
     if bio_rows:
         body_parts.append("| Field | Value |\n|---|---|\n")
         for field, value in bio_rows:
             body_parts.append(f"| {field} | {value} |\n")
         body_parts.append("\n")
-    else:
-        body_parts.append(f"Target: **{target_name}**")
-        if gene_symbol:
-            body_parts.append(f" ({gene_symbol})")
-        body_parts.append("\n\n")
 
-    # Disease Associations section
+    # Disease Associations — ALL rows, wikilink to indication articles
     if disease_associations:
         body_parts.append(f"## Disease Associations ({len(disease_associations)} diseases)\n\n")
-        body_parts.append("| Disease | Drugs | Highest Phase |\n|---|---|---|\n")
+        body_parts.append("| Disease | Total Drugs | Active | Highest Phase |\n|---|---|---|---|\n")
         for assoc in disease_associations:
             dis_slug = slugify(assoc["disease"])
             dis_link = wikilink(dis_slug, assoc["disease"])
             body_parts.append(
                 f"| {dis_link}"
                 f" | {assoc['drug_count']}"
+                f" | {assoc['active_count']}"
                 f" | {assoc['highest_phase']}"
                 f" |\n"
             )
         body_parts.append("\n")
 
-    # Genetic Evidence section
-    if gene_items and isinstance(gene_items, list) and gene_items:
-        body_parts.append(f"## Genetic Evidence ({len(gene_items)} associations)\n\n")
-        body_parts.append("| Disease | Gene | Evidence |\n|---|---|---|\n")
-        for item in gene_items[:20]:
-            if not isinstance(item, dict):
-                continue
-            disease = (
-                item.get("conditionName")
-                or item.get("condition")
-                or item.get("disease")
-                or "-"
-            )
-            gene = item.get("geneSymbol") or item.get("gene") or gene_symbol or "-"
-            evidence = (
-                item.get("evidence")
-                or item.get("evidenceType")
-                or item.get("associationType")
-                or "-"
-            )
-            body_parts.append(f"| {disease} | {gene} | {evidence} |\n")
+    # Genetic Evidence — ALL rows
+    if gene_assocs:
+        body_parts.append(f"## Genetic Evidence ({len(gene_assocs)} associations)\n\n")
+        body_parts.append("| Disease | Evidence Sources |\n|---|---|\n")
+        for item in gene_assocs:
+            dis_slug = slugify(item["disease"])
+            dis_link = wikilink(dis_slug, item["disease"])
+            body_parts.append(f"| {dis_link} | {item['sources']} |\n")
         body_parts.append("\n")
 
-    # Drug Pipeline section
+    # Drug Pipeline — ALL rows, wikilink drugs + companies
     if drug_pipeline:
-        body_parts.append(f"## Drug Pipeline ({len(drug_pipeline)} drugs)\n\n")
+        body_parts.append(f"## Drug Pipeline ({total_drugs} total)\n\n")
         body_parts.append("| Drug | Company | Phase | Indications |\n|---|---|---|---|\n")
         for entry in drug_pipeline:
-            drug_slug = slugify(entry["drug"])
-            drug_link = wikilink(drug_slug, entry["drug"])
+            drug_link = wikilink(slugify(normalize_drug_name(entry["drug"])), entry["drug"])
             comp = entry["company"]
-            comp_str = wikilink(slugify(comp), comp) if comp else "-"
+            if comp:
+                comp_slug = find_company_slug(comp, base_dir)
+                comp_str = wikilink(comp_slug, normalize_company_name(comp))
+            else:
+                comp_str = "-"
             body_parts.append(
                 f"| {drug_link}"
                 f" | {comp_str}"
@@ -369,74 +407,40 @@ def compile_target_article(target_dir, target_name, slug):
             )
         body_parts.append("\n")
 
-    # Protein Interactions section
-    if interaction_items and isinstance(interaction_items, list) and interaction_items:
+    # Protein Interactions — ALL rows, wikilink partners to target articles
+    if interaction_items:
         body_parts.append(f"## Protein Interactions ({len(interaction_items)})\n\n")
-        body_parts.append("| Partner | Interaction Type |\n|---|---|\n")
-        for item in interaction_items[:30]:
-            if not isinstance(item, dict):
-                continue
-            partner = (
-                item.get("partnerName")
-                or item.get("partner")
-                or item.get("interactorName")
-                or item.get("targetName")
-                or "-"
+        body_parts.append("| Partner | Direction | Effect | Mechanism |\n|---|---|---|---|\n")
+        for item in interaction_items:
+            partner = item["partner"]
+            partner_link = wikilink(slugify(partner), partner)
+            body_parts.append(
+                f"| {partner_link}"
+                f" | {item['direction']}"
+                f" | {item['effect']}"
+                f" | {item['mechanism']}"
+                f" |\n"
             )
-            itype = (
-                item.get("interactionType")
-                or item.get("type")
-                or item.get("relationship")
-                or "-"
-            )
-            body_parts.append(f"| {partner} | {itype} |\n")
         body_parts.append("\n")
 
-    # Pharmacology section
-    if pharm_items and isinstance(pharm_items, list) and pharm_items:
+    # Pharmacology — ALL rows
+    if pharm_items:
         body_parts.append(f"## Pharmacology ({len(pharm_items)} records)\n\n")
         body_parts.append("| Compound | Assay | Value | Unit |\n|---|---|---|---|\n")
-        for item in pharm_items[:20]:
-            if not isinstance(item, dict):
-                continue
-            compound = (
-                item.get("compoundName")
-                or item.get("compound")
-                or item.get("drugName")
-                or item.get("name")
-                or "-"
+        for item in pharm_items:
+            body_parts.append(
+                f"| {item['compound']}"
+                f" | {item['assay']}"
+                f" | {item['value']}"
+                f" | {item['unit']}"
+                f" |\n"
             )
-            assay = (
-                item.get("assayType")
-                or item.get("assay")
-                or item.get("parameter")
-                or "-"
-            )
-            value = (
-                item.get("value")
-                or item.get("activityValue")
-                or "-"
-            )
-            unit = (
-                item.get("unit")
-                or item.get("activityUnit")
-                or "-"
-            )
-            body_parts.append(f"| {compound} | {assay} | {value} | {unit} |\n")
         body_parts.append("\n")
 
-    # Data Sources section
+    # Data Sources
     body_parts.append("## Data Sources\n\n")
     body_parts.append(f"- **Source directory:** `{target_dir}`\n")
     body_parts.append(f"- **Compiled at:** {now}\n")
-    if record:
-        body_parts.append("- **record.json:** Full target record from Cortellis Targets\n")
-    if condition_drugs:
-        body_parts.append("- **condition_drugs.json:** Disease-drug associations\n")
-    if drugs_pipeline:
-        body_parts.append("- **drugs_pipeline.json:** CI drug pipeline by mechanism\n")
-    if pharmacology:
-        body_parts.append("- **pharmacology.json:** Drug Design (SI) pharmacology data\n")
 
     return meta, "".join(body_parts)
 
@@ -463,7 +467,6 @@ def main():
         print(f"Error: target directory not found: {target_dir}", file=sys.stderr)
         sys.exit(1)
 
-    # Derive target name from directory if not provided
     if not target_name:
         target_name = os.path.basename(target_dir).replace("-", " ").upper()
 
@@ -473,19 +476,16 @@ def main():
 
     print(f"Compiling {target_name} target profile to wiki...")
 
-    # Compile target article
-    meta, body = compile_target_article(target_dir, target_name, slug)
+    meta, body = compile_target_article(target_dir, target_name, slug, base_dir)
     path = article_path("targets", slug, base_dir)
     write_article(path, meta, body)
     print(f"  Written: {path}")
 
-    # Rebuild INDEX.md
     entries = load_index_entries(w_dir)
     update_index(w_dir, entries)
     print(f"  Updated: {os.path.join(w_dir, 'INDEX.md')}")
 
     log_activity(w_dir, "compile", f"Target: {target_name}")
-
     print(f"Done. Wiki article compiled for {target_name}.")
 
 

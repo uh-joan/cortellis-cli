@@ -28,6 +28,7 @@ from cli_anything.cortellis.utils.data_helpers import (
 from cli_anything.cortellis.utils.wiki import (
     slugify,
     normalize_company_name,
+    normalize_drug_name,
     find_company_slug,
     wiki_root,
     article_path,
@@ -279,7 +280,7 @@ def compile_indication_article(landscape_dir, indication_name, slug):
             phase = drug.get("phase") or drug.get("development_phase") or "-"
             mech = drug.get("mechanism") or drug.get("moa") or drug.get("mechanism_of_action") or "-"
             comp = drug.get("company") or drug.get("company_name") or "-"
-            drug_str = wikilink(slugify(dname), dname) if dname != "-" else "-"
+            drug_str = wikilink(slugify(normalize_drug_name(dname)), dname) if dname != "-" else "-"
             comp_str = wikilink(slugify(comp), comp) if comp != "-" else "-"
             body_parts.append(f"| {drug_str} | {phase} | {mech} | {comp_str} |\n")
         body_parts.append("\n")
@@ -504,7 +505,7 @@ def compile_company_articles(landscape_dir, indication_name, indication_slug, ba
                 dname = drug.get("drug_name") or drug.get("name") or drug.get("drug") or "-"
                 phase = drug.get("phase") or drug.get("development_phase") or "-"
                 mech = drug.get("mechanism") or drug.get("moa") or drug.get("mechanism_of_action") or "-"
-                drug_str = wikilink(slugify(dname), dname) if dname != "-" else "-"
+                drug_str = wikilink(slugify(normalize_drug_name(dname)), dname) if dname != "-" else "-"
                 body_parts.append(f"| {drug_str} | {phase} | {mech} |\n")
             body_parts.append("\n")
 

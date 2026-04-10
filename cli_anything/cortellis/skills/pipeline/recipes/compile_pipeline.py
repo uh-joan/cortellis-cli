@@ -18,6 +18,7 @@ from cli_anything.cortellis.utils.data_helpers import read_csv_safe, safe_int
 from cli_anything.cortellis.utils.wiki import (
     slugify,
     normalize_company_name,
+    normalize_drug_name,
     find_company_slug,
     wiki_root,
     article_path,
@@ -187,7 +188,7 @@ def compile_pipeline_article(pipeline_dir, company_name, slug, base_dir=None):
             dname = drug.get("name") or drug.get("drug_name") or drug.get("drug") or "-"
             indication = drug.get("indication") or "-"
             mech = drug.get("mechanism") or drug.get("moa") or "-"
-            drug_str = wikilink(slugify(dname), dname) if dname != "-" else "-"
+            drug_str = wikilink(slugify(normalize_drug_name(dname)), dname) if dname != "-" else "-"
             parts.append(f"| {drug_str} | {indication} | {mech} |\n")
         parts.append("\n")
         return "".join(parts)

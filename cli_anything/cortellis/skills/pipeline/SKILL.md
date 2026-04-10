@@ -98,6 +98,7 @@ python3 $RECIPES/catch_missing_drugs.py <COMPANY_ID> $DIR
 
 ## Execution Rules
 
+- **Announce each step before running it.** Example: "Step 1: Resolving company ID for Eli Lilly…", "Step 3: Fetching CI pipeline (Launched)…", "Step 4a: Fetching SI Phase I compounds…". Keep announcements to one line.
 - Once the final report has been delivered to the user, **do not respond to background task completion notifications**. Discard them silently — they are late arrivals for steps already processed.
 
 ## Output Rules

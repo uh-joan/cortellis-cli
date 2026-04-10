@@ -72,6 +72,24 @@ def normalize_company_name(name: str) -> str:
     return normalized or name  # never return empty string
 
 
+# Parenthetical variant + company suffix: "semaglutide (oral, once-daily), Novo Nordisk" → "semaglutide"
+_DRUG_VARIANT_RE = re.compile(r"\s*\([^)]*\).*$")
+
+
+def normalize_drug_name(name: str) -> str:
+    """Extract base drug name by stripping parenthetical variant and company suffix.
+
+    >>> normalize_drug_name("semaglutide (subcutaneous, diabetes/obesity/NASH), Novo Nordisk")
+    'semaglutide'
+    >>> normalize_drug_name("tirzepatide")
+    'tirzepatide'
+    >>> normalize_drug_name("CT-868")
+    'CT-868'
+    """
+    base = _DRUG_VARIANT_RE.sub("", name).strip().rstrip(",").strip()
+    return base or name
+
+
 def find_company_slug(company_name: str, base_dir: Optional[str] = None) -> str:
     """Return the canonical wiki slug for a company, reusing existing articles.
 
