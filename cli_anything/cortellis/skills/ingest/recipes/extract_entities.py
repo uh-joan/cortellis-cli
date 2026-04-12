@@ -138,6 +138,7 @@ def extract_text_from_file(path: str) -> str:
 
     Supported formats:
       .md / .txt / .markdown / .rst  — direct read
+      .csv                           — direct read (UTF-8-sig, handles Excel BOM)
       .pdf                           — pdftotext (requires poppler)
       .pptx                          — python-pptx
       .xlsx / .xlsm                  — openpyxl (text cells only)
@@ -145,8 +146,9 @@ def extract_text_from_file(path: str) -> str:
     """
     ext = os.path.splitext(path)[1].lower()
 
-    if ext in (".md", ".txt", ".markdown", ".rst"):
-        with open(path, encoding="utf-8") as f:
+    if ext in (".md", ".txt", ".markdown", ".rst", ".csv"):
+        # utf-8-sig strips BOM present in Excel-exported CSVs
+        with open(path, encoding="utf-8-sig") as f:
             return f.read()
 
     if ext == ".pdf":

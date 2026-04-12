@@ -632,8 +632,9 @@ def main():
     meta, body = compile_indication_article(landscape_dir, indication_name, slug, base_dir)
     ind_path = article_path("indications", slug, base_dir)
 
-    # Capture previous snapshot before overwriting
+    # Capture previous snapshot and preserve Commercial Intelligence sections before overwriting
     prev_article = read_article(ind_path)
+    commercial_intel_block = ""
     if prev_article and prev_article["meta"] and prev_article["meta"].get("compiled_at"):
         prev_meta = prev_article["meta"]
         previous_snapshot = {
@@ -645,6 +646,25 @@ def main():
             "top_company": prev_meta.get("top_company"),
         }
         meta["previous_snapshot"] = previous_snapshot
+
+        # Preserve any ## Commercial Intelligence block from the previous article
+        prev_body = prev_article.get("body", "")
+        ci_marker = "## Commercial Intelligence"
+        ds_marker = "## Data Sources"
+        ci_start = prev_body.find(ci_marker)
+        ds_start = prev_body.find(ds_marker)
+        if ci_start != -1:
+            ci_end = ds_start if ds_start > ci_start else len(prev_body)
+            commercial_intel_block = prev_body[ci_start:ci_end].rstrip()
+
+    # Splice commercial intel back in before ## Data Sources
+    if commercial_intel_block:
+        ds_marker = "## Data Sources"
+        ds_pos = body.find(ds_marker)
+        if ds_pos != -1:
+            body = body[:ds_pos] + commercial_intel_block + "\n\n" + body[ds_pos:]
+        else:
+            body = body.rstrip() + "\n\n" + commercial_intel_block + "\n"
 
     write_article(ind_path, meta, body)
     print(f"  Written: {ind_path}")
