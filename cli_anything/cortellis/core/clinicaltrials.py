@@ -31,7 +31,7 @@ def search_trials(query: str, status: str = None, phase: str = None,
     Params:
       query.term = drug/condition name
       filter.overallStatus = RECRUITING | ACTIVE_NOT_RECRUITING | COMPLETED | etc.
-      filter.phase = PHASE1 | PHASE2 | PHASE3 | PHASE4
+      phase = PHASE1 | PHASE2 | PHASE3 | PHASE4 (uses filter.advanced internally)
       pageSize = N (max 1000)
 
     Returns raw JSON with totalCount and studies[] array.
@@ -46,7 +46,8 @@ def search_trials(query: str, status: str = None, phase: str = None,
     if status:
         params["filter.overallStatus"] = status
     if phase:
-        params["filter.phase"] = phase
+        # CT.gov v2 does not support filter.phase — use filter.advanced instead
+        params["filter.advanced"] = f"AREA[Phase]{phase.upper()}"
 
     result = _get(BASE_URL, params)
     time.sleep(0.5)
