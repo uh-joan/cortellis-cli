@@ -535,6 +535,12 @@ def compile_drug_article(drug_dir, drug_name, slug, base_dir=None):
         body_parts.append(fda_summary_md)
         body_parts.append("\n")
 
+    # FDA Safety: adverse reactions, boxed warnings, recalls, shortages
+    fda_safety_md = read_md_safe(os.path.join(drug_dir, "fda_safety.md"))
+    if fda_safety_md:
+        body_parts.append(fda_safety_md)
+        body_parts.append("\n")
+
     # Data Sources
     body_parts.append("## Data Sources\n\n")
     body_parts.append(f"- **Source directory:** `{drug_dir}`\n")

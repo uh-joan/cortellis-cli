@@ -1,9 +1,17 @@
 #!/usr/bin/env python3
 """
-enrich_fda_approval.py — Enrich drug profile with FDA approval data.
+enrich_fda_approval.py — Enrich drug profile with FDA data.
+
+Fetches and writes:
+  fda_approvals.json          — NDA/BLA approval records
+  fda_summary.md              — approval table
+  fda_adverse_reactions.json  — top MedDRA adverse reactions (count aggregation)
+  fda_labels.json             — drug label data (boxed warnings, indications)
+  fda_recalls.json            — recall enforcement actions
+  fda_shortages.json          — supply shortage records
+  fda_safety.md               — safety narrative (AEs, boxed warnings, recalls)
 
 Usage: python3 enrich_fda_approval.py <drug_dir> <drug_name>
-Output: drug_dir/fda_approvals.json, drug_dir/fda_summary.md
 """
 
 import json
@@ -14,6 +22,10 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "..", "..", "..
 
 from cli_anything.cortellis.core import fda
 
+
+# ---------------------------------------------------------------------------
+# Approvals
+# ---------------------------------------------------------------------------
 
 def extract_approvals(raw: dict) -> list:
     """Extract per-approval records from FDA drugsfda JSON response."""
@@ -78,6 +90,91 @@ def write_fda_summary(drug_dir: str, drug_name: str, approvals: list) -> None:
     print(f"  Written: {out_path}")
 
 
+# ---------------------------------------------------------------------------
+# Safety: adverse reactions, labels, recalls, shortages
+# ---------------------------------------------------------------------------
+
+def extract_boxed_warnings(labels_raw: dict) -> list[str]:
+    """Pull boxed_warning text from label results. Returns list of strings."""
+    warnings = []
+    for r in labels_raw.get("results", []):
+        bw = r.get("boxed_warning", [])
+        if isinstance(bw, list):
+            warnings.extend([w for w in bw if w])
+        elif bw:
+            warnings.append(str(bw))
+    return warnings
+
+
+def write_fda_safety(
+    drug_dir: str,
+    drug_name: str,
+    adverse_reactions: list[dict],
+    boxed_warnings: list[str],
+    recalls_raw: dict,
+    shortages_raw: dict,
+) -> None:
+    """Write fda_safety.md covering AEs, boxed warnings, recalls, shortages."""
+    lines = []
+
+    # --- Adverse reactions ---
+    if adverse_reactions:
+        lines.append(f"## Top Adverse Reactions: {drug_name} (FAERS)\n\n")
+        lines.append("| Reaction | Reports |\n|---|---|\n")
+        for r in adverse_reactions[:15]:
+            lines.append(f"| {r['reaction']} | {r['count']:,} |\n")
+        lines.append("\n")
+
+    # --- Boxed warnings ---
+    if boxed_warnings:
+        lines.append("## Boxed Warnings (FDA Label)\n\n")
+        for w in boxed_warnings[:3]:
+            excerpt = w[:500].strip()
+            if len(w) > 500:
+                excerpt += "..."
+            lines.append(f"{excerpt}\n\n")
+
+    # --- Recalls ---
+    recall_results = recalls_raw.get("results", [])
+    if recall_results:
+        lines.append(f"## Recall History ({len(recall_results)} record(s))\n\n")
+        lines.append("| Class | Product | Reason | Date | Status |\n|---|---|---|---|---|\n")
+        for r in recall_results[:10]:
+            cls = r.get("classification", "-")
+            product = (r.get("product_description", "") or "")[:60]
+            reason = (r.get("reason_for_recall", "") or "")[:60]
+            date = r.get("recall_initiation_date", "-") or "-"
+            status = r.get("status", "-") or "-"
+            lines.append(f"| {cls} | {product} | {reason} | {date} | {status} |\n")
+        lines.append("\n")
+
+    # --- Shortages ---
+    shortage_results = shortages_raw.get("results", [])
+    if shortage_results:
+        lines.append(f"## Supply Shortages ({len(shortage_results)} record(s))\n\n")
+        lines.append("| Drug | Status | Reason |\n|---|---|---|\n")
+        for s in shortage_results[:5]:
+            openfda = s.get("openfda", {})
+            names = openfda.get("brand_name") or openfda.get("generic_name") or ["-"]
+            drug_label = names[0] if names else "-"
+            status = s.get("shortage_status", "-") or "-"
+            reason = (s.get("shortage_reason", "") or "")[:80]
+            lines.append(f"| {drug_label} | {status} | {reason} |\n")
+        lines.append("\n")
+
+    if not lines:
+        return  # nothing to write
+
+    out_path = os.path.join(drug_dir, "fda_safety.md")
+    with open(out_path, "w") as f:
+        f.writelines(lines)
+    print(f"  Written: {out_path}")
+
+
+# ---------------------------------------------------------------------------
+# Main
+# ---------------------------------------------------------------------------
+
 def main():
     if len(sys.argv) < 3:
         print("Usage: enrich_fda_approval.py <drug_dir> <drug_name>", file=sys.stderr)
@@ -89,20 +186,50 @@ def main():
     if not os.path.isdir(drug_dir):
         os.makedirs(drug_dir, exist_ok=True)
 
+    # --- Approvals ---
     print(f"Fetching FDA approvals for: {drug_name}")
     raw = fda.search_drug_approvals(drug_name, limit=20)
-
-    # Write raw JSON
-    raw_path = os.path.join(drug_dir, "fda_approvals.json")
-    with open(raw_path, "w") as f:
-        json.dump(raw, f, indent=2)
-    print(f"  Written: {raw_path}")
-
-    # Extract and write summary
+    _write_json(drug_dir, "fda_approvals.json", raw)
     approvals = extract_approvals(raw)
     write_fda_summary(drug_dir, drug_name, approvals)
+    print(f"  {len(approvals)} FDA approval record(s)")
 
-    print(f"{len(approvals)} FDA approvals found for {drug_name}")
+    # --- Adverse reactions ---
+    print(f"Fetching top adverse reactions for: {drug_name}")
+    adverse_reactions = fda.top_adverse_reactions(drug_name, limit=20)
+    _write_json(drug_dir, "fda_adverse_reactions.json", adverse_reactions)
+    print(f"  {len(adverse_reactions)} adverse reaction term(s)")
+
+    # --- Drug labels (boxed warnings) ---
+    print(f"Fetching FDA drug labels for: {drug_name}")
+    labels_raw = fda.search_drug_labels(drug_name, limit=3)
+    _write_json(drug_dir, "fda_labels.json", labels_raw)
+    boxed_warnings = extract_boxed_warnings(labels_raw)
+    print(f"  {len(boxed_warnings)} label(s) with boxed warning(s)")
+
+    # --- Recalls ---
+    print(f"Fetching FDA recalls for: {drug_name}")
+    recalls_raw = fda.search_recalls(drug_name, limit=10)
+    _write_json(drug_dir, "fda_recalls.json", recalls_raw)
+    print(f"  {len(recalls_raw.get('results', []))} recall record(s)")
+
+    # --- Shortages ---
+    print(f"Fetching FDA shortages for: {drug_name}")
+    shortages_raw = fda.search_shortages(drug_name, limit=5)
+    _write_json(drug_dir, "fda_shortages.json", shortages_raw)
+    print(f"  {len(shortages_raw.get('results', []))} shortage record(s)")
+
+    # --- Safety narrative ---
+    write_fda_safety(drug_dir, drug_name, adverse_reactions, boxed_warnings, recalls_raw, shortages_raw)
+
+    print(f"FDA enrichment complete for {drug_name}.")
+
+
+def _write_json(drug_dir: str, filename: str, data) -> None:
+    path = os.path.join(drug_dir, filename)
+    with open(path, "w") as f:
+        json.dump(data, f, indent=2)
+    print(f"  Written: {path}")
 
 
 if __name__ == "__main__":
