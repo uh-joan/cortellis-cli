@@ -16,6 +16,7 @@ import time
 # Allow running as standalone script
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "..", "..", "..", ".."))
 
+from dotenv import load_dotenv
 from cli_anything.cortellis.core.client import CortellisClient
 from cli_anything.cortellis.core import deals_intelligence
 
@@ -405,6 +406,7 @@ def main():
 
     print(f"[deal_financials] fetching expanded records for {len(deal_ids)} deals...", file=sys.stderr)
 
+    load_dotenv()
     client = CortellisClient()
     expanded_deals = fetch_expanded_deals(deal_ids, client)
 

@@ -16,6 +16,7 @@ import time
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "..", "..", "..", ".."))
 
 from cli_anything.cortellis.core import literature
+from dotenv import load_dotenv
 from cli_anything.cortellis.core.client import CortellisClient
 from cli_anything.cortellis.utils.data_helpers import read_csv_safe
 
@@ -59,7 +60,10 @@ def search_literature_for_drug(drug_name, client, max_hits=5):
         if result:
             if isinstance(result, dict):
                 hits = (
-                    result.get("literatureList", {}).get("literature", [])
+                    # Cortellis literature-v2 response shape
+                    result.get("literatureResultsOutput", {}).get("SearchResults", {}).get("Literature", [])
+                    # Legacy / alternate shapes
+                    or result.get("literatureList", {}).get("literature", [])
                     or result.get("hits", [])
                     or result.get("results", [])
                     or []
@@ -254,6 +258,7 @@ def main():
     if not drug_names:
         print("[info] No drug names found in launched.csv or phase3.csv.")
 
+    load_dotenv()
     client = CortellisClient()
 
     all_publications = []

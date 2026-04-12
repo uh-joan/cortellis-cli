@@ -302,13 +302,18 @@ def extract_pharmacology(pharmacology):
 def extract_patents(patents):
     """Extract patent records from patents.json.
 
+    Handles actual API response shape: patentRecordsOutput.Patent[]
     Returns list of {patent_id, title, assignee, filing_date, status}.
     """
     if not patents or not isinstance(patents, dict):
         return []
 
-    target = _unwrap_target(patents)
-    pat_list = target.get("Patents", {}).get("Patent", [])
+    # Actual shape: {"patentRecordsOutput": {"Patent": [...]}}
+    pat_list = patents.get("patentRecordsOutput", {}).get("Patent", [])
+    if not pat_list:
+        # Legacy fallback via target unwrap
+        target = _unwrap_target(patents)
+        pat_list = target.get("Patents", {}).get("Patent", [])
     if isinstance(pat_list, dict):
         pat_list = [pat_list]
     if not isinstance(pat_list, list):
@@ -345,13 +350,19 @@ def extract_patents(patents):
 def extract_references(references):
     """Extract reference records from references.json.
 
+    Handles actual API response shape: ReferenceRecordsOutput.Reference[]
+    Fields: title (str), authors (semicolon-sep str), source.$ (journal), year (int)
     Returns list of {title, authors, journal, year}.
     """
     if not references or not isinstance(references, dict):
         return []
 
-    target = _unwrap_target(references)
-    ref_list = target.get("References", {}).get("Reference", [])
+    # Actual shape: {"ReferenceRecordsOutput": {"Reference": [...]}}
+    ref_list = references.get("ReferenceRecordsOutput", {}).get("Reference", [])
+    if not ref_list:
+        # Legacy fallback
+        target = _unwrap_target(references)
+        ref_list = target.get("References", {}).get("Reference", [])
     if isinstance(ref_list, dict):
         ref_list = [ref_list]
     if not isinstance(ref_list, list):
@@ -361,10 +372,12 @@ def extract_references(references):
     for r in ref_list:
         if not isinstance(r, dict):
             continue
-        title = r.get("Title", r.get("@title", ""))
+        # Actual fields are lowercase
+        title = r.get("title", r.get("Title", r.get("@title", "")))
         if isinstance(title, dict):
             title = title.get("$", "")
-        authors_raw = r.get("Authors", r.get("Author", ""))
+        # authors is a semicolon-separated string in the API response
+        authors_raw = r.get("authors", r.get("Authors", r.get("Author", "")))
         if isinstance(authors_raw, list):
             authors = "; ".join(
                 a.get("$", a.get("@name", str(a))) if isinstance(a, dict) else str(a)
@@ -376,10 +389,13 @@ def extract_references(references):
             authors = authors_raw.get("$", authors_raw.get("@name", ""))
         else:
             authors = str(authors_raw) if authors_raw else ""
-        journal = r.get("Journal", r.get("@journal", r.get("Source", "")))
-        if isinstance(journal, dict):
-            journal = journal.get("$", journal.get("@name", ""))
-        year = r.get("@year", r.get("Year", r.get("PublicationYear", "")))
+        # journal: source.$ in actual response
+        journal_raw = r.get("source", r.get("Journal", r.get("@journal", "")))
+        if isinstance(journal_raw, dict):
+            journal = journal_raw.get("$", journal_raw.get("@name", ""))
+        else:
+            journal = str(journal_raw) if journal_raw else ""
+        year = r.get("year", r.get("@year", r.get("Year", "")))
         if isinstance(year, dict):
             year = year.get("$", "")
         items.append({

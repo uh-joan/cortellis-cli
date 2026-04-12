@@ -16,6 +16,7 @@ import time
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "..", "..", "..", ".."))
 
 from cli_anything.cortellis.core import press_releases
+from dotenv import load_dotenv
 from cli_anything.cortellis.core.client import CortellisClient
 from cli_anything.cortellis.utils.data_helpers import read_csv_safe
 
@@ -204,6 +205,7 @@ def main():
     if not company_names:
         print("[info] No company names found in strategic_scores.csv.")
 
+    load_dotenv()
     client = CortellisClient()
 
     all_releases = []
