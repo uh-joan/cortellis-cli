@@ -134,12 +134,59 @@ def inject_wikilinks(text: str, matched_entities: list) -> str:
 
 
 def extract_text_from_file(path: str) -> str:
-    """Extract plain text from a file. Supports .md, .txt, .markdown."""
+    """Extract plain text from a file.
+
+    Supported formats:
+      .md / .txt / .markdown / .rst  — direct read
+      .pdf                           — pdftotext (requires poppler)
+      .pptx                          — python-pptx
+      .xlsx / .xlsm                  — openpyxl (text cells only)
+      .xlsb                          — not supported (binary Excel)
+    """
     ext = os.path.splitext(path)[1].lower()
+
     if ext in (".md", ".txt", ".markdown", ".rst"):
         with open(path, encoding="utf-8") as f:
             return f.read()
-    raise ValueError(f"Unsupported file type: {ext}. Supported: .md, .txt, .markdown")
+
+    if ext == ".pdf":
+        import subprocess
+        result = subprocess.run(
+            ["pdftotext", "-layout", path, "-"],
+            capture_output=True, text=True, timeout=60
+        )
+        if result.returncode != 0:
+            raise ValueError(f"pdftotext failed: {result.stderr.strip()}")
+        return result.stdout
+
+    if ext == ".pptx":
+        from pptx import Presentation
+        prs = Presentation(path)
+        chunks = []
+        for slide in prs.slides:
+            for shape in slide.shapes:
+                if shape.has_text_frame:
+                    for para in shape.text_frame.paragraphs:
+                        text = para.text.strip()
+                        if text:
+                            chunks.append(text)
+        return "\n".join(chunks)
+
+    if ext in (".xlsx", ".xlsm"):
+        import openpyxl
+        wb = openpyxl.load_workbook(path, read_only=True, data_only=True)
+        chunks = []
+        for ws in wb.worksheets:
+            for row in ws.iter_rows(values_only=True):
+                for cell in row:
+                    if cell and isinstance(cell, str) and cell.strip():
+                        chunks.append(cell.strip())
+        return "\n".join(chunks)
+
+    if ext == ".xlsb":
+        raise ValueError(f"Binary Excel (.xlsb) is not supported. Convert to .xlsx first.")
+
+    raise ValueError(f"Unsupported file type: {ext}. Supported: .md, .txt, .pdf, .pptx, .xlsx, .xlsm")
 
 
 def cortellis_ner_entities(text: str, base_dir: str) -> list:

@@ -81,12 +81,12 @@ Body text with wikilinks:
 ## Example
 
 ```bash
-python3 cli_anything/cortellis/skills/ingest/recipes/extract_entities.py docs/internal/deal_memo.md
+python3 cli_anything/cortellis/skills/ingest/recipes/extract_entities.py raw/internal/deal_memo.md
 
-ENTITIES=$(python3 cli_anything/cortellis/skills/ingest/recipes/extract_entities.py docs/internal/deal_memo.md 2>/dev/null)
+ENTITIES=$(python3 cli_anything/cortellis/skills/ingest/recipes/extract_entities.py raw/internal/deal_memo.md 2>/dev/null)
 python3 cli_anything/cortellis/skills/ingest/recipes/compile_internal.py \
   "Deal Memo: Novo Nordisk Q1 2026" \
-  "$(cat docs/internal/deal_memo.md)" \
+  "$(cat raw/internal/deal_memo.md)" \
   --source-file "deal_memo.md" \
   --entities "$ENTITIES"
 
