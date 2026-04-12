@@ -209,6 +209,17 @@ def main():
     # --- Approvals (always — used for verification cross-check) ---
     print(f"Fetching FDA approvals for: {drug_name}")
     raw = fda.search_drug_approvals(drug_name, limit=20)
+    # Fallback for combination drugs: FDA names combos under brand name or first component INN.
+    # If INN query returns nothing and the name has multiple words, retry each component.
+    if not raw.get("results") and " " in drug_name:
+        components = [w for w in drug_name.split() if len(w) > 4]
+        for component in components[:2]:
+            print(f"  No results — retrying with component: {component}")
+            fallback = fda.search_drug_approvals(component, limit=20)
+            if fallback.get("results"):
+                raw = fallback
+                print(f"  Found {len(raw.get('results', []))} record(s) via component search")
+                break
     _write_json(drug_dir, "fda_approvals.json", raw)
     approvals = extract_approvals(raw)
     write_fda_summary(drug_dir, drug_name, approvals)

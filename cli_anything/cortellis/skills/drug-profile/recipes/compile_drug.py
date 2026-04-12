@@ -331,7 +331,7 @@ def verify_claims(phase: str, fda_approvals: dict, ct_trials_json: dict,
                 "cortellis": phase,
                 "external": "no FDA NDA/BLA records found",
                 "source": "api.fda.gov",
-                "note": "Drug is Launched in Cortellis but no FDA approval records returned — may be foreign-origin or branded differently",
+                "note": "Drug is Launched in Cortellis but no FDA approval records returned — may be foreign-origin (e.g. China-only), combination product indexed under brand name, or INN mismatch",
             })
 
         # Check 2: FDA has approval but Cortellis phase is not Launched (stale data)
