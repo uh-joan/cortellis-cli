@@ -300,7 +300,8 @@ def _ct_highest_phase(ct_trials_json: dict) -> int:
 
 
 def verify_claims(phase: str, fda_approvals: dict, ct_trials_json: dict,
-                  trials_json: dict) -> dict:
+                  trials_json: dict, overview: dict = None,
+                  drug_dir: str = "") -> dict:
     """Cross-check Cortellis claims against FDA and ClinicalTrials.gov.
 
     Returns:
@@ -310,8 +311,9 @@ def verify_claims(phase: str, fda_approvals: dict, ct_trials_json: dict,
       1. Cortellis says Launched → FDA must have ≥1 AP approval.
       2. FDA has AP approval → Cortellis must say Launched (stale phase detection).
       3. CT.gov highest trial phase > Cortellis phase (Cortellis may be behind).
-      4. Cortellis has >10 trials → CT.gov should show some active.
-      5. CT.gov has >20 active trials → Cortellis should show >0.
+      4. FDA label indications vs Cortellis indications (indication coverage).
+      5. Cortellis has >10 trials → CT.gov should show some active.
+      6. CT.gov has >20 active trials → Cortellis should show >0.
     Only runs checks when the required data files exist.
     """
     from datetime import datetime, timezone
@@ -358,7 +360,31 @@ def verify_claims(phase: str, fda_approvals: dict, ct_trials_json: dict,
                 "note": f"CT.gov has active {ct_phase_label} trials but Cortellis shows '{phase}' — Cortellis phase may be outdated",
             })
 
-    # Check 4: Cortellis has trials → CT.gov should see some active
+    # Check 4: FDA label indications vs Cortellis indications
+    if drug_dir:
+        fda_labels_path = os.path.join(drug_dir, "fda_labels.json")
+        if os.path.exists(fda_labels_path):
+            fda_labels = read_json_safe(fda_labels_path)
+            label_results = (fda_labels or {}).get("results", [])
+            if label_results:
+                raw_sections = label_results[0].get("indications_and_usage", [])
+                label_text = " ".join(raw_sections).lower() if raw_sections else ""
+                if label_text:
+                    cortellis_indications = (overview or {}).get("indications", [])
+                    for indication_name in cortellis_indications[:5]:
+                        words = [w for w in indication_name.lower().split() if len(w) > 4]
+                        if words:
+                            longest = max(words, key=len)
+                            if longest not in label_text:
+                                conflicts.append({
+                                    "field": "indication_coverage",
+                                    "cortellis": indication_name,
+                                    "external": "not found in FDA label indications_and_usage",
+                                    "source": "api.fda.gov/drug/label.json",
+                                    "note": "Cortellis lists this indication but it does not appear in the FDA approved label — may be off-label or non-US indication",
+                                })
+
+    # Check 5: Cortellis has trials → CT.gov should see some active
     cortellis_trial_count = 0
     if trials_json:
         trial_data = trials_json.get("trialResultsOutput", trials_json)
@@ -377,7 +403,7 @@ def verify_claims(phase: str, fda_approvals: dict, ct_trials_json: dict,
                 "source": "clinicaltrials.gov",
                 "note": "Cortellis reports trials but CT.gov shows 0 recruiting/active — trials may be completed or search term mismatch",
             })
-        # Check 5: CT.gov sees many active trials but Cortellis has none
+        # Check 6: CT.gov sees many active trials but Cortellis has none
         if ct_count > 20 and cortellis_trial_count == 0:
             conflicts.append({
                 "field": "active_trial_count",
@@ -429,7 +455,7 @@ def compile_drug_article(drug_dir, drug_name, slug, base_dir=None):
     now = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
 
     # Cross-check verification (only when external enrich files exist)
-    verification = verify_claims(phase, fda_approvals, ct_trials_json, trials_json)
+    verification = verify_claims(phase, fda_approvals, ct_trials_json, trials_json, overview=overview, drug_dir=drug_dir)
 
     # Build related: originator slug + indication slugs
     related = []
@@ -501,33 +527,80 @@ def compile_drug_article(drug_dir, drug_name, slug, base_dir=None):
 
     # Development History
     if history:
+        import re as _re
+        from collections import defaultdict as _defaultdict
+        _PHASE_ORDER = {
+            "Preclinical": 1, "Discovery": 1,
+            "Phase 1 Clinical": 2, "Phase 2 Clinical": 3, "Phase 3 Clinical": 4,
+            "Pre-registration": 5, "Registered": 6, "Launched": 7,
+            "Discontinued": 0, "No Development Reported": 0,
+        }
         changes = history.get("ChangeHistory", {}).get("Change", [])
         if isinstance(changes, dict):
             changes = [changes]
-        milestones = []
+        drug_added = None
+        global_milestones = []
+        # per-indication: {indication: [(date, label), ...]}
+        by_indication = _defaultdict(list)
         for c in changes:
             date = c.get("Date", "")[:10]
             reason = c.get("Reason", {})
             if isinstance(reason, dict):
                 reason = reason.get("$", "")
-            if reason == "Highest status change":
+            if reason == "Drug added":
+                drug_added = date
+            elif reason == "Highest status change":
                 fields = c.get("FieldsChanged", {}).get("Field", {})
                 if isinstance(fields, dict):
                     new_val = fields.get("@newValue", "")
                     old_val = fields.get("@oldValue", "")
                     label = f"{old_val} → {new_val}" if old_val else new_val
-                    milestones.append((date, label))
-            elif reason == "Drug added":
-                milestones.append((date, "Drug added"))
-        if milestones:
-            body_parts.append("## Development History\n\n")
-            # Deduplicate by label, keep earliest occurrence
+                    global_milestones.append((date, label))
+            elif reason == "Development status: company/indication/territory trio status change":
+                detail = c.get("DetailFormatted", "")
+                detail_clean = _re.sub(r"<[^>]+>", "", detail).strip()
+                # Format: "Phase X to Phase Y, Territory, Company, Indication[, Date]"
+                m = _re.match(r"^(.+?) to (.+?),\s*[^,]+,\s*[^,]+,\s*(.+?)(?:,|$)", detail_clean)
+                if m:
+                    old_val = m.group(1).strip()
+                    new_val = m.group(2).strip()
+                    indication = m.group(3).strip()
+                    if new_val == "No Development Reported":
+                        continue
+                    # Skip backward transitions (Cortellis data corrections)
+                    if _PHASE_ORDER.get(new_val, 99) <= _PHASE_ORDER.get(old_val, 0):
+                        continue
+                    by_indication[indication].append((date, f"{old_val} → {new_val}"))
+        has_global = bool(global_milestones)
+        has_per_indication = len(by_indication) > 1
+        body_parts.append("## Development History\n\n")
+        if drug_added:
+            body_parts.append(f"- **{drug_added}**: Drug added\n")
+        if has_per_indication:
+            # Render per-indication sub-sections, deduped by label (earliest date wins)
+            for indication in sorted(by_indication):
+                body_parts.append(f"\n### {indication}\n\n")
+                seen: set = set()
+                for date, label in by_indication[indication]:
+                    if label not in seen:
+                        seen.add(label)
+                        body_parts.append(f"- **{date}**: {label}\n")
+        elif has_global:
+            # Single indication or global-only: use Highest status change events
             seen = set()
-            for date, label in milestones:
+            for date, label in global_milestones:
                 if label not in seen:
                     seen.add(label)
                     body_parts.append(f"- **{date}**: {label}\n")
-            body_parts.append("\n")
+        elif by_indication:
+            # Single indication with no global events (liraglutide-type): use trio events
+            seen = set()
+            for indication, events in by_indication.items():
+                for date, label in events:
+                    if label not in seen:
+                        seen.add(label)
+                        body_parts.append(f"- **{date}**: {label}\n")
+        body_parts.append("\n")
 
     # SWOT Analysis
     if swot and len(str(swot)) > 100:
@@ -616,6 +689,12 @@ def compile_drug_article(drug_dir, drug_name, slug, base_dir=None):
     fda_safety_md = read_md_safe(os.path.join(drug_dir, "fda_safety.md"))
     if fda_safety_md:
         body_parts.append(fda_safety_md)
+        body_parts.append("\n")
+
+    # EU Approvals & Safety (from enrich_ema.py)
+    ema_summary_md = read_md_safe(os.path.join(drug_dir, "ema_summary.md"))
+    if ema_summary_md:
+        body_parts.append(ema_summary_md)
         body_parts.append("\n")
 
     # Data Sources

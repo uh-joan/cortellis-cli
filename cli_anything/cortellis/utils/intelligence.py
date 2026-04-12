@@ -4,8 +4,9 @@ Scans compiled wiki articles for notable changes between snapshots and
 produces severity-ranked signals for system prompt injection and reporting.
 """
 
+import json
 import os
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 from typing import Optional
 
 from cli_anything.cortellis.utils.wiki import (
@@ -427,6 +428,56 @@ def format_signals_for_prompt(signals: list[dict], max_signals: int = 10) -> str
 
 
 # ---------------------------------------------------------------------------
+# FDA Class I recall signals
+# ---------------------------------------------------------------------------
+
+def scan_class1_recalls(raw_drugs_dir: str, days: int = 180) -> list[dict]:
+    """Scan raw/drugs/*/fda_recalls.json for active Class I recalls within `days`.
+
+    Returns list of dicts: {drug, product_description, reason_for_recall, date, recalling_firm}
+    sorted by date descending.
+    """
+    if not os.path.isdir(raw_drugs_dir):
+        return []
+
+    cutoff = datetime.now(timezone.utc) - timedelta(days=days)
+    results = []
+
+    for slug in sorted(os.listdir(raw_drugs_dir)):
+        recalls_path = os.path.join(raw_drugs_dir, slug, "fda_recalls.json")
+        if not os.path.isfile(recalls_path):
+            continue
+        try:
+            with open(recalls_path, encoding="utf-8") as f:
+                data = json.load(f)
+        except Exception:
+            continue
+
+        for rec in data.get("results", []):
+            if rec.get("classification") != "Class I":
+                continue
+            if rec.get("status") != "Ongoing":
+                continue
+            raw_date = rec.get("recall_initiation_date", "")
+            try:
+                rec_dt = datetime.strptime(raw_date, "%Y%m%d").replace(tzinfo=timezone.utc)
+            except (ValueError, TypeError):
+                continue
+            if rec_dt < cutoff:
+                continue
+            results.append({
+                "drug": slug,
+                "product_description": rec.get("product_description", ""),
+                "reason_for_recall": rec.get("reason_for_recall", ""),
+                "date": rec_dt.strftime("%Y-%m-%d"),
+                "recalling_firm": rec.get("recalling_firm", ""),
+            })
+
+    results.sort(key=lambda r: r["date"], reverse=True)
+    return results
+
+
+# ---------------------------------------------------------------------------
 # Full signals report
 # ---------------------------------------------------------------------------
 
@@ -531,6 +582,24 @@ def generate_signals_report(
             most_common = max(type_counts, key=type_counts.get)
             lines.append(f"- Most common signal: **{most_common.replace('_', ' ')}** ({type_counts[most_common]} occurrences)\n")
 
+        lines.append("\n")
+
+    # Active Class I Recalls
+    raw_drugs_dir = os.path.join(os.path.dirname(w_dir), "raw", "drugs")
+    class1_recalls = scan_class1_recalls(raw_drugs_dir)
+    if class1_recalls:
+        lines.append("## ⚠ Active Class I Recalls\n\n")
+        lines.append("| Drug | Product | Reason | Date | Firm |\n")
+        lines.append("|------|---------|--------|------|------|\n")
+        for r in class1_recalls:
+            drug = r["drug"].replace("|", "/")
+            product = r["product_description"].replace("|", "/")
+            if len(product) > 80:
+                product = product[:77] + "..."
+            reason = r["reason_for_recall"].replace("|", "/")
+            date = r["date"]
+            firm = r["recalling_firm"].replace("|", "/")
+            lines.append(f"| {drug} | {product} | {reason} | {date} | {firm} |\n")
         lines.append("\n")
 
     # Commercial Intelligence Coverage

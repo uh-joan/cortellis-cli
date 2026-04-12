@@ -100,6 +100,12 @@ For **launched/approved drugs**: fetches approvals, top FAERS adverse reactions,
 
 For **pipeline drugs** (Phase 1/2/3, Preclinical): fetches approvals (verification cross-check) and adverse reactions only — skips labels/recalls/shortages which will be empty. Handles 404/no-results gracefully.
 
+### Step 8d: EMA approval data (external)
+```bash
+python3 $RECIPES/enrich_ema.py $DIR "$DRUG_NAME_RESOLVED" --phase "$PHASE"
+```
+Fetches EU approval data from EMA public JSON API (no auth). Writes ema_approvals.json, ema_shortages.json, ema_referrals.json, ema_summary.md.
+
 ### Step 9: Drug Design (SI) enrichment (for early-stage drugs)
 If the drug is Phase 1 or Preclinical:
 ```bash
