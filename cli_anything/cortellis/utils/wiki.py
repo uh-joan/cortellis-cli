@@ -393,11 +393,12 @@ def update_index(wiki_dir: str, entries: list[dict]) -> None:
                     f" | {e.get('compiled_at', '-')[:10]} |\n"
                 )
         else:
-            lines.append("| Title | Summary | Compiled |\n")
-            lines.append("|---|---|---|\n")
+            lines.append("| Title | Format | Summary | Compiled |\n")
+            lines.append("|---|---|---|---|\n")
             for e in sorted(group, key=lambda x: x["title"]):
                 lines.append(
                     f"| [{e['title']}]({t}/{e['slug']}.md)"
+                    f" | {e.get('source_format', '-')}"
                     f" | {e.get('summary', '-')}"
                     f" | {e.get('compiled_at', '-')[:10]} |\n"
                 )
@@ -450,11 +451,16 @@ def load_index_entries(wiki_dir: str) -> list[dict]:
                     if entities:
                         summary = ", ".join(entities[:5])
 
+                # Derive file format from source_file extension
+                source_file = m.get("source_file", "")
+                src_ext = os.path.splitext(source_file)[1].lstrip(".").upper() if source_file else ""
+
                 entries.append({
                     "type": article_type,
                     "slug": m.get("slug", fname[:-3]),
                     "title": m.get("title", fname[:-3]),
                     "summary": summary,
+                    "source_format": src_ext,
                     "compiled_at": m.get("compiled_at", "") or m.get("ingested_at", ""),
                     "freshness": m.get("freshness_level", ""),
                     "total_drugs": m.get("total_drugs", ""),
