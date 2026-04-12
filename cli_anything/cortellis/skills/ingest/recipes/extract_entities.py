@@ -142,6 +142,74 @@ def extract_text_from_file(path: str) -> str:
     raise ValueError(f"Unsupported file type: {ext}. Supported: .md, .txt, .markdown")
 
 
+def cortellis_ner_entities(text: str, base_dir: str) -> list:
+    """Use Cortellis NER API to extract entities, then resolve against wiki slugs.
+
+    Falls back silently to [] on auth failure or network error.
+    Returns same shape as scan_text(): [{name, slug, type, count}]
+    """
+    try:
+        from dotenv import load_dotenv
+        load_dotenv()
+        from cli_anything.cortellis.core.client import CortellisClient
+        from cli_anything.cortellis.core import ner as _ner
+
+        client = CortellisClient()
+        result = _ner.match(client, text)
+        raw_entities = (
+            result.get("NamedEntityRecognition", {})
+                  .get("Entities", {})
+                  .get("Entity", [])
+        )
+        if isinstance(raw_entities, dict):
+            raw_entities = [raw_entities]
+        if not raw_entities:
+            return []
+
+        # Build wiki slug lookup from INDEX
+        wiki_entities = load_wiki_entities(base_dir)
+        name_to_entity = {e["name"].lower(): e for e in wiki_entities}
+        slug_to_entity = {e["slug"]: e for e in wiki_entities}
+
+        _TYPE_MAP = {"Drug": "drug", "Target": "target", "Company": "company",
+                     "Indication": "indication", "Disease": "indication"}
+
+        seen = {}
+        for ent in raw_entities:
+            synonym = ent.get("@synonym", "").strip()
+            ner_type = _TYPE_MAP.get(ent.get("@type", ""), "")
+            if not synonym or not ner_type:
+                continue
+
+            # Resolve to wiki slug: exact name match first, then slugify
+            wiki_ent = name_to_entity.get(synonym.lower())
+            if not wiki_ent:
+                from cli_anything.cortellis.utils.wiki import slugify
+                candidate_slug = slugify(synonym)
+                wiki_ent = slug_to_entity.get(candidate_slug)
+            if not wiki_ent:
+                continue  # Entity not in wiki yet — skip
+
+            key = wiki_ent["slug"]
+            if key in seen:
+                seen[key]["count"] += 1
+            else:
+                seen[key] = {
+                    "name": wiki_ent["name"],
+                    "slug": wiki_ent["slug"],
+                    "type": wiki_ent["type"],
+                    "count": 1,
+                }
+
+        matched = sorted(seen.values(), key=lambda x: (-x["count"], x["name"]))
+        print(f"[ner] Cortellis NER: {len(matched)} wiki entities resolved", file=sys.stderr)
+        return matched
+
+    except Exception as exc:
+        print(f"[ner] Cortellis NER unavailable ({exc.__class__.__name__}), using wiki-index fallback", file=sys.stderr)
+        return []
+
+
 def main():
     if len(sys.argv) < 2:
         print("Usage: extract_entities.py <text_file|->\n", file=sys.stderr)
@@ -162,19 +230,20 @@ def main():
         print("[]")
         return
 
-    # Find wiki root (walk up from script location)
     base_dir = os.getcwd()
 
-    entities = load_wiki_entities(base_dir)
-    if not entities:
-        print(f"[warn] No entities found in {base_dir}/wiki/INDEX.md", file=sys.stderr)
-        print("[]")
-        return
+    # Try Cortellis NER first; fall back to wiki-index scan
+    matched = cortellis_ner_entities(text, base_dir)
+    if not matched:
+        wiki_entities = load_wiki_entities(base_dir)
+        if not wiki_entities:
+            print(f"[warn] No entities in {base_dir}/wiki/INDEX.md", file=sys.stderr)
+            print("[]")
+            return
+        matched = scan_text(text, wiki_entities)
 
-    matched = scan_text(text, entities)
     print(json.dumps(matched, indent=2))
 
-    # Print summary to stderr
     if matched:
         print(f"Found {len(matched)} entities:", file=sys.stderr)
         for e in matched[:10]:
