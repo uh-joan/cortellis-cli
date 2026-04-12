@@ -143,6 +143,10 @@ def compile_indication_article(landscape_dir, indication_name, slug, base_dir=No
             seen_tags.add(t)
             unique_tags.append(t)
 
+    # Load ontology synonyms if available (from fetch_synonyms.py)
+    synonyms_data = read_json_safe(os.path.join(landscape_dir, "synonyms.json"))
+    indication_aliases = synonyms_data.get("synonyms", []) if synonyms_data else []
+
     meta = {
         "title": indication_name,
         "type": "indication",
@@ -156,6 +160,7 @@ def compile_indication_article(landscape_dir, indication_name, slug, base_dir=No
         "top_company": f"{top_company} ({top_cpi})" if top_company else "",
         "related": company_slugs,
         "tags": unique_tags,
+        **({"aliases": indication_aliases} if indication_aliases else {}),
         "phase_counts": {
             "launched": phases["launched"],
             "phase3": phases["phase3"],

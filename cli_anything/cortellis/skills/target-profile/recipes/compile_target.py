@@ -529,6 +529,7 @@ def compile_target_article(target_dir, target_name, slug, base_dir=None):
     now = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
 
     record = read_json_safe(os.path.join(target_dir, "record.json"))
+    synonyms_data = read_json_safe(os.path.join(target_dir, "synonyms.json"))
     condition_drugs = read_json_safe(os.path.join(target_dir, "condition_drugs.json"))
     condition_genes = read_json_safe(os.path.join(target_dir, "condition_genes.json"))
     interactions = read_json_safe(os.path.join(target_dir, "interactions.json"))
@@ -560,6 +561,8 @@ def compile_target_article(target_dir, target_name, slug, base_dir=None):
         publication_count=len(publications),
     )
 
+    target_aliases = (synonyms_data or {}).get("synonyms", [])
+
     meta = {
         "title": display_name,
         "type": "target",
@@ -577,6 +580,7 @@ def compile_target_article(target_dir, target_name, slug, base_dir=None):
         "verified": verification["verified"],
         "verified_at": verification["verified_at"],
         "conflicts": verification["conflicts"],
+        **({"aliases": target_aliases} if target_aliases else {}),
     }
 
     body_parts = []

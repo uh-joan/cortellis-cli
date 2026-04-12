@@ -19,12 +19,61 @@ import re
 import sys
 
 
+_TYPE_TO_DIR = {
+    "indication": "indications",
+    "company": "companies",
+    "drug": "drugs",
+    "target": "targets",
+    "conference": "conferences",
+}
+
+
+def _read_aliases_from_frontmatter(path: str) -> list[str]:
+    """Read the aliases: list from a wiki article's YAML frontmatter.
+
+    Returns a list of alias strings, or [] if none found.
+    Handles both list items (- alias) and inline scalars.
+    """
+    aliases = []
+    in_frontmatter = False
+    in_aliases = False
+
+    with open(path, encoding="utf-8") as f:
+        for i, raw_line in enumerate(f):
+            line = raw_line.rstrip()
+            if i == 0:
+                in_frontmatter = line == "---"
+                continue
+            if in_frontmatter and line == "---":
+                break
+            if not in_frontmatter:
+                break
+
+            if line == "aliases:":
+                in_aliases = True
+                continue
+
+            if in_aliases:
+                if line.startswith("- "):
+                    alias = line[2:].strip().strip("'\"")
+                    if alias:
+                        aliases.append(alias)
+                elif line and not line.startswith(" ") and not line.startswith("-"):
+                    in_aliases = False  # New YAML key — stop collecting
+
+    return aliases
+
+
 def load_wiki_entities(base_dir: str) -> list:
     """Parse wiki/INDEX.md and return list of {name, slug, type} dicts.
 
     Reads Markdown table rows of the form:
         | [Display Name](type/slug.md) | ... |
     and extracts name, slug, and article type.
+
+    Also reads aliases: from each article's YAML frontmatter so that brand
+    names, synonyms, and legal variants resolve to the canonical slug.
+    E.g. "Wegovy" and "Ozempic" both resolve to slug "semaglutide".
     """
     index_path = os.path.join(base_dir, "wiki", "INDEX.md")
     if not os.path.exists(index_path):
@@ -68,7 +117,70 @@ def load_wiki_entities(base_dir: str) -> list:
             seen_slugs.add(slug)
             entities.append({"name": name, "slug": slug, "type": current_type})
 
-    return entities
+    # Extend with aliases from article frontmatter
+    alias_entries = []
+    seen_alias_keys: set[tuple] = set()
+    wiki_dir = os.path.join(base_dir, "wiki")
+
+    for entity in entities:
+        etype = entity["type"]
+        type_dir = _TYPE_TO_DIR.get(etype)
+        if not type_dir:
+            continue
+        art_path = os.path.join(wiki_dir, type_dir, f"{entity['slug']}.md")
+        if not os.path.exists(art_path):
+            continue
+        try:
+            for alias in _read_aliases_from_frontmatter(art_path):
+                key = (alias.lower(), entity["slug"])
+                if key in seen_alias_keys:
+                    continue
+                seen_alias_keys.add(key)
+                alias_entries.append({
+                    "name": alias,
+                    "slug": entity["slug"],
+                    "type": entity["type"],
+                })
+        except Exception:
+            continue
+
+    # Also load from wiki/entity_aliases.json (abbreviations, short forms)
+    alias_entries.extend(_load_json_aliases(wiki_dir, entities, seen_alias_keys))
+
+    return entities + alias_entries
+
+
+def _load_json_aliases(wiki_dir: str, entities: list, seen: set) -> list:
+    """Load alias→slug mappings from wiki/entity_aliases.json.
+
+    File format: {"t2d": "diabetes-mellitus", "mash": "metabolic-dysfunction-..."}
+    Keys are lowercase; values are entity slugs that must exist in INDEX.md.
+    """
+    alias_path = os.path.join(wiki_dir, "entity_aliases.json")
+    if not os.path.exists(alias_path):
+        return []
+
+    slug_to_entity = {e["slug"]: e for e in entities}
+    extras = []
+    try:
+        with open(alias_path, encoding="utf-8") as f:
+            alias_map = json.load(f)
+        for alias, slug in alias_map.items():
+            entity = slug_to_entity.get(slug)
+            if not entity:
+                continue
+            key = (alias.lower(), slug)
+            if key in seen:
+                continue
+            seen.add(key)
+            extras.append({
+                "name": alias,
+                "slug": slug,
+                "type": entity["type"],
+            })
+    except Exception:
+        pass
+    return extras
 
 
 def scan_text(text: str, entities: list) -> list:
@@ -127,9 +239,9 @@ def inject_wikilinks(text: str, matched_entities: list) -> str:
         name = entity["name"]
         slug = entity["slug"]
         wikilink = f"[[{slug}|{name}]]"
-        # Replace first occurrence only (case-insensitive)
+        # Replace all occurrences (case-insensitive)
         pattern = r'\b' + re.escape(name) + r'\b'
-        text = re.sub(pattern, wikilink, text, count=1, flags=re.IGNORECASE)
+        text = re.sub(pattern, wikilink, text, flags=re.IGNORECASE)
     return text
 
 

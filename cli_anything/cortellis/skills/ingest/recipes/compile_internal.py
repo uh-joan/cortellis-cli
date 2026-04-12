@@ -42,7 +42,7 @@ def compile_internal_article(title, body_text, source_file=None, entities=None):
     # Resolve entity slugs for frontmatter
     entity_slugs = []
     if entities:
-        entity_slugs = [e["slug"] for e in entities if e.get("slug")]
+        entity_slugs = list(dict.fromkeys(e["slug"] for e in entities if e.get("slug")))
 
     meta = {
         "title": title,

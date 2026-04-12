@@ -129,9 +129,54 @@ def extract_risk_zones(narrate_ctx: dict) -> list[dict]:
     return risks
 
 
+def extract_commercial_intel(wiki_dir: str, indication_slug: str) -> dict:
+    """Extract ## Commercial Intelligence sections from the indication article.
+
+    Returns dict: {sections: [{label, content}], raw: str}
+    Empty dict if no CI section found.
+    """
+    # article_path calls wiki_root() which appends /wiki — normalize to project root
+    base = os.path.dirname(wiki_dir) if os.path.basename(wiki_dir) == "wiki" else wiki_dir
+    path = article_path("indications", indication_slug, base)
+    art = read_article(path)
+    if not art:
+        return {}
+
+    body = art.get("body", "")
+    ci_marker = "## Commercial Intelligence"
+    ci_start = body.find(ci_marker)
+    if ci_start == -1:
+        return {}
+
+    # Extract CI block up to ## Data Sources or end
+    ds_marker = "## Data Sources"
+    ds_start = body.find(ds_marker, ci_start)
+    ci_block = body[ci_start:ds_start].strip() if ds_start > ci_start else body[ci_start:].strip()
+
+    # Parse individual subsections (## headings within the CI block)
+    sections = []
+    current_label = None
+    current_lines = []
+
+    for line in ci_block.splitlines():
+        if line.startswith("## ") and line.strip() != ci_marker.strip():
+            if current_label:
+                sections.append({"label": current_label, "content": "\n".join(current_lines).strip()})
+            current_label = line.strip("# ").strip()
+            current_lines = []
+        elif current_label:
+            current_lines.append(line)
+
+    if current_label:
+        sections.append({"label": current_label, "content": "\n".join(current_lines).strip()})
+
+    return {"sections": sections, "raw": ci_block}
+
+
 def extract_changes(wiki_dir: str, indication_slug: str) -> dict:
     """Extract changes from previous_snapshot diff."""
-    path = article_path("indications", indication_slug, wiki_dir)
+    base = os.path.dirname(wiki_dir) if os.path.basename(wiki_dir) == "wiki" else wiki_dir
+    path = article_path("indications", indication_slug, base)
     art = read_article(path)
     if not art or not art["meta"]:
         return {}
@@ -185,6 +230,7 @@ def extract_session_insights(
     risk_zones = extract_risk_zones(narrate_ctx)
     changes = extract_changes(base, indication_slug)
     implications = extract_implications(strategic_md)
+    commercial_intel = extract_commercial_intel(base, indication_slug)
 
     # Derive tags from top company + mechanisms
     tags = [indication_slug]
@@ -209,6 +255,7 @@ def extract_session_insights(
         "risk_zones": risk_zones,
         "changes": changes,
         "strategic_implications": implications,
+        "commercial_intel": commercial_intel,
     }
 
 
@@ -286,6 +333,14 @@ def format_insight_markdown(insights: dict) -> str:
         for impl in impls:
             parts.append(f"- {impl}\n")
         parts.append("\n")
+
+    # Commercial Intelligence
+    ci = insights.get("commercial_intel", {})
+    if ci.get("sections"):
+        parts.append("## Commercial Intelligence\n\n")
+        for section in ci["sections"]:
+            parts.append(f"### {section['label']}\n\n")
+            parts.append(section["content"] + "\n\n")
 
     return "".join(parts)
 

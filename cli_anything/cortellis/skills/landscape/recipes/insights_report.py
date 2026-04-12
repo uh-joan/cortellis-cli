@@ -11,7 +11,7 @@ import sys
 # Allow running as standalone script
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "..", "..", "..", ".."))
 
-from cli_anything.cortellis.utils.insights_extractor import load_recent_insights
+from cli_anything.cortellis.utils.insights_extractor import load_recent_insights, extract_commercial_intel
 from cli_anything.cortellis.utils.wiki import wiki_root, log_activity
 
 
@@ -53,16 +53,31 @@ def main():
             meta = ins["meta"]
             title = meta.get("title", "Unknown")
             ts = meta.get("timestamp", "")[:10]
+            ind_slug = meta.get("indication", "")
             lines.append(f"### {title} ({ts})\n\n")
 
             # Extract bullets from body
             bullet_count = 0
+            has_ci_in_body = "## Commercial Intelligence" in ins["body"]
             for line in ins["body"].split("\n"):
                 stripped = line.strip()
                 if stripped.startswith("- ") and bullet_count < 6:
                     lines.append(f"{stripped}\n")
                     bullet_count += 1
             lines.append("\n")
+
+            # For older sessions without CI in body, pull it live from indication article
+            if not has_ci_in_body and ind_slug:
+                ci = extract_commercial_intel(base_dir, ind_slug)
+                if ci.get("sections"):
+                    lines.append("**Commercial Intelligence:**\n\n")
+                    for section in ci["sections"][:3]:
+                        lines.append(f"_{section['label']}_\n\n")
+                        # Show first 3 lines of content
+                        content_lines = [l for l in section["content"].split("\n") if l.strip()][:3]
+                        for cl in content_lines:
+                            lines.append(f"{cl}\n")
+                        lines.append("\n")
 
     report = "".join(lines)
     print(report)
