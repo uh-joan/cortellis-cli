@@ -1,0 +1,189 @@
+#!/usr/bin/env python3
+"""
+extract_entities.py — Find wiki entity mentions in free text.
+
+Scans input text for known drug, target, company, and indication names
+from the wiki INDEX.md. Returns matched entities as JSON.
+
+Usage:
+    python3 extract_entities.py <text_file>       # from file
+    python3 extract_entities.py -                 # from stdin
+    cat memo.md | python3 extract_entities.py -
+
+Output (stdout): JSON list of {name, slug, type, count} sorted by count desc.
+"""
+
+import json
+import os
+import re
+import sys
+
+
+def load_wiki_entities(base_dir: str) -> list:
+    """Parse wiki/INDEX.md and return list of {name, slug, type} dicts.
+
+    Reads Markdown table rows of the form:
+        | [Display Name](type/slug.md) | ... |
+    and extracts name, slug, and article type.
+    """
+    index_path = os.path.join(base_dir, "wiki", "INDEX.md")
+    if not os.path.exists(index_path):
+        return []
+
+    entities = []
+    seen_slugs = set()
+    current_type = None
+    type_map = {
+        "## Indications": "indication",
+        "## Companies": "company",
+        "## Drugs": "drug",
+        "## Targets": "target",
+        "## Conferences": "conference",
+        "## Internal": "internal",
+    }
+
+    with open(index_path, encoding="utf-8") as f:
+        for line in f:
+            line = line.rstrip()
+            # Detect section headers
+            for header, etype in type_map.items():
+                if line.startswith(header):
+                    current_type = etype
+                    break
+
+            if not current_type:
+                continue
+
+            # Match table rows with wikilinks: | [Name](path/slug.md) |
+            m = re.search(r'\[([^\]]+)\]\(([^)]+\.md)\)', line)
+            if not m:
+                continue
+            name = m.group(1).strip()
+            path = m.group(2).strip()
+            # Extract slug from path: "drugs/semaglutide.md" → "semaglutide"
+            slug = os.path.splitext(os.path.basename(path))[0]
+
+            if slug in seen_slugs or not name:
+                continue
+            seen_slugs.add(slug)
+            entities.append({"name": name, "slug": slug, "type": current_type})
+
+    return entities
+
+
+def scan_text(text: str, entities: list) -> list:
+    """Find entity name mentions in text. Returns list of matched entities with count.
+
+    Matching is case-insensitive and whole-word. Shorter names that are substrings
+    of longer matched names are suppressed to avoid double-counting.
+    """
+    text_lower = text.lower()
+    matches = []
+
+    # Sort by name length descending so longer names match first
+    sorted_entities = sorted(entities, key=lambda e: -len(e["name"]))
+    matched_spans = []  # track (start, end) of consumed spans
+
+    for entity in sorted_entities:
+        name = entity["name"]
+        pattern = r'\b' + re.escape(name) + r'\b'
+        found = list(re.finditer(pattern, text, re.IGNORECASE))
+        if not found:
+            continue
+
+        # Check if all matches are within already-matched spans
+        new_matches = []
+        for m in found:
+            span = (m.start(), m.end())
+            overlaps = any(
+                not (span[1] <= s[0] or span[0] >= s[1])
+                for s in matched_spans
+            )
+            if not overlaps:
+                new_matches.append(span)
+
+        if new_matches:
+            matched_spans.extend(new_matches)
+            matches.append({
+                "name": name,
+                "slug": entity["slug"],
+                "type": entity["type"],
+                "count": len(new_matches),
+            })
+
+    # Sort by count descending, then name ascending
+    matches.sort(key=lambda x: (-x["count"], x["name"]))
+    return matches
+
+
+def inject_wikilinks(text: str, matched_entities: list) -> str:
+    """Replace entity name mentions in body text with [[slug|Name]] wikilinks.
+
+    Processes entities from longest name to shortest to avoid partial substitutions.
+    Only replaces the first occurrence to avoid over-linking.
+    """
+    sorted_matches = sorted(matched_entities, key=lambda e: -len(e["name"]))
+    for entity in sorted_matches:
+        name = entity["name"]
+        slug = entity["slug"]
+        wikilink = f"[[{slug}|{name}]]"
+        # Replace first occurrence only (case-insensitive)
+        pattern = r'\b' + re.escape(name) + r'\b'
+        text = re.sub(pattern, wikilink, text, count=1, flags=re.IGNORECASE)
+    return text
+
+
+def extract_text_from_file(path: str) -> str:
+    """Extract plain text from a file. Supports .md, .txt, .markdown."""
+    ext = os.path.splitext(path)[1].lower()
+    if ext in (".md", ".txt", ".markdown", ".rst"):
+        with open(path, encoding="utf-8") as f:
+            return f.read()
+    raise ValueError(f"Unsupported file type: {ext}. Supported: .md, .txt, .markdown")
+
+
+def main():
+    if len(sys.argv) < 2:
+        print("Usage: extract_entities.py <text_file|->\n", file=sys.stderr)
+        print("  <text_file>  Path to .md/.txt file", file=sys.stderr)
+        print("  -            Read from stdin", file=sys.stderr)
+        sys.exit(1)
+
+    source = sys.argv[1]
+    if source == "-":
+        text = sys.stdin.read()
+    else:
+        if not os.path.exists(source):
+            print(f"Error: file not found: {source}", file=sys.stderr)
+            sys.exit(1)
+        text = extract_text_from_file(source)
+
+    if not text.strip():
+        print("[]")
+        return
+
+    # Find wiki root (walk up from script location)
+    base_dir = os.getcwd()
+
+    entities = load_wiki_entities(base_dir)
+    if not entities:
+        print(f"[warn] No entities found in {base_dir}/wiki/INDEX.md", file=sys.stderr)
+        print("[]")
+        return
+
+    matched = scan_text(text, entities)
+    print(json.dumps(matched, indent=2))
+
+    # Print summary to stderr
+    if matched:
+        print(f"Found {len(matched)} entities:", file=sys.stderr)
+        for e in matched[:10]:
+            print(f"  [{e['type']}] {e['name']} ({e['count']}x)", file=sys.stderr)
+        if len(matched) > 10:
+            print(f"  ... and {len(matched) - 10} more", file=sys.stderr)
+    else:
+        print("No known wiki entities found in text.", file=sys.stderr)
+
+
+if __name__ == "__main__":
+    main()

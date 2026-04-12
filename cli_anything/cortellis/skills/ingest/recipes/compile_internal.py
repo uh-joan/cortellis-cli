@@ -6,6 +6,7 @@ Usage: python3 compile_internal.py <title> <body_text> [--source-file FILENAME] 
        echo "body text" | python3 compile_internal.py <title> - [--source-file FILENAME] [--wiki-dir DIR]
 """
 
+import json
 import os
 import sys
 from datetime import datetime, timezone
@@ -28,10 +29,20 @@ def _now_iso():
     return datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
 
 
-def compile_internal_article(title, body_text, source_file=None):
-    """Compile an internal document into (meta, body)."""
+def compile_internal_article(title, body_text, source_file=None, entities=None):
+    """Compile an internal document into (slug, meta, body).
+
+    If entities is provided (list of {name, slug, type, count} from extract_entities.py),
+    they are embedded in frontmatter and the first mention of each entity name in body_text
+    is replaced with a [[slug|Name]] wikilink.
+    """
     now = _now_iso()
     slug = slugify(title)
+
+    # Resolve entity slugs for frontmatter
+    entity_slugs = []
+    if entities:
+        entity_slugs = [e["slug"] for e in entities if e.get("slug")]
 
     meta = {
         "title": title,
@@ -39,10 +50,16 @@ def compile_internal_article(title, body_text, source_file=None):
         "slug": slug,
         "ingested_at": now,
         "source_file": source_file or "",
-        "entities": [],  # placeholder for NER results (Priority 4B)
+        "entities": entity_slugs,
     }
 
-    return slug, meta, body_text
+    # Inject wikilinks into body for each matched entity
+    body = body_text
+    if entities:
+        from cli_anything.cortellis.skills.ingest.recipes.extract_entities import inject_wikilinks
+        body = inject_wikilinks(body, entities)
+
+    return slug, meta, body
 
 
 def main():
@@ -57,6 +74,7 @@ def main():
     body_arg = sys.argv[2]
     source_file = None
     wiki_dir_override = None
+    entities = None
 
     i = 3
     while i < len(sys.argv):
@@ -66,6 +84,13 @@ def main():
             i += 2
         elif arg == "--wiki-dir" and i + 1 < len(sys.argv):
             wiki_dir_override = sys.argv[i + 1]
+            i += 2
+        elif arg == "--entities" and i + 1 < len(sys.argv):
+            try:
+                entities = json.loads(sys.argv[i + 1])
+            except json.JSONDecodeError as e:
+                print(f"Error: --entities must be valid JSON: {e}", file=sys.stderr)
+                sys.exit(1)
             i += 2
         else:
             i += 1
@@ -85,7 +110,7 @@ def main():
 
     print(f"Compiling internal document '{title}' to wiki...")
 
-    slug, meta, body = compile_internal_article(title, body_text, source_file)
+    slug, meta, body = compile_internal_article(title, body_text, source_file, entities)
     int_path = article_path("internal", slug, base_dir)
 
     write_article(int_path, meta, body)
