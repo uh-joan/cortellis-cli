@@ -439,19 +439,23 @@ def load_index_entries(wiki_dir: str) -> list[dict]:
             art = read_article(os.path.join(type_dir, fname))
             if art and art["meta"]:
                 m = art["meta"]
-                # Derive summary for companies from indications dict
+                # Derive summary for companies from indications dict; for internal from entities
                 summary = m.get("summary", "")
                 if not summary and article_type == "companies":
                     ind_dict = m.get("indications", {})
                     if ind_dict:
                         summary = ", ".join(sorted(ind_dict.keys()))
+                if not summary and article_type == "internal":
+                    entities = m.get("entities", [])
+                    if entities:
+                        summary = ", ".join(entities[:5])
 
                 entries.append({
                     "type": article_type,
                     "slug": m.get("slug", fname[:-3]),
                     "title": m.get("title", fname[:-3]),
                     "summary": summary,
-                    "compiled_at": m.get("compiled_at", ""),
+                    "compiled_at": m.get("compiled_at", "") or m.get("ingested_at", ""),
                     "freshness": m.get("freshness_level", ""),
                     "total_drugs": m.get("total_drugs", ""),
                     "top_company": m.get("top_company", ""),
