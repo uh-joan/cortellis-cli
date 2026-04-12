@@ -250,6 +250,55 @@ def extract_trials_summary(trials_json):
 # Verification layer
 # ---------------------------------------------------------------------------
 
+_PHASE_RANK = {
+    "preclinical": 0,
+    "phase 1": 1, "phase1": 1, "phase i": 1,
+    "phase 1/2": 1, "phase 1/phase 2": 1,
+    "phase 2": 2, "phase2": 2, "phase ii": 2,
+    "phase 2/3": 2, "phase 2/phase 3": 2,
+    "phase 3": 3, "phase3": 3, "phase iii": 3,
+    "phase 4": 4, "phase4": 4, "phase iv": 4,
+    "launched": 5, "approved": 5, "marketed": 5, "registered": 5,
+}
+
+_CT_PHASE_RANK = {
+    "EARLY_PHASE1": 0,
+    "PHASE1": 1,
+    "PHASE2": 2,
+    "PHASE3": 3,
+    "PHASE4": 4,
+}
+
+
+def _cortellis_phase_rank(phase: str) -> int:
+    """Map Cortellis phase string to numeric rank. Returns -1 if unrecognised."""
+    return _PHASE_RANK.get((phase or "").lower().strip(), -1)
+
+
+def _fda_has_approval(fda_approvals: dict) -> tuple[bool, str]:
+    """Return (has_approval, brand_name) if FDA has any AP submission."""
+    for entry in (fda_approvals or {}).get("results", []):
+        for sub in entry.get("submissions", []):
+            if sub.get("submission_status", "").upper() == "AP":
+                brand = ""
+                products = entry.get("products", [])
+                if products:
+                    brand = products[0].get("brand_name", "")
+                return True, brand
+    return False, ""
+
+
+def _ct_highest_phase(ct_trials_json: dict) -> int:
+    """Return highest phase rank found across CT.gov active trials."""
+    trials = (ct_trials_json or {}).get("trials", [])
+    highest = -1
+    for t in trials:
+        rank = _CT_PHASE_RANK.get(t.get("phase", ""), -1)
+        if rank > highest:
+            highest = rank
+    return highest
+
+
 def verify_claims(phase: str, fda_approvals: dict, ct_trials_json: dict,
                   trials_json: dict) -> dict:
     """Cross-check Cortellis claims against FDA and ClinicalTrials.gov.
@@ -258,20 +307,24 @@ def verify_claims(phase: str, fda_approvals: dict, ct_trials_json: dict,
         {verified: bool, verified_at: str, conflicts: list of dicts}
 
     Checks:
-      1. Approval: if Cortellis phase is Launched, FDA must have ≥1 approval record.
-      2. Trials: if Cortellis reports >10 trials, CT.gov should have >0 active trials.
-      3. Trials inverse: if CT.gov reports >20 active trials, Cortellis should have >0 trials.
-    Only runs checks when the required data files exist (skip if not enriched yet).
+      1. Cortellis says Launched → FDA must have ≥1 AP approval.
+      2. FDA has AP approval → Cortellis must say Launched (stale phase detection).
+      3. CT.gov highest trial phase > Cortellis phase (Cortellis may be behind).
+      4. Cortellis has >10 trials → CT.gov should show some active.
+      5. CT.gov has >20 active trials → Cortellis should show >0.
+    Only runs checks when the required data files exist.
     """
     from datetime import datetime, timezone
     now = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
     conflicts = []
+    phase_rank = _cortellis_phase_rank(phase)
+    is_launched = phase_rank >= 5
 
-    # Check 1: Launched phase → expect FDA approval record
     if fda_approvals is not None:
         fda_count = len(fda_approvals.get("results", []))
-        phase_lower = (phase or "").lower()
-        is_launched = "launch" in phase_lower or phase_lower in ("approved", "marketed")
+        fda_approved, fda_brand = _fda_has_approval(fda_approvals)
+
+        # Check 1: Launched in Cortellis but no FDA record
         if is_launched and fda_count == 0:
             conflicts.append({
                 "field": "approval_status",
@@ -281,7 +334,31 @@ def verify_claims(phase: str, fda_approvals: dict, ct_trials_json: dict,
                 "note": "Drug is Launched in Cortellis but no FDA approval records returned — may be foreign-origin or branded differently",
             })
 
-    # Check 2: Cortellis has trials → CT.gov should see some active
+        # Check 2: FDA has approval but Cortellis phase is not Launched (stale data)
+        if fda_approved and not is_launched:
+            brand_note = f" ({fda_brand})" if fda_brand else ""
+            conflicts.append({
+                "field": "approval_status",
+                "cortellis": phase,
+                "external": f"FDA NDA/BLA approved{brand_note}",
+                "source": "api.fda.gov",
+                "note": f"FDA has an approved application{brand_note} but Cortellis shows phase '{phase}' — Cortellis record may be stale or drug approved under a different INN",
+            })
+
+    # Check 3: CT.gov highest phase > Cortellis phase (>1 step gap = likely stale)
+    if ct_trials_json is not None and phase_rank >= 0:
+        ct_highest = _ct_highest_phase(ct_trials_json)
+        if ct_highest > phase_rank + 1:
+            ct_phase_label = {0: "Early Phase 1", 1: "Phase 1", 2: "Phase 2", 3: "Phase 3", 4: "Phase 4"}.get(ct_highest, str(ct_highest))
+            conflicts.append({
+                "field": "development_phase",
+                "cortellis": phase,
+                "external": f"active {ct_phase_label} trials on CT.gov",
+                "source": "clinicaltrials.gov",
+                "note": f"CT.gov has active {ct_phase_label} trials but Cortellis shows '{phase}' — Cortellis phase may be outdated",
+            })
+
+    # Check 4: Cortellis has trials → CT.gov should see some active
     cortellis_trial_count = 0
     if trials_json:
         trial_data = trials_json.get("trialResultsOutput", trials_json)
@@ -300,7 +377,7 @@ def verify_claims(phase: str, fda_approvals: dict, ct_trials_json: dict,
                 "source": "clinicaltrials.gov",
                 "note": "Cortellis reports trials but CT.gov shows 0 recruiting/active — trials may be completed or search term mismatch",
             })
-        # Check 3: CT.gov sees many active trials but Cortellis has none
+        # Check 5: CT.gov sees many active trials but Cortellis has none
         if ct_count > 20 and cortellis_trial_count == 0:
             conflicts.append({
                 "field": "active_trial_count",
