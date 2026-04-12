@@ -92,9 +92,13 @@ Fetches recent publications for this drug. May return 0 results for niche/early-
 
 ### Step 8c: FDA approval data (external)
 ```bash
-python3 $RECIPES/enrich_fda_approval.py $DIR "$DRUG_NAME_RESOLVED"
+python3 $RECIPES/enrich_fda_approval.py $DIR "$DRUG_NAME_RESOLVED" --phase "$PHASE"
 ```
-Fetches FDA drugsfda approvals from api.fda.gov (no auth required). Writes `fda_approvals.json` (raw) and `fda_summary.md` (table). Handles 404/no-results gracefully.
+Fetches FDA data from api.fda.gov (no auth required). Pass `--phase` from the Cortellis record (e.g. "Launched", "Phase 3").
+
+For **launched/approved drugs**: fetches approvals, top FAERS adverse reactions, drug labels (boxed warnings), recalls, and shortages. Writes `fda_approvals.json`, `fda_summary.md`, `fda_adverse_reactions.json`, `fda_labels.json`, `fda_recalls.json`, `fda_shortages.json`, `fda_safety.md`.
+
+For **pipeline drugs** (Phase 1/2/3, Preclinical): fetches approvals (verification cross-check) and adverse reactions only — skips labels/recalls/shortages which will be empty. Handles 404/no-results gracefully.
 
 ### Step 9: Drug Design (SI) enrichment (for early-stage drugs)
 If the drug is Phase 1 or Preclinical:

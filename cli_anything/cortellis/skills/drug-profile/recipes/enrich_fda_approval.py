@@ -175,18 +175,38 @@ def write_fda_safety(
 # Main
 # ---------------------------------------------------------------------------
 
+def _is_launched(phase: str) -> bool:
+    """Return True if the drug phase indicates it is marketed/approved."""
+    p = (phase or "").lower()
+    return "launch" in p or p in ("approved", "marketed", "registered")
+
+
 def main():
     if len(sys.argv) < 3:
-        print("Usage: enrich_fda_approval.py <drug_dir> <drug_name>", file=sys.stderr)
+        print("Usage: enrich_fda_approval.py <drug_dir> <drug_name> [--phase PHASE]", file=sys.stderr)
         sys.exit(1)
 
     drug_dir = sys.argv[1]
     drug_name = sys.argv[2]
 
+    # Optional --phase flag to skip marketing-only endpoints for pipeline drugs
+    phase = ""
+    i = 3
+    while i < len(sys.argv):
+        if sys.argv[i] == "--phase" and i + 1 < len(sys.argv):
+            phase = sys.argv[i + 1]
+            i += 2
+        else:
+            i += 1
+
+    launched = _is_launched(phase)
+    if phase:
+        print(f"Drug phase: {phase} → {'launched' if launched else 'in development'}")
+
     if not os.path.isdir(drug_dir):
         os.makedirs(drug_dir, exist_ok=True)
 
-    # --- Approvals ---
+    # --- Approvals (always — used for verification cross-check) ---
     print(f"Fetching FDA approvals for: {drug_name}")
     raw = fda.search_drug_approvals(drug_name, limit=20)
     _write_json(drug_dir, "fda_approvals.json", raw)
@@ -194,30 +214,35 @@ def main():
     write_fda_summary(drug_dir, drug_name, approvals)
     print(f"  {len(approvals)} FDA approval record(s)")
 
-    # --- Adverse reactions ---
+    # --- Adverse reactions (always — may have data from clinical trial AE reports) ---
     print(f"Fetching top adverse reactions for: {drug_name}")
     adverse_reactions = fda.top_adverse_reactions(drug_name, limit=20)
     _write_json(drug_dir, "fda_adverse_reactions.json", adverse_reactions)
     print(f"  {len(adverse_reactions)} adverse reaction term(s)")
 
-    # --- Drug labels (boxed warnings) ---
-    print(f"Fetching FDA drug labels for: {drug_name}")
-    labels_raw = fda.search_drug_labels(drug_name, limit=3)
-    _write_json(drug_dir, "fda_labels.json", labels_raw)
-    boxed_warnings = extract_boxed_warnings(labels_raw)
-    print(f"  {len(boxed_warnings)} label(s) with boxed warning(s)")
+    # --- Labels, recalls, shortages: only meaningful for marketed drugs ---
+    boxed_warnings = []
+    recalls_raw = {}
+    shortages_raw = {}
 
-    # --- Recalls ---
-    print(f"Fetching FDA recalls for: {drug_name}")
-    recalls_raw = fda.search_recalls(drug_name, limit=10)
-    _write_json(drug_dir, "fda_recalls.json", recalls_raw)
-    print(f"  {len(recalls_raw.get('results', []))} recall record(s)")
+    if launched:
+        print(f"Fetching FDA drug labels for: {drug_name}")
+        labels_raw = fda.search_drug_labels(drug_name, limit=3)
+        _write_json(drug_dir, "fda_labels.json", labels_raw)
+        boxed_warnings = extract_boxed_warnings(labels_raw)
+        print(f"  {len(boxed_warnings)} label(s) with boxed warning(s)")
 
-    # --- Shortages ---
-    print(f"Fetching FDA shortages for: {drug_name}")
-    shortages_raw = fda.search_shortages(drug_name, limit=5)
-    _write_json(drug_dir, "fda_shortages.json", shortages_raw)
-    print(f"  {len(shortages_raw.get('results', []))} shortage record(s)")
+        print(f"Fetching FDA recalls for: {drug_name}")
+        recalls_raw = fda.search_recalls(drug_name, limit=10)
+        _write_json(drug_dir, "fda_recalls.json", recalls_raw)
+        print(f"  {len(recalls_raw.get('results', []))} recall record(s)")
+
+        print(f"Fetching FDA shortages for: {drug_name}")
+        shortages_raw = fda.search_shortages(drug_name, limit=5)
+        _write_json(drug_dir, "fda_shortages.json", shortages_raw)
+        print(f"  {len(shortages_raw.get('results', []))} shortage record(s)")
+    else:
+        print("  Skipping labels/recalls/shortages (drug not yet launched)")
 
     # --- Safety narrative ---
     write_fda_safety(drug_dir, drug_name, adverse_reactions, boxed_warnings, recalls_raw, shortages_raw)
