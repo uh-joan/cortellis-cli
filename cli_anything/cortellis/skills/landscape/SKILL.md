@@ -380,7 +380,7 @@ python3 $RECIPES/enrich_literature.py $DIR "<INDICATION_NAME>"
 # Rate limit: 2s between API calls.
 ```
 
-### Step 8e: Enrich with recent press releases (optional)
+### Step 8e: Enrich with recent press releases (recommended)
 ```bash
 python3 $RECIPES/enrich_press_releases.py $DIR "<INDICATION_NAME>"
 # Searches press releases for top 10 companies.

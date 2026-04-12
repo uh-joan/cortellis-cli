@@ -13,7 +13,46 @@ from cli_anything.cortellis.utils.wiki import (
     wiki_root,
     diff_snapshots,
 )
-from cli_anything.cortellis.utils.data_helpers import safe_float, safe_int
+from cli_anything.cortellis.utils.data_helpers import safe_float, safe_int, read_csv_safe
+
+
+# ---------------------------------------------------------------------------
+# Press release loading
+# ---------------------------------------------------------------------------
+
+def load_press_releases_across_indications(raw_root="raw"):
+    """Walk raw/*/press_releases_summary.csv and collect all press releases.
+
+    Returns list of dicts with: company_name, title, date, summary, indication
+    where indication is inferred from the directory name.
+    Deduplicates by title hash to avoid repeats across runs.
+    """
+    releases = []
+    seen_titles = set()
+
+    if not os.path.isdir(raw_root):
+        return releases
+
+    for ind_dir in sorted(os.listdir(raw_root)):
+        csv_path = os.path.join(raw_root, ind_dir, "press_releases_summary.csv")
+        if not os.path.isfile(csv_path):
+            continue
+        indication = ind_dir.replace("-", " ").title()
+        rows = read_csv_safe(csv_path)
+        for row in rows:
+            title = row.get("title", "").strip()
+            if not title:
+                continue
+            title_hash = hash(title.lower()[:80])
+            if title_hash in seen_titles:
+                continue
+            seen_titles.add(title_hash)
+            row["indication"] = indication
+            releases.append(row)
+
+    # Sort by date descending, most recent first
+    releases.sort(key=lambda r: r.get("date", ""), reverse=True)
+    return releases[:20]  # Cap at top 20
 
 
 # ---------------------------------------------------------------------------
@@ -232,6 +271,27 @@ def generate_signals_report(
         f"> Generated from {len(articles)} compiled landscapes | "
         f"Signals from last {max_age_days} days\n\n",
     ]
+
+    # Recent News section from press_releases_summary.csv files
+    # Try raw/ next to wiki/ (project root), then raw/ under wiki_dir
+    raw_root = os.path.join(os.path.dirname(w_dir), "raw")
+    if not os.path.isdir(raw_root):
+        raw_root = os.path.join(wiki_dir, "raw")
+    press_releases = load_press_releases_across_indications(raw_root)
+    if press_releases:
+        ind_count = len({r.get("indication", "") for r in press_releases})
+        lines.append("## Recent News\n\n")
+        lines.append("| Date | Company | Indication | Headline |\n")
+        lines.append("|------|---------|------------|----------|\n")
+        for r in press_releases:
+            date = r.get("date", "")
+            company = r.get("company_name", "").replace("|", "/")
+            indication = r.get("indication", "").replace("|", "/")
+            title = r.get("title", "").replace("|", "/")
+            if len(title) > 80:
+                title = title[:77] + "..."
+            lines.append(f"| {date} | {company} | {indication} | {title} |\n")
+        lines.append(f"\n*Top {len(press_releases)} most recent press releases across {ind_count} compiled indications.*\n\n")
 
     if not signals:
         lines.append("No strategic signals detected. All landscapes are stable.\n")

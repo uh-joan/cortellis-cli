@@ -14,7 +14,7 @@ from datetime import datetime, timezone
 # Allow running as standalone script
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "..", "..", "..", ".."))
 
-from cli_anything.cortellis.utils.data_helpers import read_json_safe, safe_int
+from cli_anything.cortellis.utils.data_helpers import read_json_safe, read_md_safe, safe_int
 from cli_anything.cortellis.utils.wiki import (
     slugify,
     normalize_company_name,
@@ -299,6 +299,211 @@ def extract_pharmacology(pharmacology):
     return items
 
 
+def extract_patents(patents):
+    """Extract patent records from patents.json.
+
+    Returns list of {patent_id, title, assignee, filing_date, status}.
+    """
+    if not patents or not isinstance(patents, dict):
+        return []
+
+    target = _unwrap_target(patents)
+    pat_list = target.get("Patents", {}).get("Patent", [])
+    if isinstance(pat_list, dict):
+        pat_list = [pat_list]
+    if not isinstance(pat_list, list):
+        return []
+
+    items = []
+    for p in pat_list:
+        if not isinstance(p, dict):
+            continue
+        patent_id = p.get("@id", p.get("@patentNumber", ""))
+        title = p.get("Title", p.get("@title", ""))
+        if isinstance(title, dict):
+            title = title.get("$", "")
+        assignee = p.get("Assignee", p.get("@assignee", ""))
+        if isinstance(assignee, dict):
+            assignee = assignee.get("$", assignee.get("@name", ""))
+        filing_date = p.get("@filingDate", p.get("FilingDate", ""))
+        if isinstance(filing_date, dict):
+            filing_date = filing_date.get("$", "")
+        status = p.get("@status", p.get("Status", ""))
+        if isinstance(status, dict):
+            status = status.get("$", "")
+        items.append({
+            "patent_id": str(patent_id)[:30] if patent_id else "",
+            "title": str(title)[:80] if title else "",
+            "assignee": str(assignee)[:40] if assignee else "",
+            "filing_date": str(filing_date)[:10] if filing_date else "",
+            "status": str(status)[:20] if status else "",
+        })
+
+    return items
+
+
+def extract_references(references):
+    """Extract reference records from references.json.
+
+    Returns list of {title, authors, journal, year}.
+    """
+    if not references or not isinstance(references, dict):
+        return []
+
+    target = _unwrap_target(references)
+    ref_list = target.get("References", {}).get("Reference", [])
+    if isinstance(ref_list, dict):
+        ref_list = [ref_list]
+    if not isinstance(ref_list, list):
+        return []
+
+    items = []
+    for r in ref_list:
+        if not isinstance(r, dict):
+            continue
+        title = r.get("Title", r.get("@title", ""))
+        if isinstance(title, dict):
+            title = title.get("$", "")
+        authors_raw = r.get("Authors", r.get("Author", ""))
+        if isinstance(authors_raw, list):
+            authors = "; ".join(
+                a.get("$", a.get("@name", str(a))) if isinstance(a, dict) else str(a)
+                for a in authors_raw[:3]
+            )
+            if len(authors_raw) > 3:
+                authors += " et al"
+        elif isinstance(authors_raw, dict):
+            authors = authors_raw.get("$", authors_raw.get("@name", ""))
+        else:
+            authors = str(authors_raw) if authors_raw else ""
+        journal = r.get("Journal", r.get("@journal", r.get("Source", "")))
+        if isinstance(journal, dict):
+            journal = journal.get("$", journal.get("@name", ""))
+        year = r.get("@year", r.get("Year", r.get("PublicationYear", "")))
+        if isinstance(year, dict):
+            year = year.get("$", "")
+        items.append({
+            "title": str(title)[:100] if title else "",
+            "authors": str(authors)[:60] if authors else "",
+            "journal": str(journal)[:50] if journal else "",
+            "year": str(year)[:4] if year else "",
+        })
+
+    return items
+
+
+def extract_publications(literature_data):
+    """Extract publication records from literature API response.
+
+    Returns list of {title, authors, journal, date, abstract_excerpt}.
+    """
+    if not literature_data or not isinstance(literature_data, dict):
+        return []
+
+    hits = (
+        literature_data.get("literatureResultsOutput", {})
+        .get("SearchResults", {})
+        .get("Literature", [])
+    )
+    if isinstance(hits, dict):
+        hits = [hits]
+    if not isinstance(hits, list):
+        return []
+
+    pubs = []
+    for record in hits:
+        if not isinstance(record, dict):
+            continue
+
+        title = str(record.get("Title") or "").strip()
+
+        authors_raw = record.get("Authors", {})
+        if isinstance(authors_raw, dict):
+            authors_raw = authors_raw.get("Author", [])
+        if isinstance(authors_raw, str):
+            authors_raw = [authors_raw]
+        if not isinstance(authors_raw, list):
+            authors_raw = []
+        if authors_raw:
+            first = str(authors_raw[0]).strip()
+            authors = f"{first} et al" if len(authors_raw) > 1 else first
+        else:
+            authors = ""
+
+        journal = str(record.get("PublicationName") or "").strip()
+
+        date = str(record.get("IssueDate") or record.get("PublicationYear") or "").strip()
+        if len(date) > 7 and "T" in date:
+            date = date[:10]
+        elif len(date) > 7 and "-" in date:
+            date = date[:7]
+
+        abstract_raw = str(record.get("Teaser") or "").strip()
+        abstract_excerpt = abstract_raw[:200] + ("..." if len(abstract_raw) > 200 else "")
+
+        if title:
+            pubs.append({
+                "title": title,
+                "authors": authors,
+                "journal": journal,
+                "date": date,
+                "abstract_excerpt": abstract_excerpt,
+            })
+
+    return pubs
+
+
+# ---------------------------------------------------------------------------
+# Verification layer
+# ---------------------------------------------------------------------------
+
+def verify_claims_target(target_name: str, total_drugs: int, disease_associations: list,
+                         publication_count: int) -> dict:
+    """Cross-check Cortellis target claims against ClinicalTrials.gov.
+
+    Checks:
+      1. If Cortellis reports >10 drugs for this target, CT.gov should have active trials.
+      2. If publication_count == 0 and total_drugs > 5, flag PubMed enrichment needed.
+    Only runs CT.gov check if clinicaltrials module is available (graceful skip on network error).
+
+    Returns:
+        {verified: bool, verified_at: str, conflicts: list of dicts}
+    """
+    from datetime import datetime, timezone
+    now = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+    conflicts = []
+
+    # Check 1: Active drugs → CT.gov should show trials
+    if total_drugs > 10:
+        try:
+            sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "..", "..", "..", ".."))
+            from cli_anything.cortellis.core import clinicaltrials
+            ct_count = clinicaltrials.count_trials(target_name)
+            if ct_count == 0:
+                conflicts.append({
+                    "field": "active_trial_count",
+                    "cortellis": total_drugs,
+                    "external": 0,
+                    "source": "clinicaltrials.gov",
+                    "note": f"Cortellis reports {total_drugs} drugs for {target_name} but CT.gov shows 0 trials — target name may differ in registry",
+                })
+        except Exception:
+            pass  # Skip check if network unavailable
+
+    # Check 2: Well-targeted drug with no publications
+    if publication_count == 0 and total_drugs > 5:
+        conflicts.append({
+            "field": "publication_count",
+            "cortellis": 0,
+            "external": "unknown",
+            "source": "cortellis-literature",
+            "note": f"{total_drugs} drugs target this protein but 0 publications found — consider running PubMed enrichment",
+        })
+
+    verified = len(conflicts) == 0
+    return {"verified": verified, "verified_at": now, "conflicts": conflicts}
+
+
 # ---------------------------------------------------------------------------
 # Article compilation
 # ---------------------------------------------------------------------------
@@ -313,6 +518,9 @@ def compile_target_article(target_dir, target_name, slug, base_dir=None):
     interactions = read_json_safe(os.path.join(target_dir, "interactions.json"))
     drugs_pipeline = read_json_safe(os.path.join(target_dir, "drugs_pipeline.json"))
     pharmacology = read_json_safe(os.path.join(target_dir, "pharmacology.json"))
+    literature = read_json_safe(os.path.join(target_dir, "literature.json"))
+    patents_data = read_json_safe(os.path.join(target_dir, "patents.json"))
+    references_data = read_json_safe(os.path.join(target_dir, "references.json"))
 
     overview = extract_target_overview(record)
     disease_associations = extract_disease_associations(condition_drugs)
@@ -320,11 +528,21 @@ def compile_target_article(target_dir, target_name, slug, base_dir=None):
     total_drugs, drug_pipeline = extract_drug_pipeline(drugs_pipeline)
     interaction_items = extract_interactions(interactions)
     pharm_items = extract_pharmacology(pharmacology)
+    publications = extract_publications(literature) if literature else []
+    patent_items = extract_patents(patents_data)
+    reference_items = extract_references(references_data)
 
     gene_symbol = overview.get("gene_symbol", "")
     family = overview.get("family", "")
     organism = overview.get("organism", "Human")
     display_name = overview.get("name") or target_name
+
+    verification = verify_claims_target(
+        target_name=display_name,
+        total_drugs=total_drugs,
+        disease_associations=disease_associations,
+        publication_count=len(publications),
+    )
 
     meta = {
         "title": display_name,
@@ -337,6 +555,12 @@ def compile_target_article(target_dir, target_name, slug, base_dir=None):
         "organism": organism,
         "disease_count": len(disease_associations),
         "drug_count": total_drugs,
+        "publication_count": len(publications),
+        "patent_count": len(patent_items),
+        "reference_count": len(reference_items),
+        "verified": verification["verified"],
+        "verified_at": verification["verified_at"],
+        "conflicts": verification["conflicts"],
     }
 
     body_parts = []
@@ -436,6 +660,59 @@ def compile_target_article(target_dir, target_name, slug, base_dir=None):
                 f" | {item['unit']}"
                 f" |\n"
             )
+        body_parts.append("\n")
+
+    # IP Landscape (patents)
+    if patent_items:
+        body_parts.append(f"## IP Landscape ({len(patent_items)} patents)\n\n")
+        body_parts.append("| Patent ID | Title | Assignee | Date | Status |\n|---|---|---|---|---|\n")
+        for item in patent_items:
+            body_parts.append(
+                f"| {item['patent_id']}"
+                f" | {item['title']}"
+                f" | {item['assignee']}"
+                f" | {item['filing_date']}"
+                f" | {item['status']}"
+                f" |\n"
+            )
+        body_parts.append("\n")
+
+    # Literature References
+    if reference_items:
+        body_parts.append(f"## Literature References ({len(reference_items)})\n\n")
+        body_parts.append("| Title | Authors | Journal | Year |\n|---|---|---|---|\n")
+        for item in reference_items:
+            body_parts.append(
+                f"| {item['title']}"
+                f" | {item['authors']}"
+                f" | {item['journal']}"
+                f" | {item['year']}"
+                f" |\n"
+            )
+        body_parts.append("\n")
+
+    # Recent Publications
+    if publications:
+        body_parts.append(f"## Recent Publications ({len(publications)})\n\n")
+        body_parts.append("| Title | Authors | Journal | Date |\n|---|---|---|---|\n")
+        for pub in publications:
+            title = pub.get("title", "")
+            if len(title) > 80:
+                title = title[:77] + "..."
+            authors = pub.get("authors", "")
+            journal = pub.get("journal", "")
+            date = pub.get("date", "")
+            body_parts.append(f"| {title} | {authors} | {journal} | {date} |\n")
+        body_parts.append("\n")
+
+    # Active Trials (ClinicalTrials.gov)
+    ct_trials_md = read_md_safe(os.path.join(target_dir, "ct_trials_summary.md"))
+    if ct_trials_md:
+        body_parts.append("## Active Trials (ClinicalTrials.gov)\n\n")
+        for line in ct_trials_md.splitlines():
+            if line.startswith("## ClinicalTrials.gov:"):
+                continue
+            body_parts.append(line + "\n")
         body_parts.append("\n")
 
     # Data Sources

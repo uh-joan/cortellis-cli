@@ -69,11 +69,27 @@ cortellis --json drug-design pharmacology --query "$GENE_SYMBOL" --hits 50 > $DI
 ```
 Note: Use plain gene symbol as query, NOT `targetSynonyms:` prefix (not supported by pharmacology endpoint).
 
+### Step 7b: IP landscape (patents)
+```bash
+cortellis --json targets patents $TARGET_ID > $DIR/patents.json
+```
+
+### Step 7c: Literature references
+```bash
+cortellis --json targets references $TARGET_ID > $DIR/references.json
+```
+
 ### Step 8: Disease briefings (optional, may return 400 for some targets)
 ```bash
 cortellis --json drug-design disease-briefings-search --query "$TARGET_NAME" --hits 3 > $DIR/briefings.json
 ```
 If this fails, write `{}` to briefings.json and continue — the report generator skips empty sections.
+
+### Step 8a: Recent publications
+```bash
+cortellis --json literature search --query "$GENE_SYMBOL" --hits 10 --sort-by "-date" > $DIR/literature.json
+```
+Fetches recent publications by gene symbol. May return 0 results — skip section if empty.
 
 ### Step 9: Generate report
 ```bash

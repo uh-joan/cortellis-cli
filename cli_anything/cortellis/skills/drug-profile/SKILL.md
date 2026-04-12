@@ -69,10 +69,32 @@ bash $RECIPES/fetch_trials.sh "$DRUG_SLUG" $DIR/trials.json
 ```
 Fetches all Recruiting + Active-not-recruiting trials with pagination. No cap.
 
-### Step 8: Regulatory status
+### Step 8: Regulatory milestones
 ```bash
-cortellis --json regulations search --query "$DRUG_SLUG" --hits 10 --sort-by "-regulatoryDateSort" > $DIR/regulatory.json
+python3 cli_anything/cortellis/skills/landscape/recipes/enrich_regulatory_milestones.py $DIR "$DRUG_NAME_RESOLVED"
+# Fetches submissions, approvals, PDUFA dates, label changes across US, EU, JP.
+# Writes: regulatory_milestones.csv and regulatory_timeline.md
+# Rate limit: 2s between API calls. Handles 0-result drugs gracefully.
 ```
+
+### Step 7b: ClinicalTrials.gov enrichment (external)
+```bash
+python3 $RECIPES/enrich_ct_trials.py $DIR "$DRUG_NAME_RESOLVED"
+```
+Fetches RECRUITING + ACTIVE_NOT_RECRUITING trials from ClinicalTrials.gov (free, no auth).
+Writes: `ct_trials.json`, `ct_trials_summary.md`. Cross-checks count vs Cortellis trials.json if present.
+
+### Step 8b: Recent publications
+```bash
+cortellis --json literature search --query "$DRUG_SLUG" --hits 10 --sort-by "-date" > $DIR/literature.json
+```
+Fetches recent publications for this drug. May return 0 results for niche/early-stage drugs — skip section if empty.
+
+### Step 8c: FDA approval data (external)
+```bash
+python3 $RECIPES/enrich_fda_approval.py $DIR "$DRUG_NAME_RESOLVED"
+```
+Fetches FDA drugsfda approvals from api.fda.gov (no auth required). Writes `fda_approvals.json` (raw) and `fda_summary.md` (table). Handles 404/no-results gracefully.
 
 ### Step 9: Drug Design (SI) enrichment (for early-stage drugs)
 If the drug is Phase 1 or Preclinical:

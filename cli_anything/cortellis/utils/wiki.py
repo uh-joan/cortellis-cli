@@ -344,7 +344,7 @@ def update_index(wiki_dir: str, entries: list[dict]) -> None:
         f"\n> Auto-generated index. Last updated: {_now_iso()}\n",
     ]
 
-    type_order = ["indications", "companies", "drugs", "targets", "concepts", "connections"]
+    type_order = ["indications", "companies", "drugs", "targets", "concepts", "connections", "conferences", "internal"]
     for t in type_order:
         group = by_type.get(t, [])
         if not group:
@@ -429,7 +429,7 @@ def log_activity(wiki_dir: str, action: str, details: str) -> None:
 def load_index_entries(wiki_dir: str) -> list[dict]:
     """Load existing index entries by scanning article frontmatter."""
     entries = []
-    for article_type in ("indications", "companies", "drugs", "targets", "concepts", "connections"):
+    for article_type in ("indications", "companies", "drugs", "targets", "concepts", "connections", "conferences", "internal"):
         type_dir = os.path.join(wiki_dir, article_type)
         if not os.path.isdir(type_dir):
             continue
