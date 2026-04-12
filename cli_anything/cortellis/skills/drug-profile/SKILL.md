@@ -115,7 +115,7 @@ python3 $RECIPES/drug_report_generator.py $DIR
 
 ### Step 11: Compile to wiki
 ```bash
-python3 $RECIPES/compile_drug.py $DIR "$DRUG_NAME_RESOLVED" [--wiki-dir /path/to/wiki-root]
+uv run --with pyyaml python3 $RECIPES/compile_drug.py $DIR "$DRUG_NAME_RESOLVED" [--wiki-dir /path/to/wiki-root]
 ```
 Reads all JSON files from `$DIR` and writes `wiki/drugs/<slug>.md` plus updates `wiki/INDEX.md`.
 
