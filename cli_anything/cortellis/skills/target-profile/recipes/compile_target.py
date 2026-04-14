@@ -583,6 +583,12 @@ def compile_target_article(target_dir, target_name, slug, base_dir=None):
         **({"aliases": target_aliases} if target_aliases else {}),
     }
 
+    # Cross-profile links: related indication wiki articles
+    indication_slugs = [slugify(d["disease"]) for d in disease_associations[:10] if d.get("disease")]
+    if indication_slugs:
+        meta["indications"] = indication_slugs
+        meta["related"] = indication_slugs
+
     body_parts = []
 
     # Biology section

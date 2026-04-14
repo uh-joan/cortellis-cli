@@ -457,10 +457,17 @@ def compile_drug_article(drug_dir, drug_name, slug, base_dir=None):
     # Cross-check verification (only when external enrich files exist)
     verification = verify_claims(phase, fda_approvals, ct_trials_json, trials_json, overview=overview, drug_dir=drug_dir)
 
-    # Build related: originator slug + indication slugs
+    # Build related: originator slug + target slugs + indication slugs
     related = []
     if originator:
         related.append(find_company_slug(originator, base_dir))
+    # Link to target wiki articles
+    target_slugs = []
+    for t in targets[:5]:
+        t_slug = find_target_slug_for_mechanism(t, base_dir) or slugify(t)
+        if t_slug and t_slug not in related:
+            target_slugs.append(t_slug)
+            related.append(t_slug)
     for ind in indications[:5]:
         ind_slug = slugify(ind)
         if ind_slug not in related:
@@ -478,6 +485,7 @@ def compile_drug_article(drug_dir, drug_name, slug, base_dir=None):
         "mechanism": mechanism,
         "indication_count": len(indications),
         "indications": [slugify(i) for i in indications],
+        "targets": target_slugs,
         "related": related,
         "fda_approval_count": fda_approval_count,
         "ct_trial_count": ct_trial_count,

@@ -478,6 +478,119 @@ def scan_class1_recalls(raw_drugs_dir: str, days: int = 180) -> list[dict]:
 
 
 # ---------------------------------------------------------------------------
+# Preprint signals (bioRxiv/medRxiv)
+# ---------------------------------------------------------------------------
+
+def scan_preprint_signals(raw_root: str = "raw", days: int = 60) -> list[dict]:
+    """Scan raw/drugs/* and raw/targets/* for recent bioRxiv/medRxiv preprints.
+
+    Returns signals for preprints published within `days` days.
+    Deduplicates by DOI.
+    """
+    signals = []
+    cutoff = datetime.now(timezone.utc) - timedelta(days=days)
+    seen_dois = set()
+
+    for subdir in ("drugs", "targets"):
+        base = os.path.join(raw_root, subdir)
+        if not os.path.isdir(base):
+            continue
+        for slug in os.listdir(base):
+            biorxiv_path = os.path.join(base, slug, "biorxiv.json")
+            if not os.path.isfile(biorxiv_path):
+                continue
+            try:
+                with open(biorxiv_path) as f:
+                    data = json.load(f)
+                preprints = data if isinstance(data, list) else data.get("preprints", data.get("results", []))
+                for p in preprints:
+                    doi = p.get("doi", "")
+                    if doi and doi in seen_dois:
+                        continue
+                    if doi:
+                        seen_dois.add(doi)
+                    date_str = (p.get("date") or p.get("published") or "")[:10]
+                    if not date_str:
+                        continue
+                    try:
+                        pub_date = datetime.fromisoformat(date_str).replace(tzinfo=timezone.utc)
+                    except ValueError:
+                        continue
+                    if pub_date < cutoff:
+                        continue
+                    title = p.get("title", "").strip()
+                    server = (p.get("server") or "preprint").upper()
+                    age_days = (datetime.now(timezone.utc) - pub_date).days
+                    severity = "medium" if age_days <= 14 else "low"
+                    signals.append({
+                        "indication": slug.replace("-", " ").title(),
+                        "signal_type": "preprint_signal",
+                        "severity": severity,
+                        "summary": f"{server}: {title[:100]}{'...' if len(title) > 100 else ''}",
+                        "action": f"Review preprint — may signal emerging science for {slug.replace('-', ' ')}",
+                        "data": {"doi": doi, "date": date_str, "server": server, "slug": slug},
+                    })
+            except (json.JSONDecodeError, OSError):
+                continue
+
+    # Sort: newest first
+    signals.sort(key=lambda s: s["data"].get("date", ""), reverse=True)
+    return signals[:20]
+
+
+# ---------------------------------------------------------------------------
+# Open Targets genetic evidence signals
+# ---------------------------------------------------------------------------
+
+def scan_opentargets_signals(raw_root: str = "raw") -> list[dict]:
+    """Scan raw/targets/*/opentargets.json for high-evidence disease associations.
+
+    Emits signals for target-indication pairs with association score > 0.7.
+    """
+    signals = []
+
+    targets_dir = os.path.join(raw_root, "targets")
+    if not os.path.isdir(targets_dir):
+        return signals
+
+    for slug in os.listdir(targets_dir):
+        ot_path = os.path.join(targets_dir, slug, "opentargets.json")
+        if not os.path.isfile(ot_path):
+            continue
+        try:
+            with open(ot_path) as f:
+                data = json.load(f)
+            assoc_rows = (
+                data.get("associations", data.get("disease_associations", {})).get("rows", [])
+                if isinstance(data, dict) else []
+            )
+            for row in assoc_rows:
+                score = safe_float(row.get("score", 0))
+                if score < 0.7:
+                    continue
+                disease = row.get("disease_name") or (row.get("disease") or {}).get("name", "") or row.get("name", "")
+                if not disease:
+                    continue
+                target_label = slug.replace("-", " ").title()
+                signals.append({
+                    "indication": disease,
+                    "signal_type": "high_genetic_evidence",
+                    "severity": "medium" if score >= 0.85 else "low",
+                    "summary": (
+                        f"{target_label} → {disease}: Open Targets score {score:.2f} "
+                        f"(strong genetic validation)"
+                    ),
+                    "action": f"Consider {target_label} as high-confidence target for {disease}",
+                    "data": {"target_slug": slug, "disease": disease, "score": score},
+                })
+        except (json.JSONDecodeError, OSError):
+            continue
+
+    signals.sort(key=lambda s: s["data"].get("score", 0), reverse=True)
+    return signals[:15]
+
+
+# ---------------------------------------------------------------------------
 # Full signals report
 # ---------------------------------------------------------------------------
 
@@ -520,6 +633,34 @@ def generate_signals_report(
                 title = title[:77] + "..."
             lines.append(f"| {date} | {company} | {indication} | {title} |\n")
         lines.append(f"\n*Top {len(press_releases)} most recent press releases across {ind_count} compiled indications.*\n\n")
+
+    # Emerging science: recent preprints from enriched drug/target profiles
+    preprint_signals = scan_preprint_signals(raw_root, days=60)
+    if preprint_signals:
+        lines.append("## Emerging Science (Recent Preprints)\n\n")
+        lines.append("| Age | Area | Preprint |\n")
+        lines.append("|-----|------|----------|\n")
+        for s in preprint_signals[:12]:
+            d = s["data"]
+            age_days = (datetime.now(timezone.utc) - datetime.fromisoformat(d["date"]).replace(tzinfo=timezone.utc)).days if d.get("date") else "?"
+            server = d.get("server", "PREPRINT")
+            slug = d.get("slug", s["indication"])
+            lines.append(f"| {age_days}d | {slug.replace('-', ' ').title()} | [{server}] {s['summary'][:90]} |\n")
+        lines.append("\n")
+
+    # High genetic evidence targets from Open Targets enrichment
+    ot_signals = scan_opentargets_signals(raw_root)
+    if ot_signals:
+        lines.append("## High Genetic Evidence Targets\n\n")
+        lines.append("| Target | Disease | OT Score |\n")
+        lines.append("|--------|---------|----------|\n")
+        for s in ot_signals[:10]:
+            d = s["data"]
+            target = d.get("target_slug", "").replace("-", " ").title()
+            disease = d.get("disease", "")
+            score = d.get("score", 0)
+            lines.append(f"| {target} | {disease} | {score:.2f} |\n")
+        lines.append("\n*Targets with Open Targets association score ≥ 0.70 — strong genetic validation.*\n\n")
 
     if not signals:
         lines.append("No strategic signals detected. All landscapes are stable.\n\n")

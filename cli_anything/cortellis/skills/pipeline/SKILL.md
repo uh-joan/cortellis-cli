@@ -234,6 +234,12 @@ python3 $RECIPES/report_generator.py $DIR "<COMPANY_NAME>" "<COMPANY_ID>" "<ACTI
 ```
 Produces: ASCII bar charts (pipeline distribution + therapeutic focus), summary table with truncation warnings, full drug tables per phase, deals table, and trials summary.
 
+### Step 8a: External enrichment — Open Targets + bioRxiv (optional)
+```bash
+python3 $RECIPES/enrich_pipeline_external.py $DIR "<COMPANY_NAME>"
+```
+Fetches Open Targets tractability + genetic constraint for top pipeline mechanisms. Searches bioRxiv/medRxiv for recent preprints. Writes `opentargets_pipeline.md` and `biorxiv_pipeline.md` to the pipeline dir (embedded by compile_pipeline.py).
+
 ### Compile pipeline to wiki (Step 8 — optional)
 ```bash
 python3 $RECIPES/compile_pipeline.py $DIR "<COMPANY_NAME>" [--wiki-dir DIR]
