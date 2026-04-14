@@ -798,7 +798,12 @@ def main():
     if not target_name:
         target_name = os.path.basename(target_dir).replace("-", " ").upper()
 
-    slug = slugify(target_name)
+    # Canonical slug = directory basename (set once from $TARGET_SLUG in SKILL.md).
+    # This prevents duplicate articles when the same target is compiled with different
+    # name spellings (e.g., "Dipeptidyl peptidase 4" vs "DPP-4" → both → dpp-4.md).
+    dir_slug = os.path.basename(target_dir.rstrip("/\\"))
+    slug = dir_slug if dir_slug else slugify(target_name)
+
     base_dir = wiki_dir_override or os.getcwd()
     w_dir = wiki_root(base_dir)
 
