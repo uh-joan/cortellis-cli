@@ -91,6 +91,34 @@ cortellis --json literature search --query "$GENE_SYMBOL" --hits 10 --sort-by "-
 ```
 Fetches recent publications by gene symbol. May return 0 results — skip section if empty.
 
+### Step 8b: UniProt + AlphaFold (external)
+```bash
+python3 $RECIPES/enrich_target_uniprot.py $DIR "$GENE_SYMBOL"
+```
+Fetches from UniProt REST API and AlphaFold EBI API (both public, no auth). Gene symbol search is exact-match with Swiss-Prot reviewed entries preferred.
+Writes: `uniprot.json`, `alphafold.json`, `uniprot_summary.md`. Covers: protein size/MW, subcellular location, subunit structure, TM regions and domains, disease associations, PDB cross-refs, AlphaFold v6 structure link.
+
+### Step 8c: Open Targets (external)
+```bash
+python3 $RECIPES/enrich_target_opentargets.py $DIR "$GENE_SYMBOL"
+```
+Fetches from Open Targets Platform GraphQL API (public, no auth). Resolves gene symbol → Ensembl ID automatically.
+Writes: `opentargets.json`, `opentargets_summary.md`. Covers: tractability (SM/antibody/PROTAC), disease associations with evidence scores (0–1), gnomAD genetic constraint (LoF O/E), safety liabilities, known drugs cross-check.
+
+### Step 8d: ChEMBL binding affinity (external)
+```bash
+python3 $RECIPES/enrich_target_chembl.py $DIR "$GENE_SYMBOL"
+```
+Fetches binding affinity data from public ChEMBL REST API (no auth). Searches by gene symbol via component synonyms (more reliable than name search).
+Writes: `chembl_target.json`, `chembl_target_summary.md`. Covers top compounds by pChEMBL value (IC50, Ki, EC50).
+
+### Step 8e: CPIC pharmacogenomics (external)
+```bash
+python3 $RECIPES/enrich_target_cpic.py $DIR "$GENE_SYMBOL"
+```
+Fetches gene-drug pairs, guidelines, and star alleles from CPIC PostgREST API (no auth).
+Writes: `cpic_gene.json`, `cpic_gene_summary.md`. Most relevant for PK genes (CYP2C9, CYP2D6, VKORC1, etc.). Skips gracefully for non-PGx targets.
+
 ### Step 9: Generate report
 ```bash
 python3 $RECIPES/target_report_generator.py $DIR

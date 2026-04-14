@@ -106,6 +106,35 @@ python3 $RECIPES/enrich_ema.py $DIR "$DRUG_NAME_RESOLVED" --phase "$PHASE"
 ```
 Fetches EU approval data from EMA public JSON API (no auth). Writes ema_approvals.json, ema_shortages.json, ema_referrals.json, ema_summary.md.
 
+### Step 8e: Orange Book / Purple Book patent cliff (external)
+```bash
+python3 $RECIPES/enrich_fda_patent.py $DIR "$DRUG_NAME_RESOLVED"
+```
+Queries the local fda-mcp-server SQLite database (no network call). Writes `fda_patent.json`, `fda_patent_cliff.md`.
+Covers: unique patents with expiry dates, exclusivity periods (NCE/NPP/ODE/PED), effective LOE date, AB-rated generics count.
+Downloads FDA Orange Book ZIP directly from FDA (~1 MB, cached monthly at `~/.cortellis/cache/orange-book.zip`). No auth required. Skips gracefully if download fails.
+
+### Step 8f: ChEMBL enrichment (external)
+```bash
+python3 $RECIPES/enrich_chembl.py $DIR "$DRUG_NAME_RESOLVED"
+```
+Fetches from public ChEMBL REST API (no auth). Writes `chembl.json`, `chembl_summary.md`.
+Covers: ChEMBL ID, molecule type, mechanism of action + action type + target ChEMBL ID, ChEMBL indications with max phase, ADMET/drug-likeness (small molecules only).
+
+### Step 8g: CPIC pharmacogenomics (external)
+```bash
+python3 $RECIPES/enrich_cpic.py $DIR "$DRUG_NAME_RESOLVED"
+```
+Fetches gene-drug pairs from CPIC PostgREST API (no auth). Only includes Level A/B evidence (clinically actionable).
+Writes: `cpic.json`, `cpic_summary.md`. Skips gracefully if drug has no CPIC data (expected for most biologics).
+
+### Step 8h: bioRxiv/medRxiv preprints (external)
+```bash
+python3 $RECIPES/enrich_biorxiv.py $DIR "$DRUG_NAME_RESOLVED"
+```
+Searches bioRxiv and medRxiv via EuropePMC for preprints in the last 2 years (no auth required).
+Writes: `biorxiv.json`, `biorxiv_summary.md`. Especially useful for pipeline drugs with limited peer-reviewed literature.
+
 ### Step 9: Drug Design (SI) enrichment (for early-stage drugs)
 If the drug is Phase 1 or Preclinical:
 ```bash

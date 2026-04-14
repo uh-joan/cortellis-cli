@@ -567,8 +567,16 @@ def compile_drug_article(drug_dir, drug_name, slug, base_dir=None):
                     indication = m.group(3).strip()
                     if new_val == "No Development Reported":
                         continue
+                    old_rank = _PHASE_ORDER.get(old_val, 0)
+                    new_rank = _PHASE_ORDER.get(new_val, 0)
                     # Skip backward transitions (Cortellis data corrections)
-                    if _PHASE_ORDER.get(new_val, 99) <= _PHASE_ORDER.get(old_val, 0):
+                    if new_rank <= old_rank:
+                        continue
+                    # Launched requires formal Registered step first (no phase-skipping to market)
+                    if new_val == "Launched" and old_val != "Registered":
+                        continue
+                    # Skip implausible jumps >2 steps (bulk territory record updates)
+                    if new_rank - old_rank > 2:
                         continue
                     by_indication[indication].append((date, f"{old_val} → {new_val}"))
         has_global = bool(global_milestones)
@@ -577,11 +585,19 @@ def compile_drug_article(drug_dir, drug_name, slug, base_dir=None):
         if drug_added:
             body_parts.append(f"- **{drug_added}**: Drug added\n")
         if has_per_indication:
-            # Render per-indication sub-sections, deduped by label (earliest date wins)
-            for indication in sorted(by_indication):
+            # Sort indications by earliest event date (chronological, not alphabetical)
+            def _ind_start(ind):
+                events = by_indication[ind]
+                return events[0][0] if events else "9999"
+            for indication in sorted(by_indication, key=_ind_start):
+                events = by_indication[indication]
+                # Truncate at Launched: drop entries after the first Launched date
+                launched_date = next((d for d, l in events if l == "Registered → Launched"), None)
+                if launched_date:
+                    events = [(d, l) for d, l in events if d <= launched_date]
                 body_parts.append(f"\n### {indication}\n\n")
                 seen: set = set()
-                for date, label in by_indication[indication]:
+                for date, label in events:
                     if label not in seen:
                         seen.add(label)
                         body_parts.append(f"- **{date}**: {label}\n")
@@ -695,6 +711,30 @@ def compile_drug_article(drug_dir, drug_name, slug, base_dir=None):
     ema_summary_md = read_md_safe(os.path.join(drug_dir, "ema_summary.md"))
     if ema_summary_md:
         body_parts.append(ema_summary_md)
+        body_parts.append("\n")
+
+    # Patent Cliff & Biosimilars (from enrich_fda_patent.py)
+    fda_patent_md = read_md_safe(os.path.join(drug_dir, "fda_patent_cliff.md"))
+    if fda_patent_md:
+        body_parts.append(fda_patent_md)
+        body_parts.append("\n")
+
+    # ChEMBL mechanism, ADMET, indications (from enrich_chembl.py)
+    chembl_md = read_md_safe(os.path.join(drug_dir, "chembl_summary.md"))
+    if chembl_md:
+        body_parts.append(chembl_md)
+        body_parts.append("\n")
+
+    # Pharmacogenomics (from enrich_cpic.py)
+    cpic_md = read_md_safe(os.path.join(drug_dir, "cpic_summary.md"))
+    if cpic_md:
+        body_parts.append(cpic_md)
+        body_parts.append("\n")
+
+    # Preprints — bioRxiv/medRxiv (from enrich_biorxiv.py)
+    biorxiv_md = read_md_safe(os.path.join(drug_dir, "biorxiv_summary.md"))
+    if biorxiv_md:
+        body_parts.append(biorxiv_md)
         body_parts.append("\n")
 
     # Data Sources

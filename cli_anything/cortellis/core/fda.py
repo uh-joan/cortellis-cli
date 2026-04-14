@@ -1,9 +1,18 @@
 #!/usr/bin/env python3
-"""FDA OpenFDA API client — wraps api.fda.gov (no auth required)."""
+"""FDA OpenFDA API client — wraps api.fda.gov (no auth required).
 
+Also includes Orange Book patent/exclusivity data fetched directly from FDA
+bulk download (https://www.fda.gov/media/76860/download) with local caching.
+"""
+
+import csv
+import io
 import os
 import time
 import urllib.parse
+import zipfile
+from datetime import datetime, timezone
+from pathlib import Path
 
 import requests
 
@@ -291,6 +300,174 @@ def search_shortages(drug_name: str, limit: int = 10) -> dict:
         "limit": limit,
     }
     return _get("/drug/shortages.json", params)
+
+
+# ---------------------------------------------------------------------------
+# Orange Book — bulk download with local cache
+# ---------------------------------------------------------------------------
+
+_OB_URL = "https://www.fda.gov/media/76860/download"
+_OB_CACHE_DIR = Path.home() / ".cortellis" / "cache"
+_OB_CACHE_FILE = _OB_CACHE_DIR / "orange-book.zip"
+_OB_MAX_AGE_DAYS = 30  # refresh monthly
+
+
+def _ob_cache_is_fresh() -> bool:
+    if not _OB_CACHE_FILE.exists():
+        return False
+    age_days = (datetime.now(timezone.utc).timestamp() - _OB_CACHE_FILE.stat().st_mtime) / 86400
+    return age_days < _OB_MAX_AGE_DAYS
+
+
+_OB_HEADERS = {
+    "User-Agent": (
+        "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) "
+        "AppleWebKit/537.36 (KHTML, like Gecko) "
+        "Chrome/124.0.0.0 Safari/537.36"
+    ),
+    "Accept": "application/zip,*/*",
+    "Referer": "https://www.fda.gov/drugs/drug-approvals-and-databases/orange-book-data-files",
+}
+
+
+def _download_orange_book() -> None:
+    """Download Orange Book ZIP to local cache."""
+    _OB_CACHE_DIR.mkdir(parents=True, exist_ok=True)
+    print(f"[fda] Downloading Orange Book from FDA (~1 MB)...")
+    try:
+        resp = requests.get(_OB_URL, headers=_OB_HEADERS, timeout=60, stream=True,
+                            allow_redirects=True)
+        # Check we got a ZIP not an HTML error page
+        ct = resp.headers.get("content-type", "")
+        if resp.status_code != 200 or "zip" not in ct:
+            print(f"[fda] WARNING: unexpected response (status={resp.status_code}, "
+                  f"content-type={ct}) — Orange Book download blocked or unavailable")
+            return
+        resp.raise_for_status()
+        with open(_OB_CACHE_FILE, "wb") as f:
+            for chunk in resp.iter_content(chunk_size=65536):
+                f.write(chunk)
+        print(f"[fda] Orange Book cached at {_OB_CACHE_FILE}")
+    except requests.exceptions.RequestException as e:
+        print(f"[fda] WARNING: could not download Orange Book: {e}")
+
+
+def _load_orange_book() -> zipfile.ZipFile | None:
+    """Return open ZipFile handle for Orange Book, downloading if needed."""
+    if not _ob_cache_is_fresh():
+        _download_orange_book()
+    if not _OB_CACHE_FILE.exists():
+        return None
+    try:
+        return zipfile.ZipFile(_OB_CACHE_FILE, "r")
+    except zipfile.BadZipFile as e:
+        print(f"[fda] WARNING: cached Orange Book is corrupt, re-downloading: {e}")
+        _OB_CACHE_FILE.unlink(missing_ok=True)
+        _download_orange_book()
+        return zipfile.ZipFile(_OB_CACHE_FILE, "r") if _OB_CACHE_FILE.exists() else None
+
+
+def _parse_ob_file(zf: zipfile.ZipFile, filename: str) -> list[dict]:
+    """Parse a tilde-delimited Orange Book file from the ZIP."""
+    with zf.open(filename) as raw:
+        content = raw.read().decode("utf-8", errors="replace")
+    reader = csv.DictReader(io.StringIO(content), delimiter="~")
+    return list(reader)
+
+
+def get_orange_book_data(drug_name: str) -> dict:
+    """Fetch Orange Book patent, exclusivity, and product data for a drug.
+
+    Downloads FDA's Orange Book bulk ZIP (cached monthly at ~/.cortellis/cache/).
+    Searches by ingredient (INN) and trade name, case-insensitive.
+
+    Returns dict with keys:
+      products      — list of matching product rows
+      patents       — list of patent rows for matched application(s)
+      exclusivities — list of exclusivity rows for matched application(s)
+    """
+    zf = _load_orange_book()
+    if zf is None:
+        print("[fda] WARNING: Orange Book unavailable, skipping.")
+        return {"products": [], "patents": [], "exclusivities": []}
+
+    name_lower = drug_name.lower().strip()
+
+    with zf:
+        products_all = _parse_ob_file(zf, "products.txt")
+        patents_all = _parse_ob_file(zf, "patent.txt")
+        exclusivity_all = _parse_ob_file(zf, "exclusivity.txt")
+
+    # Match products by ingredient or trade name
+    matched_products = [
+        p for p in products_all
+        if name_lower in (p.get("Ingredient", "") or "").lower()
+        or name_lower in (p.get("Trade_Name", "") or "").lower()
+    ]
+
+    # Collect matched application numbers
+    appl_keys = {(p["Appl_Type"], p["Appl_No"]) for p in matched_products}
+
+    matched_patents = [
+        p for p in patents_all
+        if (p.get("Appl_Type"), p.get("Appl_No")) in appl_keys
+        and p.get("Patent_No")
+    ]
+    matched_exclusivities = [
+        e for e in exclusivity_all
+        if (e.get("Appl_Type"), e.get("Appl_No")) in appl_keys
+    ]
+
+    # Normalise field names to snake_case for consistency with rest of codebase
+    def _norm_products(rows):
+        return [
+            {
+                "appl_type": r.get("Appl_Type", ""),
+                "appl_no": r.get("Appl_No", ""),
+                "product_no": r.get("Product_No", ""),
+                "ingredient": r.get("Ingredient", ""),
+                "trade_name": r.get("Trade_Name", ""),
+                "applicant": r.get("Applicant_Full_Name", r.get("Applicant", "")),
+                "strength": r.get("Strength", ""),
+                "dosage_form_route": r.get("DF;Route", ""),
+                "te_code": r.get("TE_Code", ""),
+                "approval_date": r.get("Approval_Date", ""),
+                "rld": r.get("RLD", ""),
+                "type": r.get("Type", ""),
+            }
+            for r in rows
+        ]
+
+    def _norm_patents(rows):
+        return [
+            {
+                "appl_type": r.get("Appl_Type", ""),
+                "appl_no": r.get("Appl_No", ""),
+                "patent_no": r.get("Patent_No", ""),
+                "patent_expire_date": r.get("Patent_Expire_Date_Text", ""),
+                "drug_substance_flag": r.get("Drug_Substance_Flag", ""),
+                "drug_product_flag": r.get("Drug_Product_Flag", ""),
+                "patent_use_code": r.get("Patent_Use_Code", ""),
+            }
+            for r in rows
+        ]
+
+    def _norm_exclusivities(rows):
+        return [
+            {
+                "appl_type": r.get("Appl_Type", ""),
+                "appl_no": r.get("Appl_No", ""),
+                "exclusivity_code": r.get("Exclusivity_Code", ""),
+                "exclusivity_date": r.get("Exclusivity_Date", ""),
+            }
+            for r in rows
+        ]
+
+    return {
+        "products": _norm_products(matched_products),
+        "patents": _norm_patents(matched_patents),
+        "exclusivities": _norm_exclusivities(matched_exclusivities),
+    }
 
 
 # ---------------------------------------------------------------------------

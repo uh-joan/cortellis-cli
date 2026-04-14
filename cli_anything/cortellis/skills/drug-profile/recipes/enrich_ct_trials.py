@@ -58,20 +58,25 @@ def extract_trial_row(study: dict) -> dict:
 
 
 def fetch_active_trials(drug_name: str) -> list:
-    """Fetch RECRUITING + ACTIVE_NOT_RECRUITING trials from CT.gov."""
-    all_trials = []
-    seen_ncts = set()
+    """Fetch RECRUITING + ACTIVE_NOT_RECRUITING trials from CT.gov.
 
-    for status in ("RECRUITING", "ACTIVE_NOT_RECRUITING"):
-        result = clinicaltrials.search_trials(drug_name, status=status, page_size=100)
-        studies = result.get("studies", [])
-        for study in studies:
-            row = extract_trial_row(study)
-            if row["nct_id"] and row["nct_id"] not in seen_ncts:
-                seen_ncts.add(row["nct_id"])
-                all_trials.append(row)
-
-    return all_trials
+    Uses query.intr (intervention field) for precise drug matching and fetches
+    all pages automatically via search_trials_all.
+    """
+    active_statuses = ["RECRUITING", "ACTIVE_NOT_RECRUITING"]
+    studies = clinicaltrials.search_trials_all(
+        intervention=drug_name,
+        status=active_statuses,
+        max_results=1000,
+    )
+    seen_ncts: set = set()
+    trials = []
+    for study in studies:
+        row = extract_trial_row(study)
+        if row["nct_id"] and row["nct_id"] not in seen_ncts:
+            seen_ncts.add(row["nct_id"])
+            trials.append(row)
+    return trials
 
 
 def build_summary_md(drug_name: str, trials: list, ct_total: int,

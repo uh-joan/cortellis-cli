@@ -725,6 +725,30 @@ def compile_target_article(target_dir, target_name, slug, base_dir=None):
             body_parts.append(f"| {title} | {authors} | {journal} | {date} |\n")
         body_parts.append("\n")
 
+    # UniProt + AlphaFold (from enrich_target_uniprot.py)
+    uniprot_md = read_md_safe(os.path.join(target_dir, "uniprot_summary.md"))
+    if uniprot_md:
+        body_parts.append(uniprot_md)
+        body_parts.append("\n")
+
+    # Open Targets (from enrich_target_opentargets.py)
+    opentargets_md = read_md_safe(os.path.join(target_dir, "opentargets_summary.md"))
+    if opentargets_md:
+        body_parts.append(opentargets_md)
+        body_parts.append("\n")
+
+    # ChEMBL binding affinity (from enrich_target_chembl.py)
+    chembl_target_md = read_md_safe(os.path.join(target_dir, "chembl_target_summary.md"))
+    if chembl_target_md:
+        body_parts.append(chembl_target_md)
+        body_parts.append("\n")
+
+    # Pharmacogenomics (from enrich_target_cpic.py)
+    cpic_gene_md = read_md_safe(os.path.join(target_dir, "cpic_gene_summary.md"))
+    if cpic_gene_md:
+        body_parts.append(cpic_gene_md)
+        body_parts.append("\n")
+
     # Active Trials (ClinicalTrials.gov)
     ct_trials_md = read_md_safe(os.path.join(target_dir, "ct_trials_summary.md"))
     if ct_trials_md:
