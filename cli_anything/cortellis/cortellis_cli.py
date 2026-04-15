@@ -2100,6 +2100,30 @@ All skills and their workflows are included below in the system context."""
             if not text.endswith("\n"):
                 sys.stdout.write("\n")
             sys.stdout.flush()
+
+            # Append turn log to daily/<date>.md so future sessions have memory.
+            # Uses same file as Claude Code session hooks but with [Codex] marker —
+            # both append, neither overwrites, no conflict.
+            if not no_flush:
+                try:
+                    from datetime import datetime as _dt2, timezone as _tz2
+                    _now = _dt2.now(_tz2.utc)
+                    _daily_dir = os.path.join(os.getcwd(), "daily")
+                    os.makedirs(_daily_dir, exist_ok=True)
+                    _log_path = os.path.join(_daily_dir, f"{_now.strftime('%Y-%m-%d')}.md")
+                    _entry = (
+                        f"\n\n---\n\n"
+                        f"### [Codex] Turn ({_now.strftime('%H:%M:%S')} UTC)\n\n"
+                        f"**Q:** {routed_question[:300]}\n\n"
+                        f"**A:** {text[:500]}{'...' if len(text) > 500 else ''}\n"
+                    )
+                    if not os.path.exists(_log_path):
+                        with open(_log_path, "w", encoding="utf-8") as _lf:
+                            _lf.write(f"# Daily Log — {_now.strftime('%Y-%m-%d')}\n")
+                    with open(_log_path, "a", encoding="utf-8") as _lf:
+                        _lf.write(_entry)
+                except Exception:
+                    pass
         else:
             # Parse stream-json to show tool calls + final answer
             for line in iter(proc.stdout.readline, b""):
