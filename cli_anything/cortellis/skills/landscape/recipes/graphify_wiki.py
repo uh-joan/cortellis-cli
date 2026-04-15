@@ -264,7 +264,7 @@ def _cluster_label(G: "nx.Graph", node_entries: list) -> str:
         return "unknown"
 
     # Find highest-degree node in cluster as label anchor
-    best_node = max(node_entries, key=lambda e: G.degree(e["node"]))
+    max(node_entries, key=lambda e: G.degree(e["node"]))
     # Count types
     type_counts: dict = {}
     for e in node_entries:

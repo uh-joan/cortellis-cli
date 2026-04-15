@@ -3,7 +3,9 @@
 
 Usage: python3 target_report_generator.py raw/targets/<slug>/
 """
-import json, sys, os
+import json
+import sys
+import os
 from collections import Counter
 
 

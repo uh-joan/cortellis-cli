@@ -72,7 +72,7 @@ def build_matrix(landscape_dir):
 
 
 def classify_status(launched, phase3, phase2, phase1, discovery):
-    total = launched + phase3 + phase2 + phase1 + discovery
+    launched + phase3 + phase2 + phase1 + discovery
     late_stage = phase2 + phase3
 
     if launched > 0 and late_stage < launched:

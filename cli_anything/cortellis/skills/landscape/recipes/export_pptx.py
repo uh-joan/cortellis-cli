@@ -9,7 +9,6 @@ Usage: python3 export_pptx.py <landscape_dir> [indication_name] [--output PATH]
 """
 
 import os
-import re
 import sys
 from datetime import datetime, timezone
 
@@ -30,7 +29,7 @@ from pptx import Presentation
 from pptx.chart.data import CategoryChartData
 from pptx.dml.color import RGBColor
 from pptx.enum.chart import XL_CHART_TYPE
-from pptx.util import Inches, Pt, Emu
+from pptx.util import Inches, Pt
 from pptx.enum.text import PP_ALIGN
 
 
@@ -194,8 +193,6 @@ def _add_body_textbox(slide, text_lines, left, top, width, height, font_size=12)
 
 def _style_table_header_row(table):
     """Style the first row of a table as a navy header."""
-    from pptx.oxml.ns import qn
-    from lxml import etree
     for cell in table.rows[0].cells:
         cell.fill.solid()
         cell.fill.fore_color.rgb = NAVY

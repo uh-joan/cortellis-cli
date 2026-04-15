@@ -14,10 +14,9 @@ from datetime import datetime, timezone
 # Allow running as standalone script
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "..", "..", "..", ".."))
 
-from cli_anything.cortellis.utils.data_helpers import read_csv_safe, read_md_safe, safe_int
+from cli_anything.cortellis.utils.data_helpers import read_csv_safe, read_md_safe
 from cli_anything.cortellis.utils.wiki import (
     slugify,
-    normalize_company_name,
     normalize_drug_name,
     find_company_slug,
     wiki_root,

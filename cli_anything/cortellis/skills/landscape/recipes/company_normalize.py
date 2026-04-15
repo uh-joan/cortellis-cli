@@ -193,7 +193,7 @@ def main():
         lines.append("|------|--------|------|----|-------|")
         for e in all_rewrites:
             lines.append(f"| {e['file']} | {e['column']} | {e['from']} | {e['to']} | {e['count']} |")
-        lines.append(f"\nLog written to `normalization_log.json`.")
+        lines.append("\nLog written to `normalization_log.json`.")
         print("\n".join(lines))
 
     print(

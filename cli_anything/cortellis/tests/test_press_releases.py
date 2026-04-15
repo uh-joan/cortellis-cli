@@ -10,7 +10,6 @@ from __future__ import annotations
 import csv
 import os
 import sys
-import tempfile
 from unittest.mock import MagicMock, patch
 
 import pytest

@@ -1,12 +1,9 @@
 """Tests for the historical pipeline timeline recipe."""
 
 import csv
-import json
 import os
 import sys
-from datetime import datetime, timezone
 
-import pytest
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "..", "..", ".."))
 
@@ -17,7 +14,6 @@ from cli_anything.cortellis.skills.landscape.recipes.enrich_historical_timeline 
     write_phase_timeline_csv,
     write_historical_snapshots_csv,
     generate_historical_report,
-    PHASE_LABELS,
 )
 
 

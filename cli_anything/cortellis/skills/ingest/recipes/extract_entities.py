@@ -189,7 +189,7 @@ def scan_text(text: str, entities: list) -> list:
     Matching is case-insensitive and whole-word. Shorter names that are substrings
     of longer matched names are suppressed to avoid double-counting.
     """
-    text_lower = text.lower()
+    text.lower()
     matches = []
 
     # Sort by name length descending so longer names match first
@@ -298,7 +298,7 @@ def extract_text_from_file(path: str) -> str:
         return "\n".join(chunks)
 
     if ext == ".xlsb":
-        raise ValueError(f"Binary Excel (.xlsb) is not supported. Convert to .xlsx first.")
+        raise ValueError("Binary Excel (.xlsb) is not supported. Convert to .xlsx first.")
 
     raise ValueError(f"Unsupported file type: {ext}. Supported: .md, .txt, .pdf, .pptx, .xlsx, .xlsm")
 

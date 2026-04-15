@@ -15,7 +15,10 @@ Usage:
 Output: action_name
   (just the canonical name; use with --action "name" in drugs search)
 """
-import json, re, subprocess, sys
+import json
+import re
+import subprocess
+import sys
 
 
 def normalize(s):
@@ -81,7 +84,7 @@ def ontology_resolve(name):
         # over raw entity names, since we're resolving for --action drug searches
         matches = [n for n in nodes if n.get("@match") == "true"]
         if matches:
-            nn = normalize(name)
+            normalize(name)
             action_suffixes = ("inhibitor", "agonist", "modulator", "antagonist", "stimulator", "blocker")
             actions = [n for n in matches if normalize(n.get("@name", "")).endswith(action_suffixes)]
             pool = actions if actions else matches

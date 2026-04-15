@@ -333,7 +333,7 @@ _OB_HEADERS = {
 def _download_orange_book() -> None:
     """Download Orange Book ZIP to local cache."""
     _OB_CACHE_DIR.mkdir(parents=True, exist_ok=True)
-    print(f"[fda] Downloading Orange Book from FDA (~1 MB)...")
+    print("[fda] Downloading Orange Book from FDA (~1 MB)...")
     try:
         resp = requests.get(_OB_URL, headers=_OB_HEADERS, timeout=60, stream=True,
                             allow_redirects=True)

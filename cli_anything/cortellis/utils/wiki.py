@@ -340,7 +340,7 @@ def update_index(wiki_dir: str, entries: list[dict]) -> None:
         by_type.setdefault(e["type"], []).append(e)
 
     lines = [
-        f"# Cortellis Intelligence Wiki\n",
+        "# Cortellis Intelligence Wiki\n",
         f"\n> Auto-generated index. Last updated: {_now_iso()}\n",
     ]
 

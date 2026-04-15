@@ -8,13 +8,10 @@ Run with:
 from __future__ import annotations
 
 import csv
-import io
 import os
 import sys
-import tempfile
 from unittest.mock import MagicMock, patch
 
-import pytest
 
 # Allow import without installing the package
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "..", "..", ".."))
@@ -25,7 +22,6 @@ from cli_anything.cortellis.skills.landscape.recipes.enrich_deal_financials impo
     fetch_expanded_deals,
     generate_comps_markdown,
     write_financials_csv,
-    build_records,
     FINANCIALS_COLUMNS,
 )
 

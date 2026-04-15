@@ -7,7 +7,6 @@ produces severity-ranked signals for system prompt injection and reporting.
 import json
 import os
 from datetime import datetime, timezone, timedelta
-from typing import Optional
 
 from cli_anything.cortellis.utils.wiki import (
     list_articles,
@@ -15,7 +14,7 @@ from cli_anything.cortellis.utils.wiki import (
     diff_snapshots,
     read_article,
 )
-from cli_anything.cortellis.utils.data_helpers import safe_float, safe_int, read_csv_safe
+from cli_anything.cortellis.utils.data_helpers import safe_float, read_csv_safe
 
 
 # ---------------------------------------------------------------------------
@@ -275,7 +274,7 @@ def extract_signals(
     for art in articles:
         meta = art.get("meta", {})
         title = meta.get("title", "Unknown")
-        slug = meta.get("slug", "")
+        meta.get("slug", "")
 
         # Skip articles older than max_age_days
         compiled_at = meta.get("compiled_at", "")
@@ -608,7 +607,7 @@ def generate_signals_report(
     articles = list_articles(w_dir, "indications")
 
     lines = [
-        f"## Strategic Intelligence Report\n",
+        "## Strategic Intelligence Report\n",
         f"> Generated from {len(articles)} compiled landscapes | "
         f"Signals from last {max_age_days} days\n\n",
     ]

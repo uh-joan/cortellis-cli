@@ -34,7 +34,7 @@ def write_chembl_target_summary(
     lines.append(f"## ChEMBL Binding Affinity: {gene_symbol}\n\n")
 
     target_id = target.get("target_chembl_id", "")
-    pref_name = target.get("pref_name", gene_symbol)
+    target.get("pref_name", gene_symbol)
     target_type = target.get("target_type", "")
     organism = target.get("organism", "")
 

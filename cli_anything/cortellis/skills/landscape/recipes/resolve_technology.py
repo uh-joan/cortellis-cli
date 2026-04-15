@@ -16,7 +16,10 @@ Usage:
 Output: id,technology_name
   (canonical name for use with --technology in drugs search)
 """
-import json, re, subprocess, sys
+import json
+import re
+import subprocess
+import sys
 
 
 def normalize(s):

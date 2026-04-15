@@ -443,7 +443,7 @@ def format_insights_for_prompt(insights: list[dict], max_insights: int = 5) -> s
         meta = ins["meta"]
         title = meta.get("title", "Unknown")
         ts = meta.get("timestamp", "")[:10]
-        indication = meta.get("indication", "")
+        meta.get("indication", "")
 
         # Extract first 3 key findings from body
         findings = []

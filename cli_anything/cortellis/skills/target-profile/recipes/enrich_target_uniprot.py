@@ -155,7 +155,7 @@ def write_uniprot_summary(
     # AlphaFold
     if af:
         pdb_url = af.get("pdb_url", "")
-        pae_url = af.get("pae_image_url", "")
+        af.get("pae_image_url", "")
         ot_af_url = f"https://alphafold.ebi.ac.uk/entry/{accession}"
         lines.append("### AlphaFold Structure\n\n")
         lines.append(f"**AlphaFold entry:** [{accession}]({ot_af_url})  \n")
@@ -206,7 +206,7 @@ def main():
     if af:
         print(f"  AlphaFold: {af.get('entry_id')} (v{af.get('latest_version')})")
     else:
-        print(f"  AlphaFold: no prediction available")
+        print("  AlphaFold: no prediction available")
 
     # Write JSON
     json_path = os.path.join(target_dir, "uniprot.json")

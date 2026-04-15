@@ -8,8 +8,9 @@ Reads JSON files from the directory:
 
 Outputs formatted markdown report with ASCII timeline.
 """
-import csv, json, sys, os
-from collections import Counter
+import json
+import sys
+import os
 
 if len(sys.argv) < 2:
     print(f"Usage: {sys.argv[0]} <profile_dir>", file=sys.stderr)
@@ -149,8 +150,8 @@ print()
 
 print("## Overview")
 print()
-print(f"| Field | Value |")
-print(f"|-------|-------|")
+print("| Field | Value |")
+print("|-------|-------|")
 print(f"| Indications | {'; '.join(indications[:5])} |")
 print(f"| Mechanism | {'; '.join(actions[:3])} |")
 print(f"| Technology | {'; '.join(techs[:3])} |")
@@ -290,7 +291,7 @@ if competitors:
     if isinstance(comp_list, dict):
         comp_list = [comp_list]
     if comp_list:
-        print(f"## Competitive Landscape (same mechanism)")
+        print("## Competitive Landscape (same mechanism)")
         print()
         print("| Drug | Company | Phase | Indications |")
         print("|------|---------|-------|-------------|")

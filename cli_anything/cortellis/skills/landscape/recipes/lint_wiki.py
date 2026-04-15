@@ -23,7 +23,6 @@ from cli_anything.cortellis.utils.wiki import (
     find_company_slug,
     list_articles,
     read_article,
-    slugify,
 )
 
 # Matches [[slug]] or [[slug\|display]] (escaped pipe for table compatibility)

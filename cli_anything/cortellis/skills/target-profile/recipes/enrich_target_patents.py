@@ -23,7 +23,7 @@ def main():
         sys.exit(1)
 
     target_dir = sys.argv[1]
-    target_id = sys.argv[2]
+    sys.argv[2]
 
     if not os.path.isdir(target_dir):
         print(f"Error: target directory not found: {target_dir}", file=sys.stderr)

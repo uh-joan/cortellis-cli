@@ -477,13 +477,13 @@ def render_markdown(landscape_dir, cpi_data, mech_data, momentum):
 
     lines = [
         f"# Strategic Intelligence: {ind}",
-        f"",
+        "",
         f"_Data freshness: {now}_",
-        f"",
+        "",
         f"*Preset: {preset['name']} — {preset['description']}*",
-        f"",
-        f"> **Reading this output:** CPI = Competitive Position Index, scale 0–100, higher is better. Tier A/B/C/D are **relative to this indication only** (A = top 10%, D = bottom 50%) — not comparable across diseases. White Space = opportunity gap with no current late-stage competition. ABSTAIN confidence = data too thin to rank; **not** the same as \"weakest recommendation\". Full definitions: `docs/glossary.md`.",
-        f"",
+        "",
+        "> **Reading this output:** CPI = Competitive Position Index, scale 0–100, higher is better. Tier A/B/C/D are **relative to this indication only** (A = top 10%, D = bottom 50%) — not comparable across diseases. White Space = opportunity gap with no current late-stage competition. ABSTAIN confidence = data too thin to rank; **not** the same as \"weakest recommendation\". Full definitions: `docs/glossary.md`.",
+        "",
     ]
 
     if freshness_warning:

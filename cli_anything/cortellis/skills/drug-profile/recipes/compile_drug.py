@@ -246,6 +246,7 @@ def extract_trials_summary(trials_json):
 
 
 
+
 # ---------------------------------------------------------------------------
 # Verification layer
 # ---------------------------------------------------------------------------
@@ -425,7 +426,7 @@ def compile_drug_article(drug_dir, drug_name, slug, base_dir=None):
     """Compile all drug profile JSON files into (meta, body)."""
     record = read_json_safe(os.path.join(drug_dir, "record.json"))
     swot = read_json_safe(os.path.join(drug_dir, "swot.json"))
-    financials = read_json_safe(os.path.join(drug_dir, "financials.json"))
+    read_json_safe(os.path.join(drug_dir, "financials.json"))
     history = read_json_safe(os.path.join(drug_dir, "history.json"))
     deals_json = read_json_safe(os.path.join(drug_dir, "deals.json"))
     trials_json = read_json_safe(os.path.join(drug_dir, "trials.json"))
@@ -518,7 +519,7 @@ def compile_drug_article(drug_dir, drug_name, slug, base_dir=None):
         )
         body_parts.append(f"| Mechanism | {mech_links} |\n")
     else:
-        body_parts.append(f"| Mechanism | - |\n")
+        body_parts.append("| Mechanism | - |\n")
     if technology:
         body_parts.append(f"| Technology | {technology} |\n")
     if originator:

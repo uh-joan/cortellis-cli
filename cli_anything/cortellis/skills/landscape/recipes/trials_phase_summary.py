@@ -11,7 +11,12 @@ Also prints summary to stderr.
 If companies_csv provided, also writes trials_by_sponsor.csv next to output_csv.
 Requires cortellis CLI on PATH.
 """
-import csv, json, os, subprocess, sys, time
+import csv
+import json
+import os
+import subprocess
+import sys
+import time
 
 PHASES = [
     ("Phase 3", "Phase 3 Clinical"),

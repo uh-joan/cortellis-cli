@@ -8,7 +8,9 @@ Usage: python3 company_landscape.py raw/landscape/<slug>/
 
 Output: company, total_unique_drugs, launched, phase3, phase2, phase1, discovery
 """
-import csv, os, sys
+import csv
+import os
+import sys
 from collections import defaultdict
 
 if len(sys.argv) < 2:

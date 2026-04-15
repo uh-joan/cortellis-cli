@@ -1,10 +1,8 @@
 """Tests for compile.py — daily log → wiki concept/connection compiler."""
 
-import json
 import sys
 from pathlib import Path
 
-import pytest
 
 # Ensure project root is on sys.path so hooks.compile is importable
 PROJECT_ROOT = Path(__file__).resolve().parents[4]
@@ -14,7 +12,6 @@ if str(PROJECT_ROOT) not in sys.path:
 from hooks.compile import (
     compile_basic,
     file_sha256,
-    load_compile_state,
     save_compile_state,
     logs_to_process,
     _is_routine,

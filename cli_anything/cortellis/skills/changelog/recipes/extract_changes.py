@@ -129,7 +129,7 @@ def main():
     meta = parse_frontmatter(wiki_file)
     compiled_at = meta.get("compiled_at", "")[:10] if meta.get("compiled_at") else "unknown"
     total_drugs_now = meta.get("total_drugs", "?")
-    top_company_now = meta.get("top_company", "?")
+    meta.get("top_company", "?")
     phase_counts_now = meta.get("phase_counts", {}) or {}
 
     # 2. Historical snapshots

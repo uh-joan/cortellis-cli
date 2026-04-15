@@ -6,7 +6,12 @@ to get @companySize. Writes company_sizes.json to data directory.
 
 Usage: python3 enrich_company_sizes.py raw/landscape/<slug>
 """
-import csv, json, re, subprocess, sys, os
+import csv
+import json
+import re
+import subprocess
+import sys
+import os
 
 if len(sys.argv) < 2:
     print(f"Usage: {sys.argv[0]} <data_dir>", file=sys.stderr)

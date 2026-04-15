@@ -1,8 +1,6 @@
 """Cortellis targets domain API functions."""
 
-from typing import Any, Optional
 
-from .client import CortellisClient
 
 _BASE = "targets-v2"
 

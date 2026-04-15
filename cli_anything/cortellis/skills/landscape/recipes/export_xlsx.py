@@ -9,7 +9,6 @@ Usage: python3 export_xlsx.py <landscape_dir> [indication_name] [--output PATH]
 """
 
 import os
-import re
 import sys
 
 # Allow running as standalone script

@@ -10,7 +10,6 @@ import tempfile
 
 import importlib.util
 
-import pytest
 
 # Ensure the project root is on the path for skill_router import
 _PROJECT_ROOT = os.path.join(os.path.dirname(__file__), "..", "..", "..", "..")

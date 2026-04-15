@@ -14,7 +14,11 @@ Usage:
 
 Output: target_id,target_name,gene_symbol,action_name
 """
-import json, os, re, subprocess, sys
+import json
+import os
+import re
+import subprocess
+import sys
 
 
 def normalize(s):

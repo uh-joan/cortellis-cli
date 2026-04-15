@@ -5,7 +5,8 @@ Usage: python3 merge_dedup.py file1.csv file2.csv > merged.csv
 
 First file takes priority for duplicates. Header from first file is used.
 """
-import csv, os, sys
+import csv
+import sys
 
 if len(sys.argv) < 3:
     print(f"Usage: {sys.argv[0]} <file1.csv> <file2.csv>", file=sys.stderr)

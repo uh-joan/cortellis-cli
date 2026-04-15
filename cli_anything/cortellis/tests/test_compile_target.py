@@ -5,7 +5,6 @@ import json
 import os
 import sys
 
-import pytest
 
 from cli_anything.cortellis.utils.wiki import (
     read_article,
@@ -36,79 +35,104 @@ def _write_json(path, data):
 
 
 SAMPLE_RECORD = {
-    "targets": [
-        {
-            "targetName": "GLP-1 Receptor",
-            "geneSymbol": "GLP1R",
-            "targetFamily": "GPCR",
-            "organism": "Human",
-            "function": "Receptor for glucagon-like peptide-1, mediates insulin secretion.",
-            "subcellularLocation": "Plasma membrane",
-            "synonyms": ["GLP1R", "Glucagon-like peptide 1 receptor"],
+    "TargetRecordsOutput": {
+        "Targets": {
+            "Target": {
+                "@namemain": "GLP-1 Receptor",
+                "Synonyms": {
+                    "Synonym": ["GLP1R", "Glucagon-like peptide 1 receptor"]
+                },
+                "Family": {"$": "GPCR"},
+                "Description": "Receptor for glucagon-like peptide-1, mediates insulin secretion.",
+                "Localizations": {"Localization": [{"$": "Plasma membrane"}]},
+            }
         }
-    ]
+    }
 }
 
 SAMPLE_CONDITION_DRUGS = {
-    "conditionDrugs": [
-        {"conditionName": "Type 2 Diabetes", "drugCount": 42, "highestPhase": "Launched"},
-        {"conditionName": "Obesity", "drugCount": 18, "highestPhase": "Launched"},
-        {"conditionName": "NASH", "drugCount": 7, "highestPhase": "Phase 2"},
-    ]
+    "TargetRecordsOutput": {
+        "Targets": {
+            "Target": {
+                "ConditionDrugAssociations": {
+                    "Condition": [
+                        {"@name": "Type 2 Diabetes", "DrugId": [{"@highestphase": "Launched", "@status": "Active"}]},
+                        {"@name": "Obesity", "DrugId": [{"@highestphase": "Launched", "@status": "Active"}]},
+                        {"@name": "NASH", "DrugId": [{"@highestphase": "Phase II"}]},
+                    ]
+                }
+            }
+        }
+    }
 }
 
 SAMPLE_CONDITION_GENES = {
-    "conditionGenes": [
-        {"conditionName": "Type 2 Diabetes", "geneSymbol": "GLP1R", "evidence": "Clinical"},
-        {"conditionName": "Obesity", "geneSymbol": "GLP1R", "evidence": "Genetic"},
-    ]
+    "TargetRecordsOutput": {
+        "Targets": {
+            "Target": {
+                "ConditionGeneAssociations": {
+                    "Condition": [
+                        {"@name": "Type 2 Diabetes", "Source": [{"$": "Clinical"}]},
+                        {"@name": "Obesity", "Source": [{"$": "Genetic"}]},
+                    ]
+                }
+            }
+        }
+    }
 }
 
 SAMPLE_INTERACTIONS = {
-    "interactions": [
-        {"partnerName": "GLP-1", "interactionType": "Ligand-receptor"},
-        {"partnerName": "Adenylyl cyclase", "interactionType": "Downstream effector"},
-    ]
+    "TargetRecordsOutput": {
+        "Targets": {
+            "Target": {
+                "Interactions": {
+                    "Interaction": [
+                        {"CounterpartObject": {"$": "GLP-1"}, "Direction": "Upstream", "Effect": "Activation", "Mechanism": "Ligand-receptor"},
+                        {"CounterpartObject": {"$": "Adenylyl cyclase"}, "Direction": "Downstream", "Effect": "Activation", "Mechanism": "Signal transduction"},
+                    ]
+                }
+            }
+        }
+    }
 }
 
 SAMPLE_DRUGS_PIPELINE = {
-    "drugs": [
-        {
-            "drugName": "Semaglutide",
-            "company": "Novo Nordisk",
-            "highestPhase": "Launched",
-            "indications": ["Type 2 Diabetes", "Obesity"],
+    "drugResultsOutput": {
+        "@totalResults": "3",
+        "SearchResults": {
+            "Drug": [
+                {
+                    "@name": "Semaglutide",
+                    "@phaseHighest": "Launched",
+                    "CompanyOriginator": {"@name": "Novo Nordisk"},
+                    "IndicationsPrimary": {"Indication": [{"@name": "Type 2 Diabetes"}, {"@name": "Obesity"}]},
+                },
+                {
+                    "@name": "Tirzepatide",
+                    "@phaseHighest": "Launched",
+                    "CompanyOriginator": {"@name": "Eli Lilly"},
+                    "IndicationsPrimary": {"Indication": [{"@name": "Type 2 Diabetes"}]},
+                },
+                {
+                    "@name": "Liraglutide",
+                    "@phaseHighest": "Launched",
+                    "CompanyOriginator": {"@name": "Novo Nordisk"},
+                    "IndicationsPrimary": {"Indication": [{"@name": "Type 2 Diabetes"}, {"@name": "Obesity"}]},
+                },
+            ]
         },
-        {
-            "drugName": "Tirzepatide",
-            "company": "Eli Lilly",
-            "highestPhase": "Launched",
-            "indications": ["Type 2 Diabetes"],
-        },
-        {
-            "drugName": "Liraglutide",
-            "company": "Novo Nordisk",
-            "highestPhase": "Launched",
-            "indications": ["Type 2 Diabetes", "Obesity"],
-        },
-    ]
+    }
 }
 
 SAMPLE_PHARMACOLOGY = {
-    "pharmacology": [
-        {
-            "compoundName": "Semaglutide",
-            "assayType": "Ki",
-            "value": "0.35",
-            "unit": "nM",
-        },
-        {
-            "compoundName": "Liraglutide",
-            "assayType": "EC50",
-            "value": "2.1",
-            "unit": "nM",
-        },
-    ]
+    "drugDesignResultsOutput": {
+        "SearchResults": {
+            "PharmacologyRecord": [
+                {"@drugName": "Semaglutide", "@assayType": "Ki", "@value": "0.35", "@unit": "nM"},
+                {"@drugName": "Liraglutide", "@assayType": "EC50", "@value": "2.1", "@unit": "nM"},
+            ]
+        }
+    }
 }
 
 
