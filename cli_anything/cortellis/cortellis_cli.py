@@ -67,9 +67,11 @@ load_dotenv()
 @click.option("--engine", default="claude",
               type=click.Choice(["claude", "codex"], case_sensitive=False),
               help="AI engine for chat mode: 'claude' (Claude Code) or 'codex' (OpenAI Codex).")
+@click.option("--no-flush", "no_flush", is_flag=True, default=False,
+              help="Skip session memory flush on exit (useful for testing).")
 @click.version_option(__version__, prog_name="cortellis")
 @click.pass_context
-def cli(ctx: click.Context, json_mode: bool, debug: bool, engine: str) -> None:
+def cli(ctx: click.Context, json_mode: bool, debug: bool, engine: str, no_flush: bool) -> None:
     """Cortellis pharmaceutical intelligence CLI."""
     ctx.ensure_object(dict)
     ctx.obj["json"] = json_mode
@@ -77,7 +79,7 @@ def cli(ctx: click.Context, json_mode: bool, debug: bool, engine: str) -> None:
 
     if ctx.invoked_subcommand is None:
         # No subcommand — launch AI chat mode
-        ctx.invoke(chat_cmd, debug=debug, engine=engine)
+        ctx.invoke(chat_cmd, debug=debug, engine=engine, no_flush=no_flush)
 
 
 def _client(ctx: click.Context) -> CortellisClient:
@@ -1706,7 +1708,7 @@ def repl_cmd(ctx) -> None:
 # chat — AI-powered natural language interface via Claude Code
 # ---------------------------------------------------------------------------
 
-def chat_cmd(debug, engine="claude") -> None:
+def chat_cmd(debug, engine="claude", no_flush=False) -> None:
     """Start an AI chat session for querying Cortellis in natural language.
 
     Launches an AI engine (Claude Code or Codex) with Cortellis knowledge pre-loaded.
@@ -1897,26 +1899,28 @@ All skills and their workflows are included below in the system context."""
         try:
             question = input("  you> ").strip()
         except (EOFError, KeyboardInterrupt):
-            try:
-                from cli_anything.cortellis.utils.session_memory import flush_session_memory
-                recompiled = flush_session_memory()
-                if recompiled:
-                    click.echo(f"\n  Updated wiki for: {', '.join(recompiled)}")
-            except Exception:
-                pass
+            if not no_flush:
+                try:
+                    from cli_anything.cortellis.utils.session_memory import flush_session_memory
+                    recompiled = flush_session_memory()
+                    if recompiled:
+                        click.echo(f"\n  Updated wiki for: {', '.join(recompiled)}")
+                except Exception:
+                    pass
             click.echo("\n  Goodbye!")
             break
 
         if not question:
             continue
         if question.lower() in ("exit", "quit", "/exit"):
-            try:
-                from cli_anything.cortellis.utils.session_memory import flush_session_memory
-                recompiled = flush_session_memory()
-                if recompiled:
-                    click.echo(f"  Updated wiki for: {', '.join(recompiled)}")
-            except Exception:
-                pass
+            if not no_flush:
+                try:
+                    from cli_anything.cortellis.utils.session_memory import flush_session_memory
+                    recompiled = flush_session_memory()
+                    if recompiled:
+                        click.echo(f"  Updated wiki for: {', '.join(recompiled)}")
+                except Exception:
+                    pass
             click.echo("  Goodbye!")
             break
 
