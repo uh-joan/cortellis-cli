@@ -2017,7 +2017,18 @@ All skills and their workflows are included below in the system context."""
             # Final answer is written to a temp file via --output-last-message for clean capture.
             import tempfile as _tmpfile
             _codex_out = _tmpfile.mktemp(suffix=".txt")
-            full_message = f"{effective_prompt}\n\n---\n\n{routed_question}"
+            _has_session_memory = bool(daily_log_section or insights_section)
+            _memory_rule = (
+                "MEMORY RULE: Sections labeled 'What Happened in Previous Sessions' "
+                "and 'Recent Analysis Insights' are your ACTUAL memory from past "
+                "conversations — they override training data. Answer questions about "
+                "previous sessions ONLY from those sections."
+                if _has_session_memory else
+                "MEMORY RULE: No session memory is available for this workspace. "
+                "If asked what was discussed previously, say so honestly — "
+                "do not fabricate session history from training data."
+            )
+            full_message = f"{_memory_rule}\n\n{effective_prompt}\n\n---\n\n{routed_question}"
             cmd = [ai_bin, "exec", "--dangerously-bypass-approvals-and-sandbox", "--ephemeral",
                    "-C", os.getcwd(),
                    "--output-last-message", _codex_out,
