@@ -1651,17 +1651,22 @@ def setup_cmd() -> None:
 
     if codex_bin:
         click.echo("  OpenAI Codex CLI found!")
-        api_key = os.environ.get("OPENAI_API_KEY", "")
-        if api_key:
-            click.echo("  OPENAI_API_KEY is set. 'cortellis --engine codex chat' is ready.")
-        else:
-            click.echo("  OPENAI_API_KEY not set. Export it to use Codex:")
-            click.echo("    export OPENAI_API_KEY=<your-key>")
+        try:
+            codex_check = _sp.run([codex_bin, "login", "status"],
+                                  capture_output=True, text=True, timeout=10)
+            if codex_check.returncode == 0:
+                click.echo(f"  Authenticated! ({codex_check.stdout.strip()})")
+                click.echo("  'cortellis --engine codex' is ready.")
+            else:
+                click.echo("  Not logged in yet. Run this to authenticate:")
+                click.echo("    codex login --device-auth")
+        except Exception:
+            click.echo("  Could not verify auth — try: codex login --device-auth")
     else:
         click.echo("  OpenAI Codex CLI not found.")
         click.echo("  To enable AI chat mode with Codex, install it:")
         click.echo("    npm install -g @openai/codex")
-        click.echo("    export OPENAI_API_KEY=<your-key>")
+        click.echo("    codex login --device-auth")
 
     if not claude_bin and not codex_bin:
         click.echo("  (Optional — all other commands work without an AI engine)")
@@ -2003,9 +2008,16 @@ All skills and their workflows are included below in the system context."""
         effective_prompt = system_prompt + wiki_context
 
         if engine == "codex":
-            # Codex: inject system context into the message; output is plain text
+            # codex exec: non-interactive mode with sandboxed auto-approval.
+            # System context is prepended to the message (no --append-system-prompt equiv).
+            # Final answer is written to a temp file via --output-last-message for clean capture.
+            import tempfile as _tmpfile
+            _codex_out = _tmpfile.mktemp(suffix=".txt")
             full_message = f"{effective_prompt}\n\n---\n\n{routed_question}"
-            cmd = [ai_bin, "--approval-mode", "full-auto", "--quiet", full_message]
+            cmd = [ai_bin, "exec", "--dangerously-bypass-approvals-and-sandbox", "--ephemeral",
+                   "-C", os.getcwd(),
+                   "--output-last-message", _codex_out,
+                   full_message]
         else:
             cmd = [ai_bin, "--print", "-p", routed_question,
                    "--append-system-prompt", effective_prompt,
@@ -2042,14 +2054,18 @@ All skills and their workflows are included below in the system context."""
         spinner_thread = threading.Thread(target=spin, daemon=True)
         spinner_thread.start()
 
-        proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+        popen_kwargs = dict(stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+        if engine == "codex":
+            # Prevent codex from blocking on stdin
+            popen_kwargs["stdin"] = subprocess.DEVNULL
+        proc = subprocess.Popen(cmd, **popen_kwargs)
         first_output = True
 
         if engine == "codex":
-            # Codex outputs plain text — collect and display after process finishes
-            output_chunks = []
-            for raw_line in iter(proc.stdout.readline, b""):
-                output_chunks.append(raw_line.decode("utf-8", errors="replace"))
+            # Drain stdout (codex exec streams tool-call activity there) but
+            # the clean final answer is in _codex_out written by --output-last-message.
+            for _ in iter(proc.stdout.readline, b""):
+                pass
             stop_spinner.set()
             spinner_thread.join()
             elapsed = int(time.time() - t_start)
@@ -2058,7 +2074,13 @@ All skills and their workflows are included below in the system context."""
             else:
                 sys.stdout.write(f"  Answered in {elapsed}s\n\n")
             sys.stdout.flush()
-            text = "".join(output_chunks).strip()
+            text = ""
+            if os.path.exists(_codex_out):
+                with open(_codex_out, encoding="utf-8") as _f:
+                    text = _f.read().strip()
+                os.unlink(_codex_out)
+            if not text:
+                text = "[No response from Codex]"
             sys.stdout.write(text)
             if not text.endswith("\n"):
                 sys.stdout.write("\n")
