@@ -44,43 +44,52 @@ from cli_anything.cortellis.core.skill_router import detect_skill
 # ---------------------------------------------------------------------------
 
 MOCK_DRUG_RECORD = {
-    "drug": {
-        "drugNameDisplay": "Tirzepatide",
-        "highestPhaseDisplay": "Launched",
-        "indications": [
-            {"indicationDisplay": "Type 2 diabetes mellitus"},
-            {"indicationDisplay": "Obesity"},
-            {"indicationDisplay": "Heart failure"},
-            {"indicationDisplay": "Sleep apnoea"},
-        ],
-        "actions": [{"actionDisplay": "GIP receptor agonist; GLP-1 receptor agonist"}],
-        "technologies": [{"technologyDisplay": "Peptide"}],
-        "originators": [{"companyNameDisplay": "Eli Lilly"}],
+    "drugRecordOutput": {
+        "DrugName": "Tirzepatide",
+        "PhaseHighest": {"$": "Launched"},
+        "IndicationsPrimary": {
+            "Indication": [
+                {"$": "Type 2 diabetes mellitus"},
+                {"$": "Obesity"},
+                {"$": "Heart failure"},
+                {"$": "Sleep apnoea"},
+            ]
+        },
+        "ActionsPrimary": {
+            "Action": [
+                {"$": "GIP receptor agonist"},
+                {"$": "GLP-1 receptor agonist"},
+            ]
+        },
+        "Technologies": {"Technology": [{"$": "Peptide"}]},
+        "CompanyOriginator": {"$": "Eli Lilly"},
     }
 }
 
 MOCK_TRIALS_JSON = {
-    "totalResults": 45,
-    "hits": [
-        {"trialStatusDisplay": "Recruiting", "trialPhaseDisplay": "Phase 3"},
-        {"trialStatusDisplay": "Recruiting", "trialPhaseDisplay": "Phase 2"},
-        {"trialStatusDisplay": "Completed", "trialPhaseDisplay": "Phase 3"},
-        {"trialStatusDisplay": "Enrolling", "trialPhaseDisplay": "Phase 3"},
-    ],
+    "trialResultsOutput": {
+        "@totalResults": "45",
+        "SearchResults": {
+            "Trial": [
+                {"RecruitmentStatus": "Recruiting", "Phase": "Phase 3"},
+                {"RecruitmentStatus": "Recruiting", "Phase": "Phase 2"},
+                {"RecruitmentStatus": "Completed", "Phase": "Phase 3"},
+                {"RecruitmentStatus": "Enrolling by invitation", "Phase": "Phase 3"},
+            ]
+        },
+    }
 }
 
 MOCK_DEALS_JSON = {
-    "totalResults": 14,
-    "hits": [
-        {
-            "dealDateStartDisplay": "2024-03",
-            "dealTypeDisplay": "Licensing",
+    "dealResultsOutput": {
+        "@totalResults": "14",
+        "SearchResults": {
+            "Deal": [
+                {"StartDate": "2024-03", "Type": "Licensing"},
+                {"StartDate": "2023-11", "Type": "Co-development"},
+            ]
         },
-        {
-            "dealDateStartDisplay": "2023-11",
-            "dealTypeDisplay": "Co-development",
-        },
-    ],
+    }
 }
 
 
@@ -275,13 +284,17 @@ class TestExtractTrialSummary:
     def test_counts_trials(self):
         """Mock trial JSON with hits list, verify total/recruiting/phase3 counts."""
         trials_json = {
-            "totalResults": 25,
-            "hits": [
-                {"trialStatusDisplay": "Recruiting", "trialPhaseDisplay": "Phase 3"},
-                {"trialStatusDisplay": "Recruiting", "trialPhaseDisplay": "Phase 2"},
-                {"trialStatusDisplay": "Completed", "trialPhaseDisplay": "Phase 3"},
-                {"trialStatusDisplay": "Not yet recruiting", "trialPhaseDisplay": "Phase 1"},
-            ],
+            "trialResultsOutput": {
+                "@totalResults": "25",
+                "SearchResults": {
+                    "Trial": [
+                        {"RecruitmentStatus": "Recruiting", "Phase": "Phase 3"},
+                        {"RecruitmentStatus": "Recruiting", "Phase": "Phase 2"},
+                        {"RecruitmentStatus": "Completed", "Phase": "Phase 3"},
+                        {"RecruitmentStatus": "Not yet recruiting", "Phase": "Phase 1"},
+                    ]
+                },
+            }
         }
         summary = extract_trial_summary(trials_json)
         assert summary["total"] == 25
@@ -290,7 +303,7 @@ class TestExtractTrialSummary:
 
     def test_empty_trials(self):
         """Empty hits list returns zeros."""
-        trials_json = {"totalResults": 0, "hits": []}
+        trials_json = {"trialResultsOutput": {"@totalResults": "0", "SearchResults": {"Trial": []}}}
         summary = extract_trial_summary(trials_json)
         assert summary["total"] == 0
         assert summary["recruiting"] == 0
@@ -306,12 +319,16 @@ class TestExtractDealSummary:
     def test_counts_deals(self):
         """Mock deal JSON with hits, verify total and type counts."""
         deals_json = {
-            "totalResults": 5,
-            "hits": [
-                {"dealDateStartDisplay": "2024-03", "dealTypeDisplay": "Licensing"},
-                {"dealDateStartDisplay": "2023-11", "dealTypeDisplay": "Co-development"},
-                {"dealDateStartDisplay": "2024-01", "dealTypeDisplay": "Licensing"},
-            ],
+            "dealResultsOutput": {
+                "@totalResults": "5",
+                "SearchResults": {
+                    "Deal": [
+                        {"StartDate": "2024-03", "Type": "Licensing"},
+                        {"StartDate": "2023-11", "Type": "Co-development"},
+                        {"StartDate": "2024-01", "Type": "Licensing"},
+                    ]
+                },
+            }
         }
         summary = extract_deal_summary(deals_json)
         assert summary["total"] == 5
@@ -320,7 +337,7 @@ class TestExtractDealSummary:
 
     def test_empty_deals(self):
         """Empty hits returns zeros."""
-        deals_json = {"totalResults": 0, "hits": []}
+        deals_json = {"dealResultsOutput": {"@totalResults": "0", "SearchResults": {"Deal": []}}}
         summary = extract_deal_summary(deals_json)
         assert summary["total"] == 0
         assert summary["latest_date"] is None

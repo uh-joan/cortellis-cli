@@ -303,12 +303,12 @@ def compile_indication_article(landscape_dir, indication_name, slug, base_dir=No
 
     # Mechanism Analysis
     body_parts.append("## Mechanism Analysis\n\n")
+    matched_targets = {}  # mechanism → target_slug
     if mechanisms:
         body_parts.append(
             "| Mechanism | Active | Launched | P3 | P2 | P1 | Discovery | Companies | Crowding |\n"
             "|---|---|---|---|---|---|---|---|---|\n"
         )
-        matched_targets = {}  # mechanism → target_slug
         for r in mechanisms[:15]:
             mname = r.get('mechanism', '-')
             target_slug = find_target_slug_for_mechanism(mname, base_dir) if mname != '-' else None

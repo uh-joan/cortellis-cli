@@ -313,6 +313,9 @@ class TestSearchLiteratureForDrug:
             return_value={"literatureList": {"literature": [mock_hit]}},
         ), patch(
             "cli_anything.cortellis.skills.landscape.recipes.enrich_literature.time.sleep"
+        ), patch(
+            "cli_anything.cortellis.core.pubmed.search_and_fetch",
+            return_value=[],
         ):
             records = search_literature_for_drug("semaglutide", client)
 
@@ -326,6 +329,9 @@ class TestSearchLiteratureForDrug:
             return_value={},
         ), patch(
             "cli_anything.cortellis.skills.landscape.recipes.enrich_literature.time.sleep"
+        ), patch(
+            "cli_anything.cortellis.core.pubmed.search_and_fetch",
+            return_value=[],
         ):
             records = search_literature_for_drug("UnknownDrug", client)
 
@@ -338,6 +344,9 @@ class TestSearchLiteratureForDrug:
             side_effect=Exception("network error"),
         ), patch(
             "cli_anything.cortellis.skills.landscape.recipes.enrich_literature.time.sleep"
+        ), patch(
+            "cli_anything.cortellis.core.pubmed.search_and_fetch",
+            return_value=[],
         ):
             records = search_literature_for_drug("DrugY", client)
 
@@ -350,7 +359,10 @@ class TestSearchLiteratureForDrug:
             return_value={},
         ), patch(
             "cli_anything.cortellis.skills.landscape.recipes.enrich_literature.time.sleep"
-        ) as mock_sleep:
+        ) as mock_sleep, patch(
+            "cli_anything.cortellis.core.pubmed.search_and_fetch",
+            return_value=[],
+        ):
             search_literature_for_drug("DrugQ", client)
 
         mock_sleep.assert_called_once_with(2)
