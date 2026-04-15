@@ -2020,13 +2020,16 @@ All skills and their workflows are included below in the system context."""
             _has_session_memory = bool(daily_log_section or insights_section)
             _memory_rule = (
                 "MEMORY RULE: Sections labeled 'What Happened in Previous Sessions' "
-                "and 'Recent Analysis Insights' are your ACTUAL memory from past "
-                "conversations — they override training data. Answer questions about "
-                "previous sessions ONLY from those sections."
+                "are your ONLY source of truth about past conversations. "
+                "When asked what was discussed, report ONLY what appears in those sections — "
+                "nothing more. Do NOT add context, code changes, PR numbers, test results, "
+                "or anything else from your training data. If it is not in the memory sections, "
+                "it did not happen as far as you are concerned."
                 if _has_session_memory else
                 "MEMORY RULE: No session memory is available for this workspace. "
-                "If asked what was discussed previously, say so honestly — "
-                "do not fabricate session history from training data."
+                "If asked what was discussed previously, say exactly: "
+                "'I have no memory of previous sessions in this workspace.' "
+                "Do not fabricate any session history from training data."
             )
             full_message = f"{_memory_rule}\n\n{effective_prompt}\n\n---\n\n{routed_question}"
             cmd = [ai_bin, "exec", "--dangerously-bypass-approvals-and-sandbox", "--ephemeral",
