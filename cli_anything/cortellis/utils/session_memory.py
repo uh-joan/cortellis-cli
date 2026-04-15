@@ -9,10 +9,6 @@ import sys
 from datetime import datetime, timezone
 from typing import Optional
 
-from cli_anything.cortellis.utils.wiki import (
-    article_path,
-    read_article,
-)
 
 
 def get_raw_dirs(base_dir: str = None) -> list[str]:
@@ -90,8 +86,15 @@ def get_newest_mtime(directory: str) -> Optional[datetime]:
     return newest
 
 
+_MARKER_FILE = ".wiki_compiled_at"
+
+
 def get_stale_indications(base_dir: str = None) -> list[dict]:
-    """Check which raw/ dirs have data newer than their wiki articles.
+    """Check which raw/ dirs have data newer than their last wiki compilation.
+
+    Uses a .wiki_compiled_at marker file written into each raw dir after a
+    successful compile. This avoids slug-mapping issues (e.g. raw/diabetes/
+    compiles to wiki/indications/diabetes-mellitus.md, not diabetes.md).
 
     Returns list of dicts: {
         'slug': str,
@@ -100,10 +103,6 @@ def get_stale_indications(base_dir: str = None) -> list[dict]:
         'raw_mtime': str (ISO),
         'wiki_compiled_at': str (ISO) or None,
     }
-
-    An indication is considered stale if:
-    - Wiki article doesn't exist (missing)
-    - Raw dir has files newer than wiki article's compiled_at
     """
     raw_dirs = get_raw_dirs(base_dir)
     results = []
@@ -113,29 +112,23 @@ def get_stale_indications(base_dir: str = None) -> list[dict]:
         raw_mtime = get_newest_mtime(raw_dir)
         raw_mtime_iso = raw_mtime.strftime("%Y-%m-%dT%H:%M:%SZ") if raw_mtime else None
 
-        path = article_path("indications", slug, base_dir)
-        art = read_article(path)
+        marker_path = os.path.join(raw_dir, _MARKER_FILE)
+        wiki_compiled_at = None
 
-        if art is None:
+        if not os.path.exists(marker_path):
             wiki_status = "missing"
-            wiki_compiled_at = None
         else:
-            wiki_compiled_at = art["meta"].get("compiled_at")
-            if not wiki_compiled_at:
-                wiki_status = "stale"
-            elif raw_mtime is not None:
-                try:
-                    compiled_dt = datetime.fromisoformat(
-                        wiki_compiled_at.replace("Z", "+00:00")
-                    )
-                    if raw_mtime > compiled_dt:
-                        wiki_status = "stale"
-                    else:
-                        wiki_status = "fresh"
-                except (ValueError, TypeError):
+            try:
+                wiki_compiled_at = open(marker_path).read().strip()
+                compiled_dt = datetime.fromisoformat(
+                    wiki_compiled_at.replace("Z", "+00:00")
+                )
+                if raw_mtime is not None and raw_mtime > compiled_dt:
                     wiki_status = "stale"
-            else:
-                wiki_status = "fresh"
+                else:
+                    wiki_status = "fresh"
+            except (ValueError, TypeError, OSError):
+                wiki_status = "stale"
 
         if wiki_status in ("missing", "stale"):
             results.append({
@@ -233,6 +226,13 @@ def flush_session_memory(base_dir: str = None) -> list[str]:
 
             compile_main()
             recompiled.append(slug)
+            # Write marker so next flush knows this raw dir is up to date
+            try:
+                marker_path = os.path.join(raw_dir, _MARKER_FILE)
+                with open(marker_path, "w") as _mf:
+                    _mf.write(datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"))
+            except Exception:
+                pass
             # Extract session insights (landscape only — other types don't have strategic_briefing.md)
             if compiler_type == "landscape":
                 try:

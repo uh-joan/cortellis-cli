@@ -8,6 +8,7 @@ from datetime import datetime, timezone, timedelta
 import pytest
 
 from cli_anything.cortellis.utils.session_memory import (
+    _MARKER_FILE,
     get_raw_dirs,
     get_newest_mtime,
     get_stale_indications,
@@ -40,6 +41,13 @@ def make_landscape_dir(dir_path):
         writer = csv.DictWriter(f, fieldnames=["name", "id", "phase", "indication", "mechanism", "company", "source"])
         writer.writeheader()
         writer.writerow({"name": "TestDrug", "id": "1", "phase": "Launched", "indication": "Test", "mechanism": "Mech", "company": "Acme", "source": "src"})
+
+
+def make_marker(raw_dir, compiled_at_iso: str):
+    """Write a .wiki_compiled_at marker file into a raw dir."""
+    marker_path = os.path.join(str(raw_dir), _MARKER_FILE)
+    with open(marker_path, "w") as f:
+        f.write(compiled_at_iso)
 
 
 def make_wiki_article(base_dir, slug, compiled_at_iso):
@@ -144,30 +152,30 @@ class TestGetStaleIndications:
         assert result[0]["raw_mtime"] is not None
 
     def test_fresh_wiki_not_in_results(self, tmp_path):
-        # raw/obesity/ exists, wiki compiled recently (after the raw files)
+        # raw/obesity/ exists, marker written recently (after the raw files)
         obesity_dir = tmp_path / "raw" / "obesity"
         obesity_dir.mkdir(parents=True)
         make_csv(str(obesity_dir / "strategic_scores.csv"))
 
-        # Wiki compiled one hour in the future relative to now
+        # Marker compiled one hour in the future relative to now
         future_iso = (
             datetime.now(timezone.utc) + timedelta(hours=1)
         ).strftime("%Y-%m-%dT%H:%M:%SZ")
-        make_wiki_article(tmp_path, "obesity", future_iso)
+        make_marker(obesity_dir, future_iso)
 
         result = get_stale_indications(str(tmp_path))
         assert result == []
 
     def test_old_wiki_is_stale(self, tmp_path):
-        # raw/obesity/ exists, wiki compiled before the raw files were modified
+        # raw/obesity/ exists, marker written before the raw files were modified
         obesity_dir = tmp_path / "raw" / "obesity"
         obesity_dir.mkdir(parents=True)
 
-        # First write the wiki article with an old timestamp
+        # Write marker with an old timestamp
         past_iso = "2020-01-01T00:00:00Z"
-        make_wiki_article(tmp_path, "obesity", past_iso)
+        make_marker(obesity_dir, past_iso)
 
-        # Then write the csv (newer than the wiki article)
+        # Then write the csv (newer than the marker)
         make_csv(str(obesity_dir / "strategic_scores.csv"))
 
         result = get_stale_indications(str(tmp_path))
@@ -177,17 +185,17 @@ class TestGetStaleIndications:
         assert result[0]["wiki_compiled_at"] == past_iso
 
     def test_multiple_indications_mixed(self, tmp_path):
-        # obesity: stale, diabetes: fresh
+        # obesity: stale (no marker), diabetes: fresh (future marker)
         for slug in ("obesity", "diabetes"):
             d = tmp_path / "raw" / slug
             d.mkdir(parents=True)
             make_csv(str(d / "strategic_scores.csv"))
 
-        # diabetes has a future wiki article
+        # diabetes has a future marker
         future_iso = (
             datetime.now(timezone.utc) + timedelta(hours=1)
         ).strftime("%Y-%m-%dT%H:%M:%SZ")
-        make_wiki_article(tmp_path, "diabetes", future_iso)
+        make_marker(tmp_path / "raw" / "diabetes", future_iso)
 
         result = get_stale_indications(str(tmp_path))
         slugs = {r["slug"] for r in result}
@@ -215,7 +223,7 @@ class TestFlushSessionMemory:
         assert art["meta"].get("compiled_at") is not None
 
     def test_skips_fresh(self, tmp_path):
-        # Create raw/obesity/ + wiki article that's fresh (future timestamp)
+        # Create raw/obesity/ + marker that's fresh (future timestamp)
         obesity_dir = tmp_path / "raw" / "obesity"
         obesity_dir.mkdir(parents=True)
         make_csv(str(obesity_dir / "strategic_scores.csv"))
@@ -223,7 +231,7 @@ class TestFlushSessionMemory:
         future_iso = (
             datetime.now(timezone.utc) + timedelta(hours=1)
         ).strftime("%Y-%m-%dT%H:%M:%SZ")
-        make_wiki_article(tmp_path, "obesity", future_iso)
+        make_marker(obesity_dir, future_iso)
 
         recompiled = flush_session_memory(str(tmp_path))
         assert recompiled == []
