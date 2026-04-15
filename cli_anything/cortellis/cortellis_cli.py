@@ -64,9 +64,14 @@ load_dotenv()
               help="Output raw JSON instead of formatted tables.")
 @click.option("--debug", is_flag=True, default=False,
               help="Show API commands being executed in chat mode.")
+@click.option("--engine", default="claude",
+              type=click.Choice(["claude", "codex"], case_sensitive=False),
+              help="AI engine for chat mode: 'claude' (Claude Code) or 'codex' (OpenAI Codex).")
+@click.option("--no-flush", "no_flush", is_flag=True, default=False,
+              help="Skip session memory flush on exit (useful for testing).")
 @click.version_option(__version__, prog_name="cortellis")
 @click.pass_context
-def cli(ctx: click.Context, json_mode: bool, debug: bool) -> None:
+def cli(ctx: click.Context, json_mode: bool, debug: bool, engine: str, no_flush: bool) -> None:
     """Cortellis pharmaceutical intelligence CLI."""
     ctx.ensure_object(dict)
     ctx.obj["json"] = json_mode
@@ -74,7 +79,7 @@ def cli(ctx: click.Context, json_mode: bool, debug: bool) -> None:
 
     if ctx.invoked_subcommand is None:
         # No subcommand — launch AI chat mode
-        ctx.invoke(chat_cmd, debug=debug)
+        ctx.invoke(chat_cmd, debug=debug, engine=engine, no_flush=no_flush)
 
 
 def _client(ctx: click.Context) -> CortellisClient:
@@ -1615,14 +1620,15 @@ def setup_cmd() -> None:
         click.echo("  Check your credentials and try again with: cortellis config")
     click.echo()
 
-    # Step 3: Claude Code check (for chat mode)
-    click.echo("  Step 3/3: Claude Code (for AI Chat Mode)")
+    # Step 3: AI engine check (for chat mode)
+    click.echo("  Step 3/3: AI Chat Engine (for AI Chat Mode)")
     click.echo("  " + "-" * 40)
+    import subprocess as _sp
     claude_bin = shutil.which("claude")
+    codex_bin = shutil.which("codex")
+
     if claude_bin:
         click.echo("  Claude Code CLI found!")
-        # Check if logged in
-        import subprocess as _sp
         try:
             check = _sp.run([claude_bin, "--print", "-p", "say ok", "--max-turns", "1"],
                             capture_output=True, text=True, timeout=15)
@@ -1633,7 +1639,6 @@ def setup_cmd() -> None:
                 if "login" in err.lower() or "auth" in err.lower() or "not logged" in err.lower():
                     click.echo("  Not logged in yet. Run this to authenticate:")
                     click.echo("    claude login")
-                    click.echo("  Then 'cortellis chat' will work.")
                 else:
                     click.echo("  'cortellis chat' should be ready.")
         except _sp.TimeoutExpired:
@@ -1642,10 +1647,31 @@ def setup_cmd() -> None:
             click.echo("  Could not verify auth — try 'cortellis chat' to test.")
     else:
         click.echo("  Claude Code CLI not found.")
-        click.echo("  To enable AI chat mode, install Claude Code:")
+        click.echo("  To enable AI chat mode with Claude, install Claude Code:")
         click.echo("    npm install -g @anthropic-ai/claude-code")
         click.echo("    claude login")
-        click.echo("  (Optional — all other commands work without it)")
+
+    if codex_bin:
+        click.echo("  OpenAI Codex CLI found!")
+        try:
+            codex_check = _sp.run([codex_bin, "login", "status"],
+                                  capture_output=True, text=True, timeout=10)
+            if codex_check.returncode == 0:
+                click.echo(f"  Authenticated! ({codex_check.stdout.strip()})")
+                click.echo("  'cortellis --engine codex' is ready.")
+            else:
+                click.echo("  Not logged in yet. Run this to authenticate:")
+                click.echo("    codex login --device-auth")
+        except Exception:
+            click.echo("  Could not verify auth — try: codex login --device-auth")
+    else:
+        click.echo("  OpenAI Codex CLI not found.")
+        click.echo("  To enable AI chat mode with Codex, install it:")
+        click.echo("    npm install -g @openai/codex")
+        click.echo("    codex login --device-auth")
+
+    if not claude_bin and not codex_bin:
+        click.echo("  (Optional — all other commands work without an AI engine)")
     click.echo()
 
     # Summary
@@ -1658,7 +1684,9 @@ def setup_cmd() -> None:
     click.echo("    cortellis --json companies search --query \"Pfizer\"")
     click.echo("    cortellis ontology search --term \"obesity\" --category indication")
     if claude_bin:
-        click.echo("    cortellis chat              # AI-powered natural language")
+        click.echo("    cortellis chat                       # AI chat via Claude Code")
+    if codex_bin:
+        click.echo("    cortellis --engine codex chat        # AI chat via OpenAI Codex")
     click.echo()
     click.echo("  Run 'cortellis --help' to see all 17 command groups.")
 
@@ -1680,27 +1708,38 @@ def repl_cmd(ctx) -> None:
 # chat — AI-powered natural language interface via Claude Code
 # ---------------------------------------------------------------------------
 
-def chat_cmd(debug) -> None:
+def chat_cmd(debug, engine="claude", no_flush=False) -> None:
     """Start an AI chat session for querying Cortellis in natural language.
 
-    Launches Claude Code with Cortellis knowledge pre-loaded.
+    Launches an AI engine (Claude Code or Codex) with Cortellis knowledge pre-loaded.
     Ask questions like "show me Phase 3 drugs for obesity" and get answers.
-    Requires the 'claude' CLI (Claude Code subscription).
+    Requires 'claude' (Claude Code) or 'codex' (OpenAI Codex) CLI.
     """
     import json as _json
     import shutil
     import subprocess
     from pathlib import Path
 
-    claude_bin = shutil.which("claude")
-    if not claude_bin:
-        click.echo("Error: 'claude' CLI not found. Install Claude Code first.")
-        click.echo("  https://docs.anthropic.com/en/docs/claude-code")
-        raise SystemExit(1)
-
-    click.echo(_BANNER)
-    click.echo("  Cortellis AI Chat — powered by Claude Code")
-    click.echo("  Ask questions naturally. Type 'exit' or Ctrl-D to quit.\n")
+    engine = (engine or "claude").lower()
+    if engine == "codex":
+        ai_bin = shutil.which("codex")
+        if not ai_bin:
+            click.echo("Error: 'codex' CLI not found. Install OpenAI Codex:")
+            click.echo("  npm install -g @openai/codex")
+            click.echo("  export OPENAI_API_KEY=<your-key>")
+            raise SystemExit(1)
+        click.echo(_BANNER)
+        click.echo("  Cortellis AI Chat — powered by Codex")
+        click.echo("  Ask questions naturally. Type 'exit' or Ctrl-D to quit.\n")
+    else:
+        ai_bin = shutil.which("claude")
+        if not ai_bin:
+            click.echo("Error: 'claude' CLI not found. Install Claude Code first.")
+            click.echo("  https://docs.anthropic.com/en/docs/claude-code")
+            raise SystemExit(1)
+        click.echo(_BANNER)
+        click.echo("  Cortellis AI Chat — powered by Claude Code")
+        click.echo("  Ask questions naturally. Type 'exit' or Ctrl-D to quit.\n")
 
     # Load all skills from skills/*/SKILL.md
     skills_dir = Path(__file__).parent / "skills"
@@ -1860,26 +1899,28 @@ All skills and their workflows are included below in the system context."""
         try:
             question = input("  you> ").strip()
         except (EOFError, KeyboardInterrupt):
-            try:
-                from cli_anything.cortellis.utils.session_memory import flush_session_memory
-                recompiled = flush_session_memory()
-                if recompiled:
-                    click.echo(f"\n  Updated wiki for: {', '.join(recompiled)}")
-            except Exception:
-                pass
+            if not no_flush:
+                try:
+                    from cli_anything.cortellis.utils.session_memory import flush_session_memory
+                    recompiled = flush_session_memory()
+                    if recompiled:
+                        click.echo(f"\n  Updated wiki for: {', '.join(recompiled)}")
+                except Exception:
+                    pass
             click.echo("\n  Goodbye!")
             break
 
         if not question:
             continue
         if question.lower() in ("exit", "quit", "/exit"):
-            try:
-                from cli_anything.cortellis.utils.session_memory import flush_session_memory
-                recompiled = flush_session_memory()
-                if recompiled:
-                    click.echo(f"  Updated wiki for: {', '.join(recompiled)}")
-            except Exception:
-                pass
+            if not no_flush:
+                try:
+                    from cli_anything.cortellis.utils.session_memory import flush_session_memory
+                    recompiled = flush_session_memory()
+                    if recompiled:
+                        click.echo(f"  Updated wiki for: {', '.join(recompiled)}")
+                except Exception:
+                    pass
             click.echo("  Goodbye!")
             break
 
@@ -1970,12 +2011,24 @@ All skills and their workflows are included below in the system context."""
 
         effective_prompt = system_prompt + wiki_context
 
-        cmd = [claude_bin, "--print", "-p", routed_question,
-               "--append-system-prompt", effective_prompt,
-               "--allowedTools", "Bash",
-               "--output-format", "stream-json", "--verbose"]
-        if use_context and not first_turn:
-            cmd.append("--continue")
+        if engine == "codex":
+            # codex exec: non-interactive mode with sandboxed auto-approval.
+            # System context is prepended to the message (no --append-system-prompt equiv).
+            # Final answer is written to a temp file via --output-last-message for clean capture.
+            import tempfile as _tmpfile
+            _codex_out = _tmpfile.mktemp(suffix=".txt")
+            full_message = f"{effective_prompt}\n\n---\n\n{routed_question}"
+            cmd = [ai_bin, "exec", "--dangerously-bypass-approvals-and-sandbox", "--ephemeral",
+                   "-C", os.getcwd(),
+                   "--output-last-message", _codex_out,
+                   full_message]
+        else:
+            cmd = [ai_bin, "--print", "-p", routed_question,
+                   "--append-system-prompt", effective_prompt,
+                   "--allowedTools", "Bash",
+                   "--output-format", "stream-json", "--verbose"]
+            if use_context and not first_turn:
+                cmd.append("--continue")
 
         # Show spinner while waiting for output; in non-debug mode update status
         # dynamically as tool calls stream in, printing each status as a new line.
@@ -2005,92 +2058,121 @@ All skills and their workflows are included below in the system context."""
         spinner_thread = threading.Thread(target=spin, daemon=True)
         spinner_thread.start()
 
-        proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+        popen_kwargs = dict(stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+        if engine == "codex":
+            # Prevent codex from blocking on stdin
+            popen_kwargs["stdin"] = subprocess.DEVNULL
+        proc = subprocess.Popen(cmd, **popen_kwargs)
         first_output = True
 
-        # Parse stream-json to show tool calls + final answer
-        for line in iter(proc.stdout.readline, b""):
-            decoded = line.decode("utf-8", errors="replace").strip()
-            if not decoded:
-                continue
-            try:
-                event = _json.loads(decoded)
-            except _json.JSONDecodeError:
-                continue
+        if engine == "codex":
+            # Drain stdout (codex exec streams tool-call activity there) but
+            # the clean final answer is in _codex_out written by --output-last-message.
+            for _ in iter(proc.stdout.readline, b""):
+                pass
+            stop_spinner.set()
+            spinner_thread.join()
+            elapsed = int(time.time() - t_start)
+            if spinner_state[1]:
+                sys.stdout.write(f"\r  Answered in {elapsed}s" + " " * 40 + "\n\n")
+            else:
+                sys.stdout.write(f"  Answered in {elapsed}s\n\n")
+            sys.stdout.flush()
+            text = ""
+            if os.path.exists(_codex_out):
+                with open(_codex_out, encoding="utf-8") as _f:
+                    text = _f.read().strip()
+                os.unlink(_codex_out)
+            if not text:
+                text = "[No response from Codex]"
+            sys.stdout.write(text)
+            if not text.endswith("\n"):
+                sys.stdout.write("\n")
+            sys.stdout.flush()
+        else:
+            # Parse stream-json to show tool calls + final answer
+            for line in iter(proc.stdout.readline, b""):
+                decoded = line.decode("utf-8", errors="replace").strip()
+                if not decoded:
+                    continue
+                try:
+                    event = _json.loads(decoded)
+                except _json.JSONDecodeError:
+                    continue
 
-            etype = event.get("type", "")
+                etype = event.get("type", "")
 
-            # Tool calls are inside assistant message content array
-            if etype == "assistant" and "message" in event:
-                content = event["message"].get("content", [])
-                if isinstance(content, list):
-                    for block in content:
-                        if block.get("type") == "tool_use":
-                            tool = block.get("name", "?")
-                            inp = block.get("input", {})
-                            if tool == "Bash" and "command" in inp:
-                                cmd_str = inp["command"]
-                                if debug:
-                                    # Stop spinner and print raw command
+                # Tool calls are inside assistant message content array
+                if etype == "assistant" and "message" in event:
+                    content = event["message"].get("content", [])
+                    if isinstance(content, list):
+                        for block in content:
+                            if block.get("type") == "tool_use":
+                                tool = block.get("name", "?")
+                                inp = block.get("input", {})
+                                if tool == "Bash" and "command" in inp:
+                                    cmd_str = inp["command"]
+                                    if debug:
+                                        # Stop spinner and print raw command
+                                        if first_output:
+                                            stop_spinner.set()
+                                            spinner_thread.join()
+                                            if spinner_state[1]:
+                                                sys.stdout.write("\n")
+                                            first_output = False
+                                        if "cortellis" in cmd_str:
+                                            short = cmd_str.split("cortellis", 1)[1].strip()
+                                            sys.stdout.write(f"  > cortellis {short}\n")
+                                        else:
+                                            sys.stdout.write(f"  > {cmd_str[:80]}\n")
+                                        sys.stdout.flush()
+                                    else:
+                                        # Update spinner: commit current line, start new status
+                                        new_status = translate_command(cmd_str)
+                                        if new_status:
+                                            if spinner_state[1]:
+                                                elapsed = int(time.time() - t_start)
+                                                line = f"  {spinner_state[0]}  ({elapsed}s)"
+                                                sys.stdout.write(f"\r{line:<80s}\n")
+                                                sys.stdout.flush()
+                                                spinner_state[1] = False
+                                            spinner_state[0] = new_status
+                                elif debug:
                                     if first_output:
                                         stop_spinner.set()
                                         spinner_thread.join()
                                         if spinner_state[1]:
                                             sys.stdout.write("\n")
                                         first_output = False
-                                    if "cortellis" in cmd_str:
-                                        short = cmd_str.split("cortellis", 1)[1].strip()
-                                        sys.stdout.write(f"  > cortellis {short}\n")
-                                    else:
-                                        sys.stdout.write(f"  > {cmd_str[:80]}\n")
+                                    sys.stdout.write(f"  > {tool}\n")
                                     sys.stdout.flush()
-                                else:
-                                    # Update spinner: commit current line, start new status
-                                    new_status = translate_command(cmd_str)
-                                    if new_status:
-                                        if spinner_state[1]:
-                                            elapsed = int(time.time() - t_start)
-                                            line = f"  {spinner_state[0]}  ({elapsed}s)"
-                                            sys.stdout.write(f"\r{line:<80s}\n")
-                                            sys.stdout.flush()
-                                            spinner_state[1] = False
-                                        spinner_state[0] = new_status
-                            elif debug:
-                                if first_output:
-                                    stop_spinner.set()
-                                    spinner_thread.join()
-                                    if spinner_state[1]:
-                                        sys.stdout.write("\n")
-                                    first_output = False
-                                sys.stdout.write(f"  > {tool}\n")
-                                sys.stdout.flush()
 
-            elif etype == "result":
-                # Stop spinner and print final answer
+                elif etype == "result":
+                    # Stop spinner and print final answer
+                    stop_spinner.set()
+                    spinner_thread.join()
+                    if spinner_state[1]:
+                        elapsed = int(time.time() - t_start)
+                        sys.stdout.write(f"\r  Answered in {elapsed}s" + " " * 40 + "\n\n")
+                        sys.stdout.flush()
+                    elif first_output:
+                        elapsed = int(time.time() - t_start)
+                        sys.stdout.write(f"  Answered in {elapsed}s\n\n")
+                        sys.stdout.flush()
+                    first_output = False
+                    text = event.get("result", "")
+                    sys.stdout.write(text)
+                    if not text.endswith("\n"):
+                        sys.stdout.write("\n")
+                    sys.stdout.flush()
+
+            if first_output or (not stop_spinner.is_set()):
                 stop_spinner.set()
                 spinner_thread.join()
                 if spinner_state[1]:
                     elapsed = int(time.time() - t_start)
                     sys.stdout.write(f"\r  Answered in {elapsed}s" + " " * 40 + "\n\n")
                     sys.stdout.flush()
-                elif first_output:
-                    elapsed = int(time.time() - t_start)
-                    sys.stdout.write(f"  Answered in {elapsed}s\n\n")
-                    sys.stdout.flush()
-                first_output = False
-                text = event.get("result", "")
-                sys.stdout.write(text)
-                if not text.endswith("\n"):
-                    sys.stdout.write("\n")
-                sys.stdout.flush()
-
-        if first_output or (not stop_spinner.is_set()):
-            stop_spinner.set()
-            spinner_thread.join()
-            if spinner_state[1]:
-                elapsed = int(time.time() - t_start)
-                sys.stdout.write(f"\r  Answered in {elapsed}s" + " " * 40 + "\n\n")
-                sys.stdout.flush()
 
         proc.wait()
         click.echo()

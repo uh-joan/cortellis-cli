@@ -46,7 +46,7 @@ Drugs, companies, deals, trials, regulatory, targets, drug design, ontology, ana
 
 ### 2. Skills — Multi-Step Analysis Workflows
 
-Slash commands in [Claude Code](https://docs.anthropic.com/en/docs/claude-code) that orchestrate full analytical pipelines:
+Slash commands that orchestrate full analytical pipelines — works with [Claude Code](https://docs.anthropic.com/en/docs/claude-code) or [OpenAI Codex](https://github.com/openai/codex):
 
 | Command | What it does |
 |---------|-------------|
@@ -82,7 +82,14 @@ wiki/
 
 ## See It In Action
 
-Start the CLI. The SessionStart hook injects compiled wiki context — Claude already knows your landscapes, signals, and previous insights.
+Start the CLI with Claude Code (default) or OpenAI Codex:
+
+```bash
+cortellis                        # Claude Code (default)
+cortellis --engine codex         # OpenAI Codex
+```
+
+The SessionStart hook injects compiled wiki context — the AI already knows your landscapes, signals, and previous insights.
 
 ```
 cortellis
@@ -140,6 +147,8 @@ Accumulated session insights — key findings, scenarios, implications from past
 
 - **Python 3.9+**
 - **[Cortellis API credentials](https://www.cortellis.com)** — active subscription required
-- **[Claude Code](https://docs.anthropic.com/en/docs/claude-code)** — for AI chat, skills, and session hooks
+- **AI engine** (choose one, both optional — all CLI commands work without them):
+  - **[Claude Code](https://docs.anthropic.com/en/docs/claude-code)** — `npm install -g @anthropic-ai/claude-code` + `claude login`
+  - **[OpenAI Codex](https://github.com/openai/codex)** — `npm install -g @openai/codex` + `codex login --device-auth` (ChatGPT Plus/Pro subscription)
 - **[Obsidian](https://obsidian.md)** *(optional)* — for wiki graph view and visual navigation
 - **NetworkX** *(optional)* — `pip install cortellis-cli[graph]` for knowledge graph features
