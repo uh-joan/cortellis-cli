@@ -14,9 +14,12 @@ Includes:
 
 Pure computation + structured text. No LLM API calls.
 """
-import csv, json, math, os, re, sys
+import csv
+import json
+import os
+import re
+import sys
 from collections import Counter, defaultdict
-from datetime import datetime
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from _audit_trail import (
@@ -278,7 +281,7 @@ if top_mech_share > 30:
 elif top_mech_share > 15:
     print(f"2. **Leading mechanism:** {top_mech_name} leads with {top_mech_share:.0f}% of pipeline, but alternatives exist")
 else:
-    print(f"2. **Diversified landscape:** No single mechanism exceeds 15% — fragmented competitive field")
+    print("2. **Diversified landscape:** No single mechanism exceeds 15% — fragmented competitive field")
 
 leader_names = [s.get("company", "?")[:30] for s in quadrants["Leaders"][:3]]
 if leader_names:
@@ -369,7 +372,7 @@ if top_company:
     top_scored = scored_beneficiaries[:5]
     if top_scored:
         if beneficiary_confidence == "ABSTAIN":
-            print(f"**Primary beneficiaries** (overlap × specialty-buyer-fit) — confidence: ABSTAIN")
+            print("**Primary beneficiaries** (overlap × specialty-buyer-fit) — confidence: ABSTAIN")
             print()
             print("⚠ Insufficient signal; thin pipeline — no confident beneficiary ranking")
         else:
@@ -489,7 +492,7 @@ print()
 # Double down or cut
 print(f"**3. Double down or cut losses?** {preset_tag}")
 if fading:
-    print(f"- Companies showing declining momentum despite strong portfolio — reassess commitment")
+    print("- Companies showing declining momentum despite strong portfolio — reassess commitment")
 if top_mech_share > 40:
     print(f"- {top_mech_name} is heavily crowded ({top_mech_share:.0f}% share) — consider pivoting to differentiated mechanisms")
 # So what action closure for Double down/Cut
@@ -552,8 +555,8 @@ print()
 
 # Data freshness footer
 print("---")
-print(f"*Generated from landscape data. Strategic scores are deterministic computations, not LLM predictions.*")
-print(f"*Validate against domain expertise before making investment decisions.*")
+print("*Generated from landscape data. Strategic scores are deterministic computations, not LLM predictions.*")
+print("*Validate against domain expertise before making investment decisions.*")
 
 # Load preset weights for audit trail
 _preset_weights = None

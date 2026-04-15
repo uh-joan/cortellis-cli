@@ -3,7 +3,9 @@
 
 Usage: cortellis --json deals search --principal "Novo Nordisk" --hits 20 | python3 deals_to_csv.py > deals.csv
 """
-import csv, json, sys
+import csv
+import json
+import sys
 
 data = json.load(sys.stdin)
 results = data.get("dealResultsOutput", {})

@@ -340,11 +340,11 @@ def update_index(wiki_dir: str, entries: list[dict]) -> None:
         by_type.setdefault(e["type"], []).append(e)
 
     lines = [
-        f"# Cortellis Intelligence Wiki\n",
+        "# Cortellis Intelligence Wiki\n",
         f"\n> Auto-generated index. Last updated: {_now_iso()}\n",
     ]
 
-    type_order = ["indications", "companies", "drugs", "targets", "concepts", "connections"]
+    type_order = ["indications", "companies", "drugs", "targets", "concepts", "connections", "conferences", "internal"]
     for t in type_order:
         group = by_type.get(t, [])
         if not group:
@@ -393,11 +393,12 @@ def update_index(wiki_dir: str, entries: list[dict]) -> None:
                     f" | {e.get('compiled_at', '-')[:10]} |\n"
                 )
         else:
-            lines.append("| Title | Summary | Compiled |\n")
-            lines.append("|---|---|---|\n")
+            lines.append("| Title | Format | Summary | Compiled |\n")
+            lines.append("|---|---|---|---|\n")
             for e in sorted(group, key=lambda x: x["title"]):
                 lines.append(
                     f"| [{e['title']}]({t}/{e['slug']}.md)"
+                    f" | {e.get('source_format', '-')}"
                     f" | {e.get('summary', '-')}"
                     f" | {e.get('compiled_at', '-')[:10]} |\n"
                 )
@@ -429,7 +430,7 @@ def log_activity(wiki_dir: str, action: str, details: str) -> None:
 def load_index_entries(wiki_dir: str) -> list[dict]:
     """Load existing index entries by scanning article frontmatter."""
     entries = []
-    for article_type in ("indications", "companies", "drugs", "targets", "concepts", "connections"):
+    for article_type in ("indications", "companies", "drugs", "targets", "concepts", "connections", "conferences", "internal"):
         type_dir = os.path.join(wiki_dir, article_type)
         if not os.path.isdir(type_dir):
             continue
@@ -439,19 +440,28 @@ def load_index_entries(wiki_dir: str) -> list[dict]:
             art = read_article(os.path.join(type_dir, fname))
             if art and art["meta"]:
                 m = art["meta"]
-                # Derive summary for companies from indications dict
+                # Derive summary for companies from indications dict; for internal from entities
                 summary = m.get("summary", "")
                 if not summary and article_type == "companies":
                     ind_dict = m.get("indications", {})
                     if ind_dict:
                         summary = ", ".join(sorted(ind_dict.keys()))
+                if not summary and article_type == "internal":
+                    entities = m.get("entities", [])
+                    if entities:
+                        summary = ", ".join(entities[:5])
+
+                # Derive file format from source_file extension
+                source_file = m.get("source_file", "")
+                src_ext = os.path.splitext(source_file)[1].lstrip(".").upper() if source_file else ""
 
                 entries.append({
                     "type": article_type,
                     "slug": m.get("slug", fname[:-3]),
                     "title": m.get("title", fname[:-3]),
                     "summary": summary,
-                    "compiled_at": m.get("compiled_at", ""),
+                    "source_format": src_ext,
+                    "compiled_at": m.get("compiled_at", "") or m.get("ingested_at", ""),
                     "freshness": m.get("freshness_level", ""),
                     "total_drugs": m.get("total_drugs", ""),
                     "top_company": m.get("top_company", ""),

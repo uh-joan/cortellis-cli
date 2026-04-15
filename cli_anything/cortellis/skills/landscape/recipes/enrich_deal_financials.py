@@ -16,6 +16,7 @@ import time
 # Allow running as standalone script
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "..", "..", "..", ".."))
 
+from dotenv import load_dotenv
 from cli_anything.cortellis.core.client import CortellisClient
 from cli_anything.cortellis.core import deals_intelligence
 
@@ -349,8 +350,8 @@ def generate_comps_markdown(records):
         "",
         "## Summary",
         "",
-        f"| Metric | Value |",
-        f"|--------|-------|",
+        "| Metric | Value |",
+        "|--------|-------|",
         f"| Deals with financials | {len(with_financials)} |",
         f"| Median total value | {median_value or 'N/A'} |",
         f"| Most common type | {most_common_type} |",
@@ -405,6 +406,7 @@ def main():
 
     print(f"[deal_financials] fetching expanded records for {len(deal_ids)} deals...", file=sys.stderr)
 
+    load_dotenv()
     client = CortellisClient()
     expanded_deals = fetch_expanded_deals(deal_ids, client)
 

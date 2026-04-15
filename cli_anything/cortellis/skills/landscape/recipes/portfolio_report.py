@@ -81,7 +81,7 @@ def main():
 
     rows.sort(key=lambda r: r["total_drugs"], reverse=True)
 
-    print(f"## Cross-Indication Portfolio View")
+    print("## Cross-Indication Portfolio View")
     print(f"> Generated from {len(rows)} compiled landscape articles")
     print()
     print("### Indication Comparison")

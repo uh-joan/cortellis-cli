@@ -27,7 +27,6 @@ from cli_anything.cortellis.utils.data_helpers import (
 )
 from cli_anything.cortellis.utils.wiki import (
     slugify,
-    normalize_company_name,
     normalize_drug_name,
     find_company_slug,
     find_target_slug_for_mechanism,
@@ -143,6 +142,10 @@ def compile_indication_article(landscape_dir, indication_name, slug, base_dir=No
             seen_tags.add(t)
             unique_tags.append(t)
 
+    # Load ontology synonyms if available (from fetch_synonyms.py)
+    synonyms_data = read_json_safe(os.path.join(landscape_dir, "synonyms.json"))
+    indication_aliases = synonyms_data.get("synonyms", []) if synonyms_data else []
+
     meta = {
         "title": indication_name,
         "type": "indication",
@@ -156,6 +159,7 @@ def compile_indication_article(landscape_dir, indication_name, slug, base_dir=No
         "top_company": f"{top_company} ({top_cpi})" if top_company else "",
         "related": company_slugs,
         "tags": unique_tags,
+        **({"aliases": indication_aliases} if indication_aliases else {}),
         "phase_counts": {
             "launched": phases["launched"],
             "phase3": phases["phase3"],
@@ -174,7 +178,7 @@ def compile_indication_article(landscape_dir, indication_name, slug, base_dir=No
     body_parts = []
 
     # Executive Summary
-    body_parts.append(f"## Executive Summary\n")
+    body_parts.append("## Executive Summary\n")
     body_parts.append(
         f"The **{indication_name}** landscape comprises **{phases['total']} drugs** "
         f"across all development phases, with **{deal_count} recent deals**.\n\n"
@@ -187,8 +191,8 @@ def compile_indication_article(landscape_dir, indication_name, slug, base_dir=No
         body_parts.append(f"Top 3 companies by CPI: {top3}.\n\n")
 
     # Pipeline Overview
-    body_parts.append(f"## Pipeline Overview\n\n")
-    body_parts.append(f"| Phase | Count |\n|---|---|\n")
+    body_parts.append("## Pipeline Overview\n\n")
+    body_parts.append("| Phase | Count |\n|---|---|\n")
     phase_labels = {
         "launched": "Launched", "phase3": "Phase 3", "phase2": "Phase 2",
         "phase1": "Phase 1", "discovery": "Discovery", "other": "Other",
@@ -199,11 +203,11 @@ def compile_indication_article(landscape_dir, indication_name, slug, base_dir=No
     body_parts.append(f"| **Total** | **{phases['total']}** |\n\n")
 
     # Competitive Landscape — CPI Rankings
-    body_parts.append(f"## Competitive Landscape\n\n")
+    body_parts.append("## Competitive Landscape\n\n")
     if scores:
         body_parts.append(
-            f"| Rank | Company | Tier | CPI | Position | Pipeline | Phase Score | Mechs | Deals | Trials |\n"
-            f"|---|---|---|---|---|---|---|---|---|---|\n"
+            "| Rank | Company | Tier | CPI | Position | Pipeline | Phase Score | Mechs | Deals | Trials |\n"
+            "|---|---|---|---|---|---|---|---|---|---|\n"
         )
         for i, r in enumerate(scores[:30], 1):
             company_link = wikilink(find_company_slug(r["company"], base_dir), r["company"])
@@ -233,7 +237,7 @@ def compile_indication_article(landscape_dir, indication_name, slug, base_dir=No
     narrate_ctx = read_json_safe(os.path.join(landscape_dir, "narrate_context.json"))
     top_companies_ctx = narrate_ctx.get("top_companies", []) if isinstance(narrate_ctx, dict) else []
     if top_companies_ctx:
-        body_parts.append(f"## Key Companies\n\n")
+        body_parts.append("## Key Companies\n\n")
         for c in top_companies_ctx[:5]:
             cname = c.get("company", "")
             if not cname:
@@ -257,7 +261,7 @@ def compile_indication_article(landscape_dir, indication_name, slug, base_dir=No
             attrs.append(f"**Trial intensity:** {trial_int}")
             body_parts.append(" · ".join(attrs) + "\n\n")
     elif scores:
-        body_parts.append(f"## Key Companies\n\n")
+        body_parts.append("## Key Companies\n\n")
         for i, r in enumerate(scores[:5], 1):
             cname = r.get("company", "")
             if not cname:
@@ -285,8 +289,8 @@ def compile_indication_article(landscape_dir, indication_name, slug, base_dir=No
     phase3_rows = read_csv_safe(os.path.join(landscape_dir, "phase3.csv"))
     flagship_drugs = launched_rows[:10] + phase3_rows[:10]
     if flagship_drugs:
-        body_parts.append(f"## Key Drugs\n\n")
-        body_parts.append(f"| Drug | Phase | Mechanism | Company |\n|---|---|---|---|\n")
+        body_parts.append("## Key Drugs\n\n")
+        body_parts.append("| Drug | Phase | Mechanism | Company |\n|---|---|---|---|\n")
         for drug in flagship_drugs:
             dname = drug.get("drug_name") or drug.get("name") or drug.get("drug") or "-"
             phase = drug.get("phase") or drug.get("development_phase") or "-"
@@ -298,11 +302,11 @@ def compile_indication_article(landscape_dir, indication_name, slug, base_dir=No
         body_parts.append("\n")
 
     # Mechanism Analysis
-    body_parts.append(f"## Mechanism Analysis\n\n")
+    body_parts.append("## Mechanism Analysis\n\n")
     if mechanisms:
         body_parts.append(
-            f"| Mechanism | Active | Launched | P3 | P2 | P1 | Discovery | Companies | Crowding |\n"
-            f"|---|---|---|---|---|---|---|---|---|\n"
+            "| Mechanism | Active | Launched | P3 | P2 | P1 | Discovery | Companies | Crowding |\n"
+            "|---|---|---|---|---|---|---|---|---|\n"
         )
         matched_targets = {}  # mechanism → target_slug
         for r in mechanisms[:15]:
@@ -336,7 +340,7 @@ def compile_indication_article(landscape_dir, indication_name, slug, base_dir=No
         body_parts.append("\n")
 
     # Opportunity Assessment
-    body_parts.append(f"## Opportunity Assessment\n\n")
+    body_parts.append("## Opportunity Assessment\n\n")
     if opportunities:
         # White space / emerging
         white_space = [r for r in opportunities if r.get("status") in ("White Space", "Emerging")]
@@ -412,7 +416,7 @@ def compile_indication_article(landscape_dir, indication_name, slug, base_dir=No
         body_parts.append(_embed_md("## Strategic Briefing", strategic_md))
 
     # Data Sources
-    body_parts.append(f"## Data Sources\n\n")
+    body_parts.append("## Data Sources\n\n")
     body_parts.append(f"- **Source directory:** `{landscape_dir}`\n")
     body_parts.append(f"- **Freshness level:** {freshness.get('staleness_level', 'unknown')}\n")
     body_parts.append(f"- **Computed at:** {freshness.get('computed_at_utc', 'unknown')}\n")
@@ -482,16 +486,16 @@ def compile_company_articles(landscape_dir, indication_name, indication_slug, ba
 
         # Build body
         body_parts = []
-        body_parts.append(f"## Overview\n\n")
+        body_parts.append("## Overview\n\n")
         body_parts.append(
             f"**{company_name}** has competitive positions across "
             f"**{len(indications)}** indication(s) in the compiled knowledge base.\n\n"
         )
 
-        body_parts.append(f"## Position by Indication\n\n")
+        body_parts.append("## Position by Indication\n\n")
         body_parts.append(
-            f"| Indication | Tier | CPI | Position | Pipeline | Deals |\n"
-            f"|---|---|---|---|---|---|\n"
+            "| Indication | Tier | CPI | Position | Pipeline | Deals |\n"
+            "|---|---|---|---|---|---|\n"
         )
         for ind_slug, ind_data in sorted(
             indications.items(),
@@ -522,7 +526,7 @@ def compile_company_articles(landscape_dir, indication_name, indication_slug, ba
             if company_name_lower in drug_comp or drug_comp in company_name_lower:
                 company_drugs.append(drug)
         if company_drugs:
-            body_parts.append(f"## Key Drugs\n\n")
+            body_parts.append("## Key Drugs\n\n")
             body_parts.append(
                 f"*{indication_name} — current indication only*\n\n"
                 f"| Drug | Phase | Mechanism |\n|---|---|---|\n"
@@ -543,7 +547,7 @@ def compile_company_articles(landscape_dir, indication_name, indication_slug, ba
             if company_name_lower in deal_text:
                 company_deals.append(deal)
         if company_deals:
-            body_parts.append(f"## Deal Activity\n\n")
+            body_parts.append("## Deal Activity\n\n")
             body_parts.append(
                 f"*{indication_name} — current indication only*\n\n"
                 f"| Deal Type | Date | Details |\n|---|---|---|\n"
@@ -632,8 +636,9 @@ def main():
     meta, body = compile_indication_article(landscape_dir, indication_name, slug, base_dir)
     ind_path = article_path("indications", slug, base_dir)
 
-    # Capture previous snapshot before overwriting
+    # Capture previous snapshot and preserve Commercial Intelligence sections before overwriting
     prev_article = read_article(ind_path)
+    commercial_intel_block = ""
     if prev_article and prev_article["meta"] and prev_article["meta"].get("compiled_at"):
         prev_meta = prev_article["meta"]
         previous_snapshot = {
@@ -645,6 +650,25 @@ def main():
             "top_company": prev_meta.get("top_company"),
         }
         meta["previous_snapshot"] = previous_snapshot
+
+        # Preserve any ## Commercial Intelligence block from the previous article
+        prev_body = prev_article.get("body", "")
+        ci_marker = "## Commercial Intelligence"
+        ds_marker = "## Data Sources"
+        ci_start = prev_body.find(ci_marker)
+        ds_start = prev_body.find(ds_marker)
+        if ci_start != -1:
+            ci_end = ds_start if ds_start > ci_start else len(prev_body)
+            commercial_intel_block = prev_body[ci_start:ci_end].rstrip()
+
+    # Splice commercial intel back in before ## Data Sources
+    if commercial_intel_block:
+        ds_marker = "## Data Sources"
+        ds_pos = body.find(ds_marker)
+        if ds_pos != -1:
+            body = body[:ds_pos] + commercial_intel_block + "\n\n" + body[ds_pos:]
+        else:
+            body = body.rstrip() + "\n\n" + commercial_intel_block + "\n"
 
     write_article(ind_path, meta, body)
     print(f"  Written: {ind_path}")

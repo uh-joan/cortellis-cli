@@ -4,11 +4,9 @@ import csv
 import os
 import sys
 
-import pytest
 
 from cli_anything.cortellis.utils.wiki import (
     read_article,
-    article_path,
     slugify,
 )
 

@@ -1,16 +1,14 @@
 """Tests for the strategic intelligence signal extraction module."""
 
-import os
 from datetime import datetime, timezone, timedelta
 
-import pytest
 
 from cli_anything.cortellis.utils.intelligence import (
     extract_signals,
     format_signals_for_prompt,
     generate_signals_report,
 )
-from cli_anything.cortellis.utils.wiki import write_article, wiki_root
+from cli_anything.cortellis.utils.wiki import write_article
 
 
 # ---------------------------------------------------------------------------

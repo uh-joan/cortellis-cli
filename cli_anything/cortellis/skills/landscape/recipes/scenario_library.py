@@ -178,8 +178,8 @@ def scenario_top_exit(landscape_dir, indication_name):
     lines = [
         f"## Scenario 1: Top Company Exit — confidence: {confidence}",
         "",
-        f"*Preset: top_exit — Specialty-buyer-fit formula: score = overlap × 1/(1 + phase3plus/5)*",
-        f"*Assumption: Overlap × specialty-buyer-fit ranking; does not model deal prices.*",
+        "*Preset: top_exit — Specialty-buyer-fit formula: score = overlap × 1/(1 + phase3plus/5)*",
+        "*Assumption: Overlap × specialty-buyer-fit ranking; does not model deal prices.*",
         "",
         f"**Exiting company:** {top_company} (CPI: {top_cpi:.1f})",
         f"**Programs removed:** {len(top_drugs)} drugs across {len(top_mechs)} mechanisms",
@@ -284,8 +284,8 @@ def scenario_crowded_consolidation(landscape_dir, indication_name):
     lines = [
         f"## Scenario 2: Crowded Mechanism Consolidation — confidence: {confidence}",
         "",
-        f"*Preset: crowded_consolidation — Top-3 companies win; remainder exit.*",
-        f"*Assumption: Phase-score ranking determines winners; no modeling of IP or regulatory moats.*",
+        "*Preset: crowded_consolidation — Top-3 companies win; remainder exit.*",
+        "*Assumption: Phase-score ranking determines winners; no modeling of IP or regulatory moats.*",
         "",
         f"**Crowded mechanism:** {mech_name}",
         f"**Scope:** {mech_drug_count} active drugs, {mech_company_count} companies",
@@ -374,8 +374,8 @@ def scenario_loe_wave(landscape_dir, indication_name):
     lines = [
         f"## Scenario 3: LOE Wave — confidence: {confidence}",
         "",
-        f"*Preset: loe_wave — Proxy: all launched drugs treated as LOE-exposed; no exact patent dates.*",
-        f"*Assumption: refill_gap = launched - phase3; positive gap = insufficient pipeline backfill.*",
+        "*Preset: loe_wave — Proxy: all launched drugs treated as LOE-exposed; no exact patent dates.*",
+        "*Assumption: refill_gap = launched - phase3; positive gap = insufficient pipeline backfill.*",
         "",
     ]
 
@@ -497,8 +497,8 @@ def scenario_new_entrant_disruption(landscape_dir, indication_name):
     lines = [
         f"## Scenario 4: New Entrant Disruption — confidence: {confidence}",
         "",
-        f"*Preset: new_entrant_disruption — Well-funded entrant exploits white-space mechanisms.*",
-        f"*Assumption: Incumbents not present in a mechanism are most threatened by a new entrant claiming it.*",
+        "*Preset: new_entrant_disruption — Well-funded entrant exploits white-space mechanisms.*",
+        "*Assumption: Incumbents not present in a mechanism are most threatened by a new entrant claiming it.*",
         "",
     ]
 
@@ -656,7 +656,7 @@ def scenario_pivotal_failure(landscape_dir, indication_name):
     after_rank_map = {company: (i, score) for i, (company, score) in enumerate(rank_after, 1)}
     rank_before_map = {company: i for i, (company, _) in enumerate(rank_before, 1)}
 
-    top3_before = [company for company, _ in rank_before[:3]]
+    [company for company, _ in rank_before[:3]]
     rank_shifted = False
     share_shifted = False
 
@@ -677,8 +677,8 @@ def scenario_pivotal_failure(landscape_dir, indication_name):
     lines = [
         f"## Scenario 5: Pivotal Failure — confidence: {confidence}",
         "",
-        f"*Preset: pivotal_failure — Removes flagship phase-3 drug and recalculates pipeline composition.*",
-        f"*Assumption: Drug removal is immediate; no out-licensing or salvage scenarios modeled.*",
+        "*Preset: pivotal_failure — Removes flagship phase-3 drug and recalculates pipeline composition.*",
+        "*Assumption: Drug removal is immediate; no out-licensing or salvage scenarios modeled.*",
         "",
         f"**Company:** {target_company}",
         f"**Flagship drug:** {flagship_name}",
@@ -764,12 +764,12 @@ def main():
     now = datetime.now().strftime("%Y-%m-%d %H:%M UTC")
 
     print(f"# Scenario Library: {indication_name}")
-    print(f"")
+    print("")
     print(f"*Generated: {now}*")
     print(f"*Scenarios: {', '.join(selected)}*")
-    print(f"")
+    print("")
     print("> **Reading this output:** CPI = Competitive Position Index, scale 0–100, higher is better. Tier A/B/C/D are **relative to this indication only** (A = top 10%, D = bottom 50%) — not comparable across diseases. White Space = opportunity gap with no current late-stage competition. ABSTAIN confidence = data too thin to rank; **not** the same as \"weakest recommendation\". Full definitions: `docs/glossary.md`.")
-    print(f"")
+    print("")
 
     _freshness = compute_freshness(landscape_dir)
     _freshness_warning = render_freshness_warning(_freshness)

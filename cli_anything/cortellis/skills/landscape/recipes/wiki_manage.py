@@ -18,7 +18,6 @@ from pathlib import Path
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "..", "..", "..", ".."))
 
 from cli_anything.cortellis.utils.wiki import (
-    wiki_root,
     read_article,
     write_article,
     load_index_entries,
@@ -116,15 +115,15 @@ def cmd_remove(base_dir, slug):
                     removed.append(f"wiki/companies/{fname} (no remaining indications)")
                 else:
                     # Rebuild body
-                    body_parts = [f"## Overview\n\n"]
+                    body_parts = ["## Overview\n\n"]
                     body_parts.append(
                         f"**{art['meta']['title']}** has competitive positions across "
                         f"**{len(indications)}** indication(s) in the compiled knowledge base.\n\n"
                     )
-                    body_parts.append(f"## Position by Indication\n\n")
+                    body_parts.append("## Position by Indication\n\n")
                     body_parts.append(
-                        f"| Indication | Tier | CPI | Position | Pipeline | Deals |\n"
-                        f"|---|---|---|---|---|---|\n"
+                        "| Indication | Tier | CPI | Position | Pipeline | Deals |\n"
+                        "|---|---|---|---|---|---|\n"
                     )
                     for ind_slug, ind_data in sorted(
                         indications.items(),

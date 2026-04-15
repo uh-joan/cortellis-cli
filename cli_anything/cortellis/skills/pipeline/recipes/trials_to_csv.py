@@ -3,7 +3,9 @@
 
 Usage: cortellis --json trials search --sponsor "Novo Nordisk" --hits 50 | python3 trials_to_csv.py > trials.csv
 """
-import csv, json, sys
+import csv
+import json
+import sys
 
 data = json.load(sys.stdin)
 results = data.get("trialResultsOutput", {})

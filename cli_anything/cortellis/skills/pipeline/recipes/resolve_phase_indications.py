@@ -14,7 +14,10 @@ Usage:
   # Rewrite CSVs with phase-specific indications
   python3 resolve_phase_indications.py rewrite raw/pipeline/<slug>
 """
-import csv, json, sys, os
+import csv
+import json
+import sys
+import os
 from collections import defaultdict
 
 def find_overlaps(pipeline_dir):

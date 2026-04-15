@@ -3,7 +3,6 @@
 import os
 from datetime import datetime, timezone
 
-import pytest
 
 from cli_anything.cortellis.utils.insights_extractor import (
     extract_key_findings,

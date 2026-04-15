@@ -14,6 +14,9 @@ import sys
 import time
 from datetime import datetime, timezone
 
+from dotenv import load_dotenv
+load_dotenv()
+
 # Allow running as standalone script
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "..", "..", "..", ".."))
 
@@ -71,12 +74,16 @@ def search_regulatory_for_drug(drug_name, client, regions=None, max_hits=10):
             if result:
                 # Try common response shapes
                 if isinstance(result, dict):
-                    hits = (
-                        result.get("regulatoryDocumentList", {}).get("regulatoryDocument", [])
-                        or result.get("hits", [])
-                        or result.get("results", [])
-                        or []
-                    )
+                    search_results = result.get("regulatoryResultsOutput", {}).get("SearchResults", {})
+                    if isinstance(search_results, dict):
+                        hits = search_results.get("Regulatory", [])
+                    if not hits:
+                        hits = (
+                            result.get("regulatoryDocumentList", {}).get("regulatoryDocument", [])
+                            or result.get("hits", [])
+                            or result.get("results", [])
+                            or []
+                        )
                 elif isinstance(result, list):
                     hits = result
 
@@ -87,22 +94,52 @@ def search_regulatory_for_drug(drug_name, client, regions=None, max_hits=10):
                 if not isinstance(hit, dict):
                     continue
                 event_id = str(
-                    hit.get("id") or hit.get("documentId") or hit.get("regulatoryId") or ""
+                    hit.get("@number") or hit.get("id") or hit.get("documentId") or hit.get("regulatoryId") or ""
                 )
-                doc_category = (
-                    hit.get("docCategory") or hit.get("documentCategory") or
-                    hit.get("doc_category") or ""
-                )
-                doc_type = (
-                    hit.get("docType") or hit.get("documentType") or
-                    hit.get("doc_type") or ""
-                )
+                doc_cat_raw = hit.get("DocCategories", {})
+                if isinstance(doc_cat_raw, dict):
+                    doc_category = doc_cat_raw.get("DocCategory") or ""
+                else:
+                    doc_category = str(doc_cat_raw) if doc_cat_raw else ""
+                if not doc_category:
+                    doc_category = (
+                        hit.get("docCategory") or hit.get("documentCategory") or
+                        hit.get("doc_category") or ""
+                    )
+                if isinstance(doc_category, list):
+                    doc_category = doc_category[0] if doc_category else ""
+
+                doc_type_raw = hit.get("DocTypes", {})
+                if isinstance(doc_type_raw, dict):
+                    doc_type = doc_type_raw.get("DocType") or ""
+                else:
+                    doc_type = str(doc_type_raw) if doc_type_raw else ""
+                if not doc_type:
+                    doc_type = (
+                        hit.get("docType") or hit.get("documentType") or
+                        hit.get("doc_type") or ""
+                    )
+                if isinstance(doc_type, list):
+                    doc_type = doc_type[0] if doc_type else ""
                 date = (
+                    hit.get("DateDisplay") or hit.get("AddedDate") or
                     hit.get("date") or hit.get("statusDate") or
                     hit.get("publicationDate") or ""
                 )
+                # Normalize date from "19-Dec-2025" to "2025-12-19" if needed
+                if date and "-" in date and len(date) > 4:
+                    try:
+                        from datetime import datetime as _dt
+                        for fmt in ("%d-%b-%Y", "%Y-%m-%d"):
+                            try:
+                                date = _dt.strptime(date, fmt).strftime("%Y-%m-%d")
+                                break
+                            except ValueError:
+                                continue
+                    except Exception:
+                        pass
                 title = (
-                    hit.get("title") or hit.get("documentTitle") or
+                    hit.get("Title") or hit.get("title") or hit.get("documentTitle") or
                     hit.get("name") or ""
                 )
                 events.append({
@@ -277,7 +314,11 @@ def main():
 
     drug_names = get_top_drug_names(landscape_dir, max_drugs=20)
     if not drug_names:
-        print("[info] No drug names found in launched.csv or phase3.csv.")
+        if indication_name:
+            print(f"[info] No drug CSVs found — using '{indication_name}' as single drug name.")
+            drug_names = [indication_name]
+        else:
+            print("[info] No drug names found in launched.csv or phase3.csv.")
 
     client = CortellisClient()
 

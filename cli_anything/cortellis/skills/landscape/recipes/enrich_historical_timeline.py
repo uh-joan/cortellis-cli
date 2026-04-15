@@ -10,9 +10,7 @@ Usage: python3 enrich_historical_timeline.py <landscape_dir> [--months 24] [--ma
 """
 
 import csv
-import json
 import os
-import re
 import sys
 import time
 from datetime import datetime, timezone, timedelta
@@ -23,7 +21,7 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "..", "..", "..
 from dotenv import load_dotenv
 load_dotenv()
 
-from cli_anything.cortellis.utils.data_helpers import read_csv_safe, safe_int
+from cli_anything.cortellis.utils.data_helpers import read_csv_safe
 from cli_anything.cortellis.core.client import CortellisClient
 from cli_anything.cortellis.core.drugs import change_history
 

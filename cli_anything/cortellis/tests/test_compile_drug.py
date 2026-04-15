@@ -5,7 +5,6 @@ import json
 import os
 import sys
 
-import pytest
 
 # drug-profile directory has a hyphen so it cannot be imported as a package.
 # Load compile_drug directly from its file path.
@@ -28,7 +27,6 @@ compile_drug_article = _mod.compile_drug_article
 extract_drug_overview = _mod.extract_drug_overview
 extract_deals_summary = _mod.extract_deals_summary
 extract_trials_summary = _mod.extract_trials_summary
-extract_competitors = _mod.extract_competitors
 read_json_safe = _mod.read_json_safe
 from cli_anything.cortellis.utils.wiki import (
     article_path,
@@ -66,27 +64,6 @@ RECORD = {
         "TherapyAreas": {
             "TherapyArea": ["Endocrinology", "Cardiovascular"]
         },
-    }
-}
-
-COMPETITORS = {
-    "drugResultsOutput": {
-        "SearchResults": {
-            "Drug": [
-                {
-                    "@name": "Tirzepatide",
-                    "@phaseHighest": "Launched",
-                    "CompanyOriginator": {"$": "Eli Lilly"},
-                    "ActionsPrimary": {"Action": [{"$": "GLP-1 receptor agonist"}]},
-                },
-                {
-                    "@name": "Dulaglutide",
-                    "@phaseHighest": "Launched",
-                    "CompanyOriginator": {"$": "Eli Lilly"},
-                    "ActionsPrimary": {"Action": [{"$": "GLP-1 receptor agonist"}]},
-                },
-            ]
-        }
     }
 }
 
@@ -166,7 +143,7 @@ HISTORY = {
 
 
 def write_mock_files(drug_dir, include_swot=True, include_history=True,
-                     include_deals=True, include_trials=True, include_competitors=True):
+                     include_deals=True, include_trials=True):
     """Write mock JSON files to drug_dir."""
     os.makedirs(drug_dir, exist_ok=True)
     with open(os.path.join(drug_dir, "record.json"), "w") as f:
@@ -183,9 +160,6 @@ def write_mock_files(drug_dir, include_swot=True, include_history=True,
     if include_trials:
         with open(os.path.join(drug_dir, "trials.json"), "w") as f:
             json.dump(TRIALS, f)
-    if include_competitors:
-        with open(os.path.join(drug_dir, "competitors.json"), "w") as f:
-            json.dump(COMPETITORS, f)
 
 
 # ---------------------------------------------------------------------------
@@ -263,14 +237,6 @@ class TestBodyHasSections:
         _, body = compile_drug_article(drug_dir, "Semaglutide", "semaglutide")
 
         assert "## Overview" in body
-
-    def test_body_has_competitive_landscape_section(self, tmp_path):
-        drug_dir = str(tmp_path / "drug")
-        write_mock_files(drug_dir)
-
-        _, body = compile_drug_article(drug_dir, "Semaglutide", "semaglutide")
-
-        assert "## Competitive Landscape" in body
 
     def test_body_has_data_sources_section(self, tmp_path):
         drug_dir = str(tmp_path / "drug")
@@ -376,14 +342,6 @@ class TestWikilinksForCompanies:
         _, body = compile_drug_article(drug_dir, "Semaglutide", "semaglutide")
 
         assert r"[[novo-nordisk\|Novo Nordisk]]" in body
-
-    def test_wikilinks_for_competitor_companies(self, tmp_path):
-        drug_dir = str(tmp_path / "drug")
-        write_mock_files(drug_dir)
-
-        _, body = compile_drug_article(drug_dir, "Semaglutide", "semaglutide")
-
-        assert r"[[eli-lilly\|Eli Lilly]]" in body
 
     def test_wikilinks_for_indications(self, tmp_path):
         drug_dir = str(tmp_path / "drug")

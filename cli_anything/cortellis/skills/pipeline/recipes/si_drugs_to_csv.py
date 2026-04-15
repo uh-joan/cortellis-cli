@@ -3,7 +3,9 @@
 
 Usage: cortellis --json drug-design search-drugs --query "..." --hits 50 | python3 si_drugs_to_csv.py >> drugs.csv
 """
-import csv, json, sys
+import csv
+import json
+import sys
 
 data = json.load(sys.stdin)
 results = data.get("drugResultsOutput", {})

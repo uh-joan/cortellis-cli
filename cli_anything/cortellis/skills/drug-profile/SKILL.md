@@ -69,10 +69,71 @@ bash $RECIPES/fetch_trials.sh "$DRUG_SLUG" $DIR/trials.json
 ```
 Fetches all Recruiting + Active-not-recruiting trials with pagination. No cap.
 
-### Step 8: Regulatory status
+### Step 8: Regulatory milestones
 ```bash
-cortellis --json regulations search --query "$DRUG_SLUG" --hits 10 --sort-by "-regulatoryDateSort" > $DIR/regulatory.json
+python3 cli_anything/cortellis/skills/landscape/recipes/enrich_regulatory_milestones.py $DIR "$DRUG_NAME_RESOLVED"
+# Fetches submissions, approvals, PDUFA dates, label changes across US, EU, JP.
+# Writes: regulatory_milestones.csv and regulatory_timeline.md
+# Rate limit: 2s between API calls. Handles 0-result drugs gracefully.
 ```
+
+### Step 7b: ClinicalTrials.gov enrichment (external)
+```bash
+python3 $RECIPES/enrich_ct_trials.py $DIR "$DRUG_NAME_RESOLVED"
+```
+Fetches RECRUITING + ACTIVE_NOT_RECRUITING trials from ClinicalTrials.gov (free, no auth).
+Writes: `ct_trials.json`, `ct_trials_summary.md`. Cross-checks count vs Cortellis trials.json if present.
+
+### Step 8b: Recent publications
+```bash
+cortellis --json literature search --query "$DRUG_SLUG" --hits 10 --sort-by "-date" > $DIR/literature.json
+```
+Fetches recent publications for this drug. May return 0 results for niche/early-stage drugs — skip section if empty.
+
+### Step 8c: FDA approval data (external)
+```bash
+python3 $RECIPES/enrich_fda_approval.py $DIR "$DRUG_NAME_RESOLVED" --phase "$PHASE"
+```
+Fetches FDA data from api.fda.gov (no auth required). Pass `--phase` from the Cortellis record (e.g. "Launched", "Phase 3").
+
+For **launched/approved drugs**: fetches approvals, top FAERS adverse reactions, drug labels (boxed warnings), recalls, and shortages. Writes `fda_approvals.json`, `fda_summary.md`, `fda_adverse_reactions.json`, `fda_labels.json`, `fda_recalls.json`, `fda_shortages.json`, `fda_safety.md`.
+
+For **pipeline drugs** (Phase 1/2/3, Preclinical): fetches approvals (verification cross-check) and adverse reactions only — skips labels/recalls/shortages which will be empty. Handles 404/no-results gracefully.
+
+### Step 8d: EMA approval data (external)
+```bash
+python3 $RECIPES/enrich_ema.py $DIR "$DRUG_NAME_RESOLVED" --phase "$PHASE"
+```
+Fetches EU approval data from EMA public JSON API (no auth). Writes ema_approvals.json, ema_shortages.json, ema_referrals.json, ema_summary.md.
+
+### Step 8e: Orange Book / Purple Book patent cliff (external)
+```bash
+python3 $RECIPES/enrich_fda_patent.py $DIR "$DRUG_NAME_RESOLVED"
+```
+Queries the local fda-mcp-server SQLite database (no network call). Writes `fda_patent.json`, `fda_patent_cliff.md`.
+Covers: unique patents with expiry dates, exclusivity periods (NCE/NPP/ODE/PED), effective LOE date, AB-rated generics count.
+Downloads FDA Orange Book ZIP directly from FDA (~1 MB, cached monthly at `~/.cortellis/cache/orange-book.zip`). No auth required. Skips gracefully if download fails.
+
+### Step 8f: ChEMBL enrichment (external)
+```bash
+python3 $RECIPES/enrich_chembl.py $DIR "$DRUG_NAME_RESOLVED"
+```
+Fetches from public ChEMBL REST API (no auth). Writes `chembl.json`, `chembl_summary.md`.
+Covers: ChEMBL ID, molecule type, mechanism of action + action type + target ChEMBL ID, ChEMBL indications with max phase, ADMET/drug-likeness (small molecules only).
+
+### Step 8g: CPIC pharmacogenomics (external)
+```bash
+python3 $RECIPES/enrich_cpic.py $DIR "$DRUG_NAME_RESOLVED"
+```
+Fetches gene-drug pairs from CPIC PostgREST API (no auth). Only includes Level A/B evidence (clinically actionable).
+Writes: `cpic.json`, `cpic_summary.md`. Skips gracefully if drug has no CPIC data (expected for most biologics).
+
+### Step 8h: bioRxiv/medRxiv preprints (external)
+```bash
+python3 $RECIPES/enrich_biorxiv.py $DIR "$DRUG_NAME_RESOLVED"
+```
+Searches bioRxiv and medRxiv via EuropePMC for preprints in the last 2 years (no auth required).
+Writes: `biorxiv.json`, `biorxiv_summary.md`. Especially useful for pipeline drugs with limited peer-reviewed literature.
 
 ### Step 9: Drug Design (SI) enrichment (for early-stage drugs)
 If the drug is Phase 1 or Preclinical:
@@ -89,7 +150,7 @@ python3 $RECIPES/drug_report_generator.py $DIR
 
 ### Step 11: Compile to wiki
 ```bash
-python3 $RECIPES/compile_drug.py $DIR "$DRUG_NAME_RESOLVED" [--wiki-dir /path/to/wiki-root]
+uv run --with pyyaml python3 $RECIPES/compile_drug.py $DIR "$DRUG_NAME_RESOLVED" [--wiki-dir /path/to/wiki-root]
 ```
 Reads all JSON files from `$DIR` and writes `wiki/drugs/<slug>.md` plus updates `wiki/INDEX.md`.
 

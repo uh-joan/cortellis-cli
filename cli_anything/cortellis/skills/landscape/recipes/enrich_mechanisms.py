@@ -10,7 +10,13 @@ Usage: python3 enrich_mechanisms.py raw/landscape/<slug>/
 Rewrites CSVs in-place with enriched mechanism data.
 Requires cortellis CLI on PATH.
 """
-import csv, json, os, re, subprocess, sys, time
+import csv
+import json
+import os
+import re
+import subprocess
+import sys
+import time
 
 
 def get_si_mechanism(drug_name):

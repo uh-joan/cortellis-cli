@@ -62,6 +62,36 @@ State: `.omc/state/`, `.omc/state/sessions/{sessionId}/`, `.omc/notepad.md`, `.o
 
 When answering questions like "what did we talk last time?" or "what have we done?", draw exclusively from domain sources: `wiki/log.md` (compile events) and `wiki/insights/sessions/` (analysis summaries). Do not surface code changes, bug fixes, or implementation details — only research findings, compiled indications, and analytical conclusions.
 
+## Internal research library
+
+`wiki/internal/` holds primary research documents (forecasts, epidemiology, physician surveys, access & reimbursement, unmet need). These are richer and more current than Cortellis API data for commercial questions.
+
+**Routing rule:** When the user asks about market share, sales forecasts, physician prescribing preferences, epidemiology numbers, reimbursement coverage, or unmet need for a specific indication — run `/search-internal <query>` first before going to the Cortellis API. If results are found, lead with the internal evidence and cite the source document. Only fall back to the API if no internal docs match.
+
+Examples that should trigger `/search-internal`:
+- "What's the GLP-1 market share?" → `/search-internal GLP-1 market share obesity`
+- "How many patients are on semaglutide?" → `/search-internal semaglutide treated patients`
+- "What do physicians prefer for obesity?" → `/search-internal physician prescribing preference obesity`
+- "What's the obesity market forecast?" → `/search-internal obesity market forecast sales`
+
+**Routing rule for `/signals`:** When the user asks about competitive shifts, pipeline changes, new entrants, company movements, what's changed recently, or what to watch — run `/signals` to surface the latest ranked competitive intelligence from compiled wiki articles.
+
+If the question is indication-specific (e.g. "what's changed in obesity"), also run `/search-internal <indication> recent` in parallel — internal docs often have the most current commercial picture even when pipeline signals are quiet.
+
+Examples that should trigger `/signals` (+ `/search-internal` when indication is named):
+- "What's changed in obesity recently?" → `/signals` + `/search-internal obesity market`
+- "Any new entrants in MASLD?" → `/signals` + `/search-internal masld pipeline`
+- "What should I watch this week?" → `/signals`
+- "Competitive shifts in diabetes?" → `/signals` + `/search-internal diabetes`
+
+**Routing rule for `/insights`:** When the user asks for a summary of past analyses, accumulated findings, what we know about an indication, or a strategic brief — run `/insights` (optionally with `--indication <slug>`) to surface session-accumulated intelligence.
+
+Examples that should trigger `/insights`:
+- "What do we know about obesity?" → `/insights --indication obesity`
+- "Summary of our MASLD analysis" → `/insights --indication masld`
+- "What have we found so far?" → `/insights`
+- "Key findings across indications" → `/insights`
+
 ## Setup
 
 Say "setup omc" or run `/oh-my-claudecode:omc-setup`.

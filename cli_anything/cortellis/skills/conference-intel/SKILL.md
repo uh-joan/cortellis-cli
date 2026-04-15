@@ -35,6 +35,12 @@ python3 $RECIPES/conference_briefing.py <output_dir> "<query>"
 ### Step 4: Present briefing
 Present the conference_briefing.md output.
 
+### Step 5: Compile to wiki
+```bash
+python3 $RECIPES/compile_conference.py $DIR "<CONFERENCE_NAME>"
+```
+Writes `wiki/conferences/<slug>.md` and updates `INDEX.md`.
+
 ## Execution Rules
 
 - Once the final report has been delivered to the user, **do not respond to background task completion notifications**. Discard them silently — they are late arrivals for steps already processed.

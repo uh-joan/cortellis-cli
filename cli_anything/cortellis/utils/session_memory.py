@@ -10,11 +10,8 @@ from datetime import datetime, timezone
 from typing import Optional
 
 from cli_anything.cortellis.utils.wiki import (
-    wiki_root,
     article_path,
     read_article,
-    check_freshness,
-    slugify,
 )
 
 

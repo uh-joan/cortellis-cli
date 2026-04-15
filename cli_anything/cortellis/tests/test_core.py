@@ -8,13 +8,10 @@ are needed.  Run with::
 from __future__ import annotations
 
 import json
-import sys
-from io import StringIO
-from unittest.mock import MagicMock, patch
+from unittest.mock import patch
 
 import pytest
 import responses as responses_lib
-from responses import matchers
 
 from cli_anything.cortellis.core.client import CortellisClient, BASE_URL
 from cli_anything.cortellis.core import query_builder as qb

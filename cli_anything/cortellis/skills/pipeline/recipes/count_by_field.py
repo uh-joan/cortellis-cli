@@ -6,7 +6,8 @@ Usage: python3 count_by_field.py <column_name> < drugs.csv
 
 Output: tab-separated value\tcount, sorted descending.
 """
-import csv, sys
+import csv
+import sys
 from collections import Counter
 
 field = sys.argv[1] if len(sys.argv) > 1 else "indication"

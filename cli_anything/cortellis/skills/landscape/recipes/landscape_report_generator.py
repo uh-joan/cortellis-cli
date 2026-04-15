@@ -3,7 +3,10 @@
 
 Usage: python3 landscape_report_generator.py raw/landscape/<slug>/ <indication_name> <indication_id>
 """
-import csv, json, sys, os
+import csv
+import json
+import sys
+import os
 from collections import Counter
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))

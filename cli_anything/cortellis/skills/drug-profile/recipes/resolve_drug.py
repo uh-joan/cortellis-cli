@@ -14,7 +14,10 @@ Usage:
 
 Output: drug_id,drug_name,phase,indication_count
 """
-import json, subprocess, sys, os
+import json
+import subprocess
+import sys
+import os
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "..", "..", "..", ".."))
 from cli_anything.cortellis.utils.wiki import normalize_drug_name, slugify
 

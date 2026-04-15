@@ -16,7 +16,10 @@ Usage:
 
 Output: indication_id,indication_name
 """
-import json, re, subprocess, sys
+import json
+import re
+import subprocess
+import sys
 
 
 def normalize(s):

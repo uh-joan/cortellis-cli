@@ -8,7 +8,12 @@ Usage: python3 catch_missing_drugs.py <company_id> <pipeline_dir>
 
 Requires cortellis CLI on PATH.
 """
-import csv, json, os, subprocess, sys, time
+import csv
+import json
+import os
+import subprocess
+import sys
+import time
 
 
 def fetch_all_drugs(company_id, hits=200):

@@ -23,13 +23,12 @@ from cli_anything.cortellis.utils.wiki import (
     find_company_slug,
     list_articles,
     read_article,
-    slugify,
 )
 
 # Matches [[slug]] or [[slug\|display]] (escaped pipe for table compatibility)
 _WIKILINK_RE = re.compile(r"\[\[([^\]|\\]+)(?:\\?\|[^\]]+)?\]\]")
 
-_ARTICLE_TYPES = ("indications", "companies", "drugs", "targets")
+_ARTICLE_TYPES = ("indications", "companies", "drugs", "targets", "concepts", "connections", "conferences", "internal")
 
 
 def _all_slugs(wiki_dir: str) -> set[str]:

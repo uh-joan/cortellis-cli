@@ -6,7 +6,9 @@ Usage: python3 report_generator.py raw/pipeline/<slug> <company_name> <company_i
 Reads all CSVs from the pipeline directory and outputs a formatted markdown
 report with ASCII charts.
 """
-import csv, json, sys, os
+import csv
+import sys
+import os
 from collections import Counter
 
 if len(sys.argv) < 2:
@@ -88,7 +90,6 @@ def trials_summary(rows):
             ind = ind.strip()
             if ind:
                 counts[ind] += 1
-    total_line = ""
     # Check stderr file for total
     lines = [f"## Recruiting Trials ({len(rows)} fetched)", ""]
     lines.append("| Indication | Trials |")

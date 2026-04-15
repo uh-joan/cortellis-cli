@@ -11,7 +11,10 @@ Reads deals.csv (title,id,principal,partner,type,date) and produces:
 
 Outputs markdown to stdout.
 """
-import csv, json, os, sys
+import csv
+import json
+import os
+import sys
 from collections import Counter
 from datetime import datetime
 
@@ -139,8 +142,8 @@ if __name__ == "__main__":
     # Summary stats
     print("### Summary")
     print()
-    print(f"| Metric | Value |")
-    print(f"|--------|-------|")
+    print("| Metric | Value |")
+    print("|--------|-------|")
     print(f"| Deals analyzed | {len(deals)} |")
     print(f"| All-time total | {total_all_time} |")
     print(f"| Date range | {oldest} to {newest} |")

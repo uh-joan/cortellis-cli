@@ -10,7 +10,10 @@ Usage: python3 group_biosimilars.py raw/landscape/<slug>/launched.csv
 Output: Rewrites CSV in-place. Biosimilars become a single row:
   "adalimumab (+ 20 biosimilars)" with the originator's company/mechanism.
 """
-import csv, os, re, sys
+import csv
+import os
+import re
+import sys
 from collections import defaultdict
 
 

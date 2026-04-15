@@ -10,7 +10,6 @@ Root group: cortellis (with --json flag)
 
 import os
 import sys
-from typing import Optional
 
 import click
 from dotenv import load_dotenv
@@ -1563,7 +1562,6 @@ def setup_cmd() -> None:
     Walks through: credentials, API connectivity test, and Claude Code check.
     """
     import os
-    import re
     import shutil
     from pathlib import Path
 
@@ -1909,7 +1907,7 @@ All skills and their workflows are included below in the system context."""
 
         # Wiki fast-path: inject ANY matching wiki articles (indications, drugs, companies)
         from cli_anything.cortellis.core.skill_router import check_wiki_fast_path
-        from cli_anything.cortellis.utils.wiki import read_article as _read_wiki, slugify as _slugify
+        from cli_anything.cortellis.utils.wiki import read_article as _read_wiki
 
         wiki_context = ""
 

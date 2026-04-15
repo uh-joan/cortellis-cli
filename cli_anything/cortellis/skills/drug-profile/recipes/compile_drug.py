@@ -14,7 +14,7 @@ from datetime import datetime, timezone
 # Allow running as standalone script
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "..", "..", "..", ".."))
 
-from cli_anything.cortellis.utils.data_helpers import read_json_safe
+from cli_anything.cortellis.utils.data_helpers import read_json_safe, read_md_safe
 from cli_anything.cortellis.utils.wiki import (
     find_company_slug,
     find_target_slug_for_mechanism,
@@ -142,6 +142,67 @@ def extract_drug_overview(record):
     }
 
 
+def extract_publications(literature_data):
+    """Extract publication records from literature API response.
+
+    Returns list of {title, authors, journal, date, abstract_excerpt}.
+    """
+    if not literature_data or not isinstance(literature_data, dict):
+        return []
+
+    hits = (
+        literature_data.get("literatureResultsOutput", {})
+        .get("SearchResults", {})
+        .get("Literature", [])
+    )
+    if isinstance(hits, dict):
+        hits = [hits]
+    if not isinstance(hits, list):
+        return []
+
+    pubs = []
+    for record in hits:
+        if not isinstance(record, dict):
+            continue
+
+        title = str(record.get("Title") or "").strip()
+
+        authors_raw = record.get("Authors", {})
+        if isinstance(authors_raw, dict):
+            authors_raw = authors_raw.get("Author", [])
+        if isinstance(authors_raw, str):
+            authors_raw = [authors_raw]
+        if not isinstance(authors_raw, list):
+            authors_raw = []
+        if authors_raw:
+            first = str(authors_raw[0]).strip()
+            authors = f"{first} et al" if len(authors_raw) > 1 else first
+        else:
+            authors = ""
+
+        journal = str(record.get("PublicationName") or "").strip()
+
+        date = str(record.get("IssueDate") or record.get("PublicationYear") or "").strip()
+        if len(date) > 7 and "T" in date:
+            date = date[:10]
+        elif len(date) > 7 and "-" in date:
+            date = date[:7]
+
+        abstract_raw = str(record.get("Teaser") or "").strip()
+        abstract_excerpt = abstract_raw[:200] + ("..." if len(abstract_raw) > 200 else "")
+
+        if title:
+            pubs.append({
+                "title": title,
+                "authors": authors,
+                "journal": journal,
+                "date": date,
+                "abstract_excerpt": abstract_excerpt,
+            })
+
+    return pubs
+
+
 def extract_deals_summary(deals_json):
     """Extract count, types, and latest deal from deals.json."""
     if not deals_json:
@@ -185,6 +246,178 @@ def extract_trials_summary(trials_json):
 
 
 
+
+# ---------------------------------------------------------------------------
+# Verification layer
+# ---------------------------------------------------------------------------
+
+_PHASE_RANK = {
+    "preclinical": 0,
+    "phase 1": 1, "phase1": 1, "phase i": 1,
+    "phase 1/2": 1, "phase 1/phase 2": 1,
+    "phase 2": 2, "phase2": 2, "phase ii": 2,
+    "phase 2/3": 2, "phase 2/phase 3": 2,
+    "phase 3": 3, "phase3": 3, "phase iii": 3,
+    "phase 4": 4, "phase4": 4, "phase iv": 4,
+    "launched": 5, "approved": 5, "marketed": 5, "registered": 5,
+}
+
+_CT_PHASE_RANK = {
+    "EARLY_PHASE1": 0,
+    "PHASE1": 1,
+    "PHASE2": 2,
+    "PHASE3": 3,
+    "PHASE4": 4,
+}
+
+
+def _cortellis_phase_rank(phase: str) -> int:
+    """Map Cortellis phase string to numeric rank. Returns -1 if unrecognised."""
+    return _PHASE_RANK.get((phase or "").lower().strip(), -1)
+
+
+def _fda_has_approval(fda_approvals: dict) -> tuple[bool, str]:
+    """Return (has_approval, brand_name) if FDA has any AP submission."""
+    for entry in (fda_approvals or {}).get("results", []):
+        for sub in entry.get("submissions", []):
+            if sub.get("submission_status", "").upper() == "AP":
+                brand = ""
+                products = entry.get("products", [])
+                if products:
+                    brand = products[0].get("brand_name", "")
+                return True, brand
+    return False, ""
+
+
+def _ct_highest_phase(ct_trials_json: dict) -> int:
+    """Return highest phase rank found across CT.gov active trials."""
+    trials = (ct_trials_json or {}).get("trials", [])
+    highest = -1
+    for t in trials:
+        rank = _CT_PHASE_RANK.get(t.get("phase", ""), -1)
+        if rank > highest:
+            highest = rank
+    return highest
+
+
+def verify_claims(phase: str, fda_approvals: dict, ct_trials_json: dict,
+                  trials_json: dict, overview: dict = None,
+                  drug_dir: str = "") -> dict:
+    """Cross-check Cortellis claims against FDA and ClinicalTrials.gov.
+
+    Returns:
+        {verified: bool, verified_at: str, conflicts: list of dicts}
+
+    Checks:
+      1. Cortellis says Launched → FDA must have ≥1 AP approval.
+      2. FDA has AP approval → Cortellis must say Launched (stale phase detection).
+      3. CT.gov highest trial phase > Cortellis phase (Cortellis may be behind).
+      4. FDA label indications vs Cortellis indications (indication coverage).
+      5. Cortellis has >10 trials → CT.gov should show some active.
+      6. CT.gov has >20 active trials → Cortellis should show >0.
+    Only runs checks when the required data files exist.
+    """
+    from datetime import datetime, timezone
+    now = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+    conflicts = []
+    phase_rank = _cortellis_phase_rank(phase)
+    is_launched = phase_rank >= 5
+
+    if fda_approvals is not None:
+        fda_count = len(fda_approvals.get("results", []))
+        fda_approved, fda_brand = _fda_has_approval(fda_approvals)
+
+        # Check 1: Launched in Cortellis but no FDA record
+        if is_launched and fda_count == 0:
+            conflicts.append({
+                "field": "approval_status",
+                "cortellis": phase,
+                "external": "no FDA NDA/BLA records found",
+                "source": "api.fda.gov",
+                "note": "Drug is Launched in Cortellis but no FDA approval records returned — may be foreign-origin (e.g. China-only), combination product indexed under brand name, or INN mismatch",
+            })
+
+        # Check 2: FDA has approval but Cortellis phase is not Launched (stale data)
+        if fda_approved and not is_launched:
+            brand_note = f" ({fda_brand})" if fda_brand else ""
+            conflicts.append({
+                "field": "approval_status",
+                "cortellis": phase,
+                "external": f"FDA NDA/BLA approved{brand_note}",
+                "source": "api.fda.gov",
+                "note": f"FDA has an approved application{brand_note} but Cortellis shows phase '{phase}' — Cortellis record may be stale or drug approved under a different INN",
+            })
+
+    # Check 3: CT.gov highest phase > Cortellis phase (>1 step gap = likely stale)
+    if ct_trials_json is not None and phase_rank >= 0:
+        ct_highest = _ct_highest_phase(ct_trials_json)
+        if ct_highest > phase_rank + 1:
+            ct_phase_label = {0: "Early Phase 1", 1: "Phase 1", 2: "Phase 2", 3: "Phase 3", 4: "Phase 4"}.get(ct_highest, str(ct_highest))
+            conflicts.append({
+                "field": "development_phase",
+                "cortellis": phase,
+                "external": f"active {ct_phase_label} trials on CT.gov",
+                "source": "clinicaltrials.gov",
+                "note": f"CT.gov has active {ct_phase_label} trials but Cortellis shows '{phase}' — Cortellis phase may be outdated",
+            })
+
+    # Check 4: FDA label indications vs Cortellis indications
+    if drug_dir:
+        fda_labels_path = os.path.join(drug_dir, "fda_labels.json")
+        if os.path.exists(fda_labels_path):
+            fda_labels = read_json_safe(fda_labels_path)
+            label_results = (fda_labels or {}).get("results", [])
+            if label_results:
+                raw_sections = label_results[0].get("indications_and_usage", [])
+                label_text = " ".join(raw_sections).lower() if raw_sections else ""
+                if label_text:
+                    cortellis_indications = (overview or {}).get("indications", [])
+                    for indication_name in cortellis_indications[:5]:
+                        words = [w for w in indication_name.lower().split() if len(w) > 4]
+                        if words:
+                            longest = max(words, key=len)
+                            if longest not in label_text:
+                                conflicts.append({
+                                    "field": "indication_coverage",
+                                    "cortellis": indication_name,
+                                    "external": "not found in FDA label indications_and_usage",
+                                    "source": "api.fda.gov/drug/label.json",
+                                    "note": "Cortellis lists this indication but it does not appear in the FDA approved label — may be off-label or non-US indication",
+                                })
+
+    # Check 5: Cortellis has trials → CT.gov should see some active
+    cortellis_trial_count = 0
+    if trials_json:
+        trial_data = trials_json.get("trialResultsOutput", trials_json)
+        try:
+            cortellis_trial_count = int(trial_data.get("@totalResults", 0))
+        except (ValueError, TypeError):
+            cortellis_trial_count = 0
+
+    if ct_trials_json is not None:
+        ct_count = ct_trials_json.get("ct_trial_count", 0)
+        if cortellis_trial_count > 10 and ct_count == 0:
+            conflicts.append({
+                "field": "active_trial_count",
+                "cortellis": cortellis_trial_count,
+                "external": 0,
+                "source": "clinicaltrials.gov",
+                "note": "Cortellis reports trials but CT.gov shows 0 recruiting/active — trials may be completed or search term mismatch",
+            })
+        # Check 6: CT.gov sees many active trials but Cortellis has none
+        if ct_count > 20 and cortellis_trial_count == 0:
+            conflicts.append({
+                "field": "active_trial_count",
+                "cortellis": 0,
+                "external": ct_count,
+                "source": "clinicaltrials.gov",
+                "note": "CT.gov shows active trials not reflected in Cortellis — may be post-launch studies or indication expansions",
+            })
+
+    verified = len(conflicts) == 0
+    return {"verified": verified, "verified_at": now, "conflicts": conflicts}
+
+
 # ---------------------------------------------------------------------------
 # Article compiler
 # ---------------------------------------------------------------------------
@@ -193,7 +426,7 @@ def compile_drug_article(drug_dir, drug_name, slug, base_dir=None):
     """Compile all drug profile JSON files into (meta, body)."""
     record = read_json_safe(os.path.join(drug_dir, "record.json"))
     swot = read_json_safe(os.path.join(drug_dir, "swot.json"))
-    financials = read_json_safe(os.path.join(drug_dir, "financials.json"))
+    read_json_safe(os.path.join(drug_dir, "financials.json"))
     history = read_json_safe(os.path.join(drug_dir, "history.json"))
     deals_json = read_json_safe(os.path.join(drug_dir, "deals.json"))
     trials_json = read_json_safe(os.path.join(drug_dir, "trials.json"))
@@ -212,14 +445,30 @@ def compile_drug_article(drug_dir, drug_name, slug, base_dir=None):
     aliases = overview.get("aliases", [])
     targets = overview.get("targets", [])
 
+    literature = read_json_safe(os.path.join(drug_dir, "literature.json"))
+    fda_approvals = read_json_safe(os.path.join(drug_dir, "fda_approvals.json"))
+    ct_trials_json = read_json_safe(os.path.join(drug_dir, "ct_trials.json"))
     deals_summary = extract_deals_summary(deals_json)
     trials_summary = extract_trials_summary(trials_json)
+    publications = extract_publications(literature) if literature else []
+    fda_approval_count = len(fda_approvals.get("results", [])) if fda_approvals else 0
+    ct_trial_count = ct_trials_json.get("ct_trial_count", 0) if ct_trials_json else 0
     now = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
 
-    # Build related: originator slug + indication slugs
+    # Cross-check verification (only when external enrich files exist)
+    verification = verify_claims(phase, fda_approvals, ct_trials_json, trials_json, overview=overview, drug_dir=drug_dir)
+
+    # Build related: originator slug + target slugs + indication slugs
     related = []
     if originator:
         related.append(find_company_slug(originator, base_dir))
+    # Link to target wiki articles
+    target_slugs = []
+    for t in targets[:5]:
+        t_slug = find_target_slug_for_mechanism(t, base_dir) or slugify(t)
+        if t_slug and t_slug not in related:
+            target_slugs.append(t_slug)
+            related.append(t_slug)
     for ind in indications[:5]:
         ind_slug = slugify(ind)
         if ind_slug not in related:
@@ -237,7 +486,13 @@ def compile_drug_article(drug_dir, drug_name, slug, base_dir=None):
         "mechanism": mechanism,
         "indication_count": len(indications),
         "indications": [slugify(i) for i in indications],
+        "targets": target_slugs,
         "related": related,
+        "fda_approval_count": fda_approval_count,
+        "ct_trial_count": ct_trial_count,
+        "verified": verification["verified"],
+        "verified_at": verification["verified_at"],
+        "conflicts": verification["conflicts"],
     }
     # Aliases: Obsidian resolves any alias to this article
     # Includes brand names, research codes, and full Cortellis formulation names
@@ -264,7 +519,7 @@ def compile_drug_article(drug_dir, drug_name, slug, base_dir=None):
         )
         body_parts.append(f"| Mechanism | {mech_links} |\n")
     else:
-        body_parts.append(f"| Mechanism | - |\n")
+        body_parts.append("| Mechanism | - |\n")
     if technology:
         body_parts.append(f"| Technology | {technology} |\n")
     if originator:
@@ -281,33 +536,96 @@ def compile_drug_article(drug_dir, drug_name, slug, base_dir=None):
 
     # Development History
     if history:
+        import re as _re
+        from collections import defaultdict as _defaultdict
+        _PHASE_ORDER = {
+            "Preclinical": 1, "Discovery": 1,
+            "Phase 1 Clinical": 2, "Phase 2 Clinical": 3, "Phase 3 Clinical": 4,
+            "Pre-registration": 5, "Registered": 6, "Launched": 7,
+            "Discontinued": 0, "No Development Reported": 0,
+        }
         changes = history.get("ChangeHistory", {}).get("Change", [])
         if isinstance(changes, dict):
             changes = [changes]
-        milestones = []
+        drug_added = None
+        global_milestones = []
+        # per-indication: {indication: [(date, label), ...]}
+        by_indication = _defaultdict(list)
         for c in changes:
             date = c.get("Date", "")[:10]
             reason = c.get("Reason", {})
             if isinstance(reason, dict):
                 reason = reason.get("$", "")
-            if reason == "Highest status change":
+            if reason == "Drug added":
+                drug_added = date
+            elif reason == "Highest status change":
                 fields = c.get("FieldsChanged", {}).get("Field", {})
                 if isinstance(fields, dict):
                     new_val = fields.get("@newValue", "")
                     old_val = fields.get("@oldValue", "")
                     label = f"{old_val} → {new_val}" if old_val else new_val
-                    milestones.append((date, label))
-            elif reason == "Drug added":
-                milestones.append((date, "Drug added"))
-        if milestones:
-            body_parts.append("## Development History\n\n")
-            # Deduplicate by label, keep earliest occurrence
+                    global_milestones.append((date, label))
+            elif reason == "Development status: company/indication/territory trio status change":
+                detail = c.get("DetailFormatted", "")
+                detail_clean = _re.sub(r"<[^>]+>", "", detail).strip()
+                # Format: "Phase X to Phase Y, Territory, Company, Indication[, Date]"
+                m = _re.match(r"^(.+?) to (.+?),\s*[^,]+,\s*[^,]+,\s*(.+?)(?:,|$)", detail_clean)
+                if m:
+                    old_val = m.group(1).strip()
+                    new_val = m.group(2).strip()
+                    indication = m.group(3).strip()
+                    if new_val == "No Development Reported":
+                        continue
+                    old_rank = _PHASE_ORDER.get(old_val, 0)
+                    new_rank = _PHASE_ORDER.get(new_val, 0)
+                    # Skip backward transitions (Cortellis data corrections)
+                    if new_rank <= old_rank:
+                        continue
+                    # Launched requires formal Registered step first (no phase-skipping to market)
+                    if new_val == "Launched" and old_val != "Registered":
+                        continue
+                    # Skip implausible jumps >2 steps (bulk territory record updates)
+                    if new_rank - old_rank > 2:
+                        continue
+                    by_indication[indication].append((date, f"{old_val} → {new_val}"))
+        has_global = bool(global_milestones)
+        has_per_indication = len(by_indication) > 1
+        body_parts.append("## Development History\n\n")
+        if drug_added:
+            body_parts.append(f"- **{drug_added}**: Drug added\n")
+        if has_per_indication:
+            # Sort indications by earliest event date (chronological, not alphabetical)
+            def _ind_start(ind):
+                events = by_indication[ind]
+                return events[0][0] if events else "9999"
+            for indication in sorted(by_indication, key=_ind_start):
+                events = by_indication[indication]
+                # Truncate at Launched: drop entries after the first Launched date
+                launched_date = next((d for d, l in events if l == "Registered → Launched"), None)
+                if launched_date:
+                    events = [(d, l) for d, l in events if d <= launched_date]
+                body_parts.append(f"\n### {indication}\n\n")
+                seen: set = set()
+                for date, label in events:
+                    if label not in seen:
+                        seen.add(label)
+                        body_parts.append(f"- **{date}**: {label}\n")
+        elif has_global:
+            # Single indication or global-only: use Highest status change events
             seen = set()
-            for date, label in milestones:
+            for date, label in global_milestones:
                 if label not in seen:
                     seen.add(label)
                     body_parts.append(f"- **{date}**: {label}\n")
-            body_parts.append("\n")
+        elif by_indication:
+            # Single indication with no global events (liraglutide-type): use trio events
+            seen = set()
+            for indication, events in by_indication.items():
+                for date, label in events:
+                    if label not in seen:
+                        seen.add(label)
+                        body_parts.append(f"- **{date}**: {label}\n")
+        body_parts.append("\n")
 
     # SWOT Analysis
     if swot and len(str(swot)) > 100:
@@ -354,6 +672,78 @@ def compile_drug_article(drug_dir, drug_name, slug, base_dir=None):
             status = t.get("RecruitmentStatus", "-")
             enroll = t.get("PatientCountEnrollment", "-")
             body_parts.append(f"| {title} | {tphase} | {status} | {enroll} |\n")
+        body_parts.append("\n")
+
+    # Recent Publications
+    if publications:
+        body_parts.append(f"## Recent Publications ({len(publications)})\n\n")
+        body_parts.append("| Title | Authors | Journal | Date |\n|---|---|---|---|\n")
+        for pub in publications:
+            title = pub.get("title", "")
+            if len(title) > 80:
+                title = title[:77] + "..."
+            authors = pub.get("authors", "")
+            journal = pub.get("journal", "")
+            date = pub.get("date", "")
+            body_parts.append(f"| {title} | {authors} | {journal} | {date} |\n")
+        body_parts.append("\n")
+
+    # Active Trials (ClinicalTrials.gov)
+    ct_trials_md = read_md_safe(os.path.join(drug_dir, "ct_trials_summary.md"))
+    if ct_trials_md:
+        body_parts.append("## Active Trials (ClinicalTrials.gov)\n\n")
+        for line in ct_trials_md.splitlines():
+            if line.startswith("## ClinicalTrials.gov:"):
+                continue
+            body_parts.append(line + "\n")
+        body_parts.append("\n")
+
+    # Regulatory Timeline (from enrich_regulatory_milestones.py)
+    reg_timeline_md = read_md_safe(os.path.join(drug_dir, "regulatory_timeline.md"))
+    if reg_timeline_md:
+        body_parts.append(reg_timeline_md)
+        body_parts.append("\n")
+
+    # FDA Approvals (from enrich_fda_approval.py)
+    fda_summary_md = read_md_safe(os.path.join(drug_dir, "fda_summary.md"))
+    if fda_summary_md:
+        body_parts.append(fda_summary_md)
+        body_parts.append("\n")
+
+    # FDA Safety: adverse reactions, boxed warnings, recalls, shortages
+    fda_safety_md = read_md_safe(os.path.join(drug_dir, "fda_safety.md"))
+    if fda_safety_md:
+        body_parts.append(fda_safety_md)
+        body_parts.append("\n")
+
+    # EU Approvals & Safety (from enrich_ema.py)
+    ema_summary_md = read_md_safe(os.path.join(drug_dir, "ema_summary.md"))
+    if ema_summary_md:
+        body_parts.append(ema_summary_md)
+        body_parts.append("\n")
+
+    # Patent Cliff & Biosimilars (from enrich_fda_patent.py)
+    fda_patent_md = read_md_safe(os.path.join(drug_dir, "fda_patent_cliff.md"))
+    if fda_patent_md:
+        body_parts.append(fda_patent_md)
+        body_parts.append("\n")
+
+    # ChEMBL mechanism, ADMET, indications (from enrich_chembl.py)
+    chembl_md = read_md_safe(os.path.join(drug_dir, "chembl_summary.md"))
+    if chembl_md:
+        body_parts.append(chembl_md)
+        body_parts.append("\n")
+
+    # Pharmacogenomics (from enrich_cpic.py)
+    cpic_md = read_md_safe(os.path.join(drug_dir, "cpic_summary.md"))
+    if cpic_md:
+        body_parts.append(cpic_md)
+        body_parts.append("\n")
+
+    # Preprints — bioRxiv/medRxiv (from enrich_biorxiv.py)
+    biorxiv_md = read_md_safe(os.path.join(drug_dir, "biorxiv_summary.md"))
+    if biorxiv_md:
+        body_parts.append(biorxiv_md)
         body_parts.append("\n")
 
     # Data Sources

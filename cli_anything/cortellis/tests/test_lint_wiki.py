@@ -3,7 +3,6 @@
 import os
 from datetime import datetime, timezone, timedelta
 
-import pytest
 
 from cli_anything.cortellis.utils.wiki import write_article
 from cli_anything.cortellis.skills.landscape.recipes.lint_wiki import (

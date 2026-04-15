@@ -68,7 +68,7 @@ def generate_bd_brief(landscape_dir, indication_name) -> str:
 
     parts = []
     parts.append(f"# {indication_name} — BD Brief\n\n")
-    parts.append(f"*Audience: Business Development | Focus: Licensing, partnering, deal evaluation*\n\n")
+    parts.append("*Audience: Business Development | Focus: Licensing, partnering, deal evaluation*\n\n")
     parts.append("---\n\n")
 
     # 1. Opportunity Overview
@@ -187,11 +187,11 @@ def generate_bd_brief(landscape_dir, indication_name) -> str:
         asset_name = top_asset.get("drug_name") or top_asset.get("name") or top_asset.get("drug") or "identified asset"
         asset_comp = top_asset.get("company") or top_asset.get("company_name") or "the sponsor"
         parts.append(f"- Initiate diligence on **{asset_name}** ({asset_comp}) as in-licensing candidate\n")
-    parts.append(f"- Review deal comps for valuation benchmarking before term sheet discussions\n")
-    parts.append(f"- Assess Tier B/C companies in top 10 for co-development partnership potential\n")
+    parts.append("- Review deal comps for valuation benchmarking before term sheet discussions\n")
+    parts.append("- Assess Tier B/C companies in top 10 for co-development partnership potential\n")
     if deal_count > 0:
         parts.append(f"- Monitor deal velocity: {deal_count} recent transactions indicate active market\n")
-    parts.append(f"- Map white space mechanisms against internal platform capabilities\n\n")
+    parts.append("- Map white space mechanisms against internal platform capabilities\n\n")
 
     return "".join(parts)
 
@@ -293,18 +293,18 @@ def generate_exec_brief(landscape_dir, indication_name) -> str:
         )
     elif crowded:
         bullet_5 = (
-            f"**Recommendation:** Differentiate away from crowded mechanisms; "
-            f"evaluate combination strategies or novel delivery approaches"
+            "**Recommendation:** Differentiate away from crowded mechanisms; "
+            "evaluate combination strategies or novel delivery approaches"
         )
     else:
         bullet_5 = (
-            f"**Recommendation:** Conduct detailed target assessment to identify "
-            f"sustainable competitive positioning in this landscape"
+            "**Recommendation:** Conduct detailed target assessment to identify "
+            "sustainable competitive positioning in this landscape"
         )
 
     parts = []
     parts.append(f"# {indication_name} — Executive Brief\n\n")
-    parts.append(f"*Audience: Executive / Leadership | Format: One-page strategic overview*\n\n")
+    parts.append("*Audience: Executive / Leadership | Format: One-page strategic overview*\n\n")
     parts.append("---\n\n")
 
     # 1. Strategic Summary — exactly 5 bullets

@@ -13,7 +13,9 @@ Usage:
 
 Output: company_id,company_name,active_drugs,method
 """
-import json, subprocess, sys
+import json
+import subprocess
+import sys
 
 
 def run_cli(*args):

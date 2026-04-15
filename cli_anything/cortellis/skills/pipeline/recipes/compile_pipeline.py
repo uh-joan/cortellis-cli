@@ -14,10 +14,9 @@ from datetime import datetime, timezone
 # Allow running as standalone script
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "..", "..", "..", ".."))
 
-from cli_anything.cortellis.utils.data_helpers import read_csv_safe, safe_int
+from cli_anything.cortellis.utils.data_helpers import read_csv_safe, read_md_safe
 from cli_anything.cortellis.utils.wiki import (
     slugify,
-    normalize_company_name,
     normalize_drug_name,
     find_company_slug,
     wiki_root,
@@ -224,6 +223,18 @@ def compile_pipeline_article(pipeline_dir, company_name, slug, base_dir=None):
             phase = trial.get("phase") or "-"
             status = trial.get("status") or trial.get("recruitment_status") or "-"
             body_parts.append(f"| {trial_id} | {indication} | {phase} | {status} |\n")
+        body_parts.append("\n")
+
+    # Open Targets tractability (from enrich_pipeline_external.py)
+    ot_pipeline_md = read_md_safe(os.path.join(pipeline_dir, "opentargets_pipeline.md"))
+    if ot_pipeline_md:
+        body_parts.append(ot_pipeline_md)
+        body_parts.append("\n")
+
+    # bioRxiv preprints (from enrich_pipeline_external.py)
+    biorxiv_pipeline_md = read_md_safe(os.path.join(pipeline_dir, "biorxiv_pipeline.md"))
+    if biorxiv_pipeline_md:
+        body_parts.append(biorxiv_pipeline_md)
         body_parts.append("\n")
 
     # Data Sources
