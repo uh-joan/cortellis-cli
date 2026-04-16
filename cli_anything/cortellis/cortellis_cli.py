@@ -1692,6 +1692,42 @@ def setup_cmd() -> None:
 
 
 # ---------------------------------------------------------------------------
+# run-skill — harness mode: enforced step sequencing for skill workflows
+# ---------------------------------------------------------------------------
+
+@cli.group(name="run-skill")
+def run_skill() -> None:
+    """Run a skill workflow with enforced step sequencing (harness mode).
+
+    Unlike invoking skills via the AI chat, this executes recipe scripts in
+    guaranteed order and exits 1 on any step failure — no silent data gaps.
+    """
+
+
+@run_skill.command(name="landscape")
+@click.argument("indication")
+@click.option("--force-refresh", is_flag=True, help="Re-fetch even if wiki article is fresh")
+def run_skill_landscape(indication: str, force_refresh: bool) -> None:
+    """Run the full landscape pipeline for INDICATION with enforced step order.
+
+    Example: cortellis run-skill landscape obesity
+    """
+    from cli_anything.cortellis.core.skill_runner import run_landscape
+    run_landscape(indication, force_refresh=force_refresh)
+
+
+@run_skill.command(name="pipeline")
+@click.argument("company")
+@click.option("--force-refresh", is_flag=True, help="Re-fetch even if wiki article is fresh")
+def run_skill_pipeline(company: str, force_refresh: bool) -> None:
+    """Run the full pipeline workflow for COMPANY with enforced step order.
+
+    Example: cortellis run-skill pipeline Pfizer
+    """
+    from cli_anything.cortellis.core.skill_runner import run_pipeline
+    run_pipeline(company, force_refresh=force_refresh)
+
+
 # repl — interactive command REPL
 # ---------------------------------------------------------------------------
 
