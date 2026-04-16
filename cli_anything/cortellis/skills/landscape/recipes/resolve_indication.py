@@ -181,4 +181,7 @@ if __name__ == "__main__":
         sys.exit(1)
 
     ind_id, ind_name = resolve(name)
+    if not ind_id:
+        print(f"ERROR: could not resolve indication '{name}'", file=sys.stderr)
+        sys.exit(1)
     print(f"{ind_id},{ind_name}")
