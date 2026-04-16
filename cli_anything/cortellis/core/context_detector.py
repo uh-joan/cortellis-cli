@@ -7,6 +7,82 @@ Continue: "what about their deals?", "show me more", "expand on that", "same for
 
 import re
 
+# ---------------------------------------------------------------------------
+# Multi-entity parallel dispatch detection
+# ---------------------------------------------------------------------------
+
+_LIST_SEP = re.compile(r'\s*,\s*(?:and\s+)?|\s+and\s+')
+
+_SKILL_KEYWORDS: dict[str, str] = {
+    'landscape': 'landscape',
+    'landscapes': 'landscape',
+    'pipeline': 'pipeline',
+    'pipelines': 'pipeline',
+    'profile': 'drug-profile',
+    'profiles': 'drug-profile',
+}
+
+_SKIP_WORDS = {'landscape', 'landscapes', 'pipeline', 'pipelines', 'profile',
+               'profiles', 'compare', 'and', 'for', 'the', 'a', 'an'}
+
+_STRIP_PREFIX = re.compile(
+    r'^(?:landscape[s]?\s+for\s+|pipeline[s]?\s+for\s+|profile[s]?\s+for\s+|compare\s+)',
+    re.IGNORECASE
+)
+_STRIP_SUFFIX = re.compile(
+    r'\s+(?:landscape[s]?|pipeline[s]?|profile[s]?)$',
+    re.IGNORECASE
+)
+
+
+def _clean_entity(e: str) -> str:
+    e = _STRIP_PREFIX.sub('', e.strip())
+    e = _STRIP_SUFFIX.sub('', e.strip())
+    return e.strip()
+
+
+def detect_multi_entity(question: str) -> dict | None:
+    """Detect queries asking about 2+ entities that can be dispatched in parallel.
+
+    Returns {'entities': [...], 'skill': '...'} when a comma-separated list of
+    2+ named entities is found alongside a skill keyword, else None.
+
+    Conservative — only fires when both a skill keyword AND a comma list are present.
+    """
+    q = question.strip()
+
+    # Skip single explicit /skill invocations with one argument
+    if q.startswith('/') and q.count(' ') <= 1:
+        return None
+
+    # Require a skill keyword
+    skill = None
+    for kw, sk in _SKILL_KEYWORDS.items():
+        if re.search(rf'\b{kw}\b', q, re.IGNORECASE):
+            skill = sk
+            break
+    if skill is None:
+        return None
+
+    # Require at least one comma (list signal)
+    if ',' not in q:
+        return None
+
+    # Extract the first run of comma-separated named tokens
+    list_match = re.search(
+        r'(?:for\s+)?([A-Za-z][^,]+(?:,\s*(?:and\s+)?[A-Za-z][^,]+)+)', q
+    )
+    if not list_match:
+        return None
+
+    entities = [_clean_entity(e) for e in _LIST_SEP.split(list_match.group(1))]
+    entities = [e for e in entities if e.lower() not in _SKIP_WORDS and len(e) > 2]
+
+    if len(entities) < 2:
+        return None
+
+    return {'entities': entities, 'skill': skill}
+
 # Patterns that indicate a follow-up needing previous context
 _FOLLOWUP_PATTERNS = [
     # Pronouns referencing previous data

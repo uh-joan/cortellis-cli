@@ -1926,7 +1926,7 @@ All skills and their workflows are included below in the system context."""
 
         from cli_anything.cortellis.core.status_translator import translate_command
         from cli_anything.cortellis.core.skill_router import detect_skill
-        from cli_anything.cortellis.core.context_detector import needs_context
+        from cli_anything.cortellis.core.context_detector import needs_context, detect_multi_entity
 
         # Detect context need BEFORE any rewriting (uses original question)
         turn_number += 1
@@ -1945,6 +1945,18 @@ All skills and their workflows are included below in the system context."""
         # Auto-detect skill and prepend directive for natural language queries
         skill_directive = detect_skill(question)
         routed_question = f"{skill_directive}{question}" if skill_directive else question
+
+        # Parallel dispatch hint: prepend when 2+ entities detected for the same skill
+        multi = detect_multi_entity(question)
+        if multi and len(multi['entities']) >= 2:
+            entity_list = ', '.join(f'"{e}"' for e in multi['entities'])
+            routed_question = (
+                f"[PARALLEL DISPATCH: This query covers {len(multi['entities'])} entities "
+                f"({entity_list}) for the /{multi['skill']} skill. "
+                f"Run each as a separate Agent invocation with run_in_background=true "
+                f"so they execute concurrently. Synthesize results after all complete.]\n"
+                + routed_question
+            )
 
         # Wiki fast-path: inject ANY matching wiki articles (indications, drugs, companies)
         from cli_anything.cortellis.core.skill_router import check_wiki_fast_path
