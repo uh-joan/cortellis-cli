@@ -103,21 +103,28 @@ def _plan_waves(nodes: list[Node]) -> list[list[Node]]:
     return waves
 
 
+def _slug_name(s: str) -> str:
+    return re.sub(r"[^a-z0-9]+", "-", s.lower()).strip("-")
+
+
 def _resolve_vars(text: str, state: dict[str, NodeResult]) -> str:
     """Replace $node_id.output references with captured stdout from that node."""
     def replacer(m):
         node_id = m.group(1)
-        rest = m.group(2)  # e.g. ".indication_id" or ""
+        rest = m.group(2) or ""
         result = state.get(node_id)
         if result is None:
             return m.group(0)
         output = result.output.strip()
-        # Simple field extraction: if output is "id,name" and rest is ".indication_id"
-        if rest == ".indication_id" and "," in output:
-            return output.split(",", 1)[0]
-        if rest == ".indication_name" and "," in output:
-            return output.split(",", 1)[1]
-        if rest in (".output.status", ".output"):
+        # resolve node outputs "id,name" — extract sub-fields
+        if rest in (".output.indication_id", ".indication_id"):
+            return output.split(",", 1)[0] if "," in output else output
+        if rest in (".output.indication_name", ".indication_name"):
+            # slug form — safe for directory paths and recipe script args
+            raw_name = output.split(",", 1)[1] if "," in output else output
+            return _slug_name(raw_name)
+        # single-value nodes (freshness status, etc.)
+        if rest in (".output.status", ".output", ""):
             return output
         return output
     return re.sub(r'\$([a-z_][a-z0-9_]*)(\.[a-z_.]+)?', replacer, text)
@@ -139,16 +146,20 @@ def _eval_when(condition: str, state: dict[str, NodeResult]) -> bool:
 
 
 def _should_skip(node: Node, state: dict[str, NodeResult]) -> bool:
-    """Return True if this node should be skipped (when: false or upstream failed)."""
-    # Check trigger_rule first
-    if node.trigger_rule == "all_success":
-        for dep in node.depends_on:
-            dep_result = state.get(dep)
-            if dep_result and dep_result.status == "failed":
-                return True
+    """Return True if this node should be skipped (when: false or upstream propagation)."""
+    dep_results = [state[dep] for dep in node.depends_on if dep in state]
 
-    # trigger_rule == all_done: run if all upstreams done (success OR skipped)
-    # but skip if when: condition is false
+    if node.trigger_rule == "all_success":
+        # Skip if any upstream failed OR skipped (propagate skip downstream)
+        for r in dep_results:
+            if r.status in ("failed", "skipped"):
+                return True
+    elif node.trigger_rule == "all_done":
+        # Skip only when ALL upstreams are skipped (nothing was fetched — fresh path)
+        if dep_results and all(r.status == "skipped" for r in dep_results):
+            return True
+
+    # Evaluate when: condition
     if node.when:
         return not _eval_when(node.when, state)
 
@@ -233,12 +244,21 @@ class HarnessRunner:
         output_dir.mkdir(parents=True, exist_ok=True)
         state: dict[str, NodeResult] = {}
 
-        # Seed ARGUMENTS variable (used in bash templates)
+        # Seed ARGUMENTS variable and pin python3 to the active venv interpreter
+        python_bin = sys.executable
         def resolve(text: str) -> str:
             t = text.replace("$ARGUMENTS", indication)
+            t = re.sub(r'\bpython3\b', python_bin, t)
             return _resolve_vars(t, state)
 
         for wave_idx, wave in enumerate(self.waves):
+            # After resolve completes, pin output_dir to the canonical slug
+            if wave_idx > 0 and "resolve" in state:
+                r = state["resolve"]
+                if r.status == "success" and "," in r.output:
+                    canonical = r.output.strip().split(",", 1)[1]
+                    output_dir = output_dir.parent / _slug_name(canonical)
+                    output_dir.mkdir(parents=True, exist_ok=True)
             wave_label = " ".join(n.id for n in wave)
             print(f"\n▶ Wave {wave_idx}: {wave_label}", file=sys.stderr, flush=True)
 
@@ -278,6 +298,8 @@ class HarnessRunner:
                 result = _run_node(node, bash, output_dir)
                 state[node.id] = result
                 self._log_result(node, result)
+                if result.status == "success" and result.output.strip() and node.id in ("read_wiki", "report"):
+                    print(result.output)
             else:
                 futures = {}
                 with ThreadPoolExecutor(max_workers=min(6, len(to_run))) as pool:
@@ -295,6 +317,9 @@ class HarnessRunner:
                             result = NodeResult(status="failed", output=str(exc))
                         state[node.id] = result
                         self._log_result(node, result)
+                        # Print terminal-output nodes directly to stdout
+                        if result.status == "success" and result.output.strip() and node.id in ("read_wiki", "report"):
+                            print(result.output)
 
             # Check for hard failures (non-allow_fail nodes)
             for node in to_run:
