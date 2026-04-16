@@ -7,6 +7,7 @@ step failure so broken data is never silently compiled into the wiki.
 import re
 import subprocess
 import sys
+import time
 from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
@@ -19,20 +20,45 @@ def _step(label: str) -> None:
     print(f"\n▶ {label}", file=sys.stderr, flush=True)
 
 
-def _run(cmd: list[str], capture_stdout: bool = False, allow_fail: bool = False) -> subprocess.CompletedProcess:
-    result = subprocess.run(cmd, capture_output=capture_stdout, text=True, cwd=str(REPO_ROOT))
-    if result.returncode != 0 and not allow_fail:
+def _run(
+    cmd: list[str],
+    capture_stdout: bool = False,
+    allow_fail: bool = False,
+    retries: int = 0,
+    retry_delay: float = 5.0,
+) -> subprocess.CompletedProcess:
+    for attempt in range(retries + 1):
+        result = subprocess.run(cmd, capture_output=capture_stdout, text=True, cwd=str(REPO_ROOT))
+        if result.returncode == 0:
+            return result
+        if attempt < retries:
+            wait = retry_delay * (2 ** attempt)
+            print(f"  attempt {attempt + 1} failed — retrying in {wait:.0f}s", file=sys.stderr)
+            time.sleep(wait)
+    if not allow_fail:
         if capture_stdout and result.stderr:
             print(result.stderr, file=sys.stderr)
-        print(f"  FAILED (exit {result.returncode})", file=sys.stderr)
+        print(f"  FAILED after {retries + 1} attempt(s) (exit {result.returncode})", file=sys.stderr)
         sys.exit(result.returncode)
     return result
 
 
-def _run_shell(cmd: str, allow_fail: bool = False) -> subprocess.CompletedProcess:
-    result = subprocess.run(cmd, shell=True, text=True, cwd=str(REPO_ROOT))
-    if result.returncode != 0 and not allow_fail:
-        print(f"  FAILED (exit {result.returncode})", file=sys.stderr)
+def _run_shell(
+    cmd: str,
+    allow_fail: bool = False,
+    retries: int = 0,
+    retry_delay: float = 5.0,
+) -> subprocess.CompletedProcess:
+    for attempt in range(retries + 1):
+        result = subprocess.run(cmd, shell=True, text=True, cwd=str(REPO_ROOT))
+        if result.returncode == 0:
+            return result
+        if attempt < retries:
+            wait = retry_delay * (2 ** attempt)
+            print(f"  attempt {attempt + 1} failed — retrying in {wait:.0f}s", file=sys.stderr)
+            time.sleep(wait)
+    if not allow_fail:
+        print(f"  FAILED after {retries + 1} attempt(s) (exit {result.returncode})", file=sys.stderr)
         sys.exit(result.returncode)
     return result
 
@@ -41,7 +67,19 @@ def _slug(name: str) -> str:
     return re.sub(r"[^a-z0-9]+", "-", name.lower()).strip("-")
 
 
-def run_landscape(indication: str, force_refresh: bool = False) -> None:
+def _prompt_approval(report_path: Path) -> bool:
+    """Show report path and ask analyst to approve before wiki compile."""
+    print(f"\n── Review gate ─────────────────────────────────────────────", file=sys.stderr)
+    print(f"  Report: {report_path}", file=sys.stderr)
+    print(f"  Approve wiki compilation? [y/N] ", end="", file=sys.stderr, flush=True)
+    try:
+        answer = input().strip().lower()
+    except (EOFError, KeyboardInterrupt):
+        answer = "n"
+    return answer in ("y", "yes")
+
+
+def run_landscape(indication: str, force_refresh: bool = False, review: bool = False) -> None:
     """Run the landscape skill pipeline with enforced step sequencing."""
 
     # Step 0: freshness check
@@ -82,12 +120,13 @@ def run_landscape(indication: str, force_refresh: bool = False) -> None:
     output_dir.mkdir(parents=True, exist_ok=True)
     DIR = str(output_dir)
 
-    # Step 2: Drugs by phase
+    # Step 2: Drugs by phase (retry up to 2x on transient API failures)
     for phase_code, phase_name in [("L", "launched"), ("C3", "phase3"), ("C2", "phase2"),
                                     ("C1", "phase1"), ("DR", "discovery")]:
         _step(f"Step 2: Fetching {phase_name} (phase {phase_code})")
         _run(["bash", str(LANDSCAPE_RECIPES / "fetch_indication_phase.sh"),
-              ind_id, phase_code, str(output_dir / f"{phase_name}.csv"), str(PIPELINE_RECIPES)])
+              ind_id, phase_code, str(output_dir / f"{phase_name}.csv"), str(PIPELINE_RECIPES)],
+             retries=2, retry_delay=5.0)
 
     # Step 3: Enrich mechanisms
     _step("Step 3: Enriching mechanisms from SI")
@@ -114,7 +153,8 @@ def run_landscape(indication: str, force_refresh: bool = False) -> None:
     deals_csv = str(output_dir / "deals.csv")
     _run_shell(
         f"bash {LANDSCAPE_RECIPES}/fetch_deals_paginated.sh "
-        f"'--indication \"{ind_name}\"' {deals_csv} {PIPELINE_RECIPES}"
+        f"'--indication \"{ind_name}\"' {deals_csv} {PIPELINE_RECIPES}",
+        retries=2, retry_delay=5.0,
     )
     _step("Step 6b: Deal analytics")
     r = _run([PYTHON, str(LANDSCAPE_RECIPES / "deals_analytics.py"),
@@ -151,7 +191,11 @@ def run_landscape(indication: str, force_refresh: bool = False) -> None:
         if r.stdout:
             (output_dir / out_file).write_text(r.stdout)
 
-    # Step 15: Compile to wiki
+    # Step 15: Compile to wiki (optional review gate)
+    if review and not _prompt_approval(output_dir / "report.md"):
+        print("  Review rejected — wiki not updated. Outputs saved to:", file=sys.stderr)
+        print(f"  {DIR}", file=sys.stderr)
+        return
     _step("Step 15: Compiling to wiki")
     _run([PYTHON, str(LANDSCAPE_RECIPES / "compile_dossier.py"), DIR, ind_name])
 
@@ -159,7 +203,7 @@ def run_landscape(indication: str, force_refresh: bool = False) -> None:
     print(f"\n✓ Landscape complete → wiki/indications/{slug}.md", file=sys.stderr)
 
 
-def run_pipeline(company: str, force_refresh: bool = False) -> None:
+def run_pipeline(company: str, force_refresh: bool = False, review: bool = False) -> None:
     """Run the pipeline skill workflow with enforced step sequencing."""
 
     # Step 1: Resolve company ID
@@ -207,7 +251,11 @@ def run_pipeline(company: str, force_refresh: bool = False) -> None:
     (output_dir / "report.md").write_text(r.stdout)
     print(r.stdout)
 
-    # Compile
+    # Compile (optional review gate)
+    if review and not _prompt_approval(output_dir / "report.md"):
+        print("  Review rejected — wiki not updated. Outputs saved to:", file=sys.stderr)
+        print(f"  {DIR}", file=sys.stderr)
+        return
     _step("Compile: Writing to wiki")
     _run([PYTHON, str(PIPELINE_RECIPES / "compile_pipeline.py"), DIR, company_name])
 

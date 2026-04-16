@@ -1,0 +1,218 @@
+# Landscape skill — machine-parseable DAG workflow
+#
+# Companion to SKILL.md. This file defines the landscape pipeline as an
+# Archon-compatible DAG for future harness execution. The run-skill harness
+# (cortellis run-skill landscape) currently executes this sequence via
+# skill_runner.py; this YAML is the authoritative step/dependency spec.
+#
+# Node types: bash (deterministic), prompt (AI), command (AI + command file)
+# Independent nodes (no shared depends_on) are eligible for parallel execution.
+
+name: landscape
+description: |
+  Use when: user requests a competitive landscape for a therapeutic indication,
+  target mechanism, or technology modality.
+  Triggers: "landscape <indication>", "/landscape", "competitive landscape",
+  "what drugs are in <indication>", "pipeline for <indication>"
+model: sonnet
+argument-hint: "<indication | --target <target> | --technology <tech>>"
+
+nodes:
+
+  # ── Step 0/1: Resolve + freshness (haiku — lightweight, no synthesis) ──────
+
+  - id: resolve
+    bash: "python3 cli_anything/cortellis/skills/landscape/recipes/resolve_indication.py '$ARGUMENTS'"
+    model: haiku
+    output_format:
+      type: object
+      properties:
+        indication_id: { type: string }
+        indication_name: { type: string }
+      required: [indication_id, indication_name]
+
+  - id: freshness
+    bash: |
+      python3 -c "
+      import sys; sys.path.insert(0, '.')
+      from cli_anything.cortellis.utils.wiki import check_freshness, slugify
+      result = check_freshness(slugify('$resolve.output.indication_name'))
+      print(result)
+      "
+    depends_on: [resolve]
+    model: haiku
+    output_format:
+      type: object
+      properties:
+        status: { type: string, enum: [fresh, stale, missing] }
+      required: [status]
+
+  # ── Fast path: serve from wiki when fresh ─────────────────────────────────
+
+  - id: read_wiki
+    bash: |
+      python3 -c "
+      import sys; sys.path.insert(0, '.')
+      from cli_anything.cortellis.utils.wiki import read_article, slugify
+      art = read_article('wiki/indications/' + slugify('$resolve.output.indication_name') + '.md')
+      print(art['body'] if art else '')
+      "
+    depends_on: [freshness]
+    when: "$freshness.output.status == 'fresh'"
+
+  # ── Step 2: Fetch drugs by phase (parallel — all depend only on freshness) ─
+
+  - id: fetch_launched
+    bash: |
+      bash cli_anything/cortellis/skills/landscape/recipes/fetch_indication_phase.sh \
+        $resolve.output.indication_id L \
+        raw/$resolve.output.indication_name/launched.csv \
+        cli_anything/cortellis/skills/pipeline/recipes
+    depends_on: [freshness]
+    when: "$freshness.output.status != 'fresh'"
+
+  - id: fetch_phase3
+    bash: |
+      bash cli_anything/cortellis/skills/landscape/recipes/fetch_indication_phase.sh \
+        $resolve.output.indication_id C3 \
+        raw/$resolve.output.indication_name/phase3.csv \
+        cli_anything/cortellis/skills/pipeline/recipes
+    depends_on: [freshness]
+    when: "$freshness.output.status != 'fresh'"
+
+  - id: fetch_phase2
+    bash: |
+      bash cli_anything/cortellis/skills/landscape/recipes/fetch_indication_phase.sh \
+        $resolve.output.indication_id C2 \
+        raw/$resolve.output.indication_name/phase2.csv \
+        cli_anything/cortellis/skills/pipeline/recipes
+    depends_on: [freshness]
+    when: "$freshness.output.status != 'fresh'"
+
+  - id: fetch_phase1
+    bash: |
+      bash cli_anything/cortellis/skills/landscape/recipes/fetch_indication_phase.sh \
+        $resolve.output.indication_id C1 \
+        raw/$resolve.output.indication_name/phase1.csv \
+        cli_anything/cortellis/skills/pipeline/recipes
+    depends_on: [freshness]
+    when: "$freshness.output.status != 'fresh'"
+
+  - id: fetch_discovery
+    bash: |
+      bash cli_anything/cortellis/skills/landscape/recipes/fetch_indication_phase.sh \
+        $resolve.output.indication_id DR \
+        raw/$resolve.output.indication_name/discovery.csv \
+        cli_anything/cortellis/skills/pipeline/recipes
+    depends_on: [freshness]
+    when: "$freshness.output.status != 'fresh'"
+
+  # ── Step 3–4: Enrichment (sequential — each depends on all fetches) ────────
+
+  - id: enrich_mechanisms
+    bash: "python3 cli_anything/cortellis/skills/landscape/recipes/enrich_mechanisms.py raw/$resolve.output.indication_name"
+    depends_on: [fetch_launched, fetch_phase3, fetch_phase2, fetch_phase1, fetch_discovery]
+    trigger_rule: all_done   # run even if some phases returned 0 results
+
+  - id: group_biosimilars
+    bash: "python3 cli_anything/cortellis/skills/landscape/recipes/group_biosimilars.py raw/$resolve.output.indication_name"
+    depends_on: [enrich_mechanisms]
+
+  - id: catch_missing
+    bash: |
+      python3 cli_anything/cortellis/skills/landscape/recipes/catch_missing_drugs.py \
+        $resolve.output.indication_id raw/$resolve.output.indication_name
+    depends_on: [enrich_mechanisms]
+
+  # ── Step 5: Company chain (serial) ─────────────────────────────────────────
+
+  - id: company_landscape
+    bash: |
+      python3 cli_anything/cortellis/skills/landscape/recipes/company_landscape.py \
+        raw/$resolve.output.indication_name \
+        > raw/$resolve.output.indication_name/companies.csv
+    depends_on: [group_biosimilars]
+
+  - id: enrich_company_sizes
+    bash: "python3 cli_anything/cortellis/skills/landscape/recipes/enrich_company_sizes.py raw/$resolve.output.indication_name"
+    depends_on: [company_landscape]
+
+  - id: normalize_companies
+    bash: "python3 cli_anything/cortellis/skills/landscape/recipes/company_normalize.py raw/$resolve.output.indication_name"
+    depends_on: [enrich_company_sizes]
+
+  # ── Step 6: Deals (parallel with company chain) ────────────────────────────
+
+  - id: fetch_deals
+    bash: |
+      bash cli_anything/cortellis/skills/landscape/recipes/fetch_deals_paginated.sh \
+        '--indication "$resolve.output.indication_name"' \
+        raw/$resolve.output.indication_name/deals.csv \
+        cli_anything/cortellis/skills/pipeline/recipes
+    depends_on: [freshness]
+    when: "$freshness.output.status != 'fresh'"
+
+  - id: deal_analytics
+    bash: |
+      python3 cli_anything/cortellis/skills/landscape/recipes/deals_analytics.py \
+        raw/$resolve.output.indication_name/deals.csv \
+        raw/$resolve.output.indication_name/deals.meta.json \
+        | tee raw/$resolve.output.indication_name/deals_analytics.md
+    depends_on: [fetch_deals]
+
+  # ── Step 7: Trials ─────────────────────────────────────────────────────────
+
+  - id: trials_summary
+    bash: |
+      python3 cli_anything/cortellis/skills/landscape/recipes/trials_phase_summary.py \
+        $resolve.output.indication_id \
+        raw/$resolve.output.indication_name/trials_summary.csv \
+        raw/$resolve.output.indication_name/companies.csv
+    depends_on: [company_landscape]
+
+  # ── Steps 9–12: Synthesis (opus — all depend on enrichment + companies) ────
+
+  - id: report
+    bash: |
+      python3 cli_anything/cortellis/skills/landscape/recipes/landscape_report_generator.py \
+        raw/$resolve.output.indication_name \
+        "$resolve.output.indication_name" \
+        "$resolve.output.indication_id" \
+        "$ARGUMENTS" \
+        | tee raw/$resolve.output.indication_name/report.md
+    depends_on: [normalize_companies, catch_missing, deal_analytics, trials_summary]
+    trigger_rule: all_done
+    model: opus
+
+  - id: strategic_scoring
+    bash: "python3 cli_anything/cortellis/skills/landscape/recipes/strategic_scoring.py raw/$resolve.output.indication_name | tee raw/$resolve.output.indication_name/strategic_scores.md"
+    depends_on: [report]
+    model: opus
+
+  - id: opportunity_matrix
+    bash: "python3 cli_anything/cortellis/skills/landscape/recipes/opportunity_matrix.py raw/$resolve.output.indication_name | tee raw/$resolve.output.indication_name/opportunity_analysis.md"
+    depends_on: [strategic_scoring]
+    model: opus
+
+  - id: strategic_narrative
+    bash: |
+      python3 cli_anything/cortellis/skills/landscape/recipes/strategic_narrative.py \
+        raw/$resolve.output.indication_name "$resolve.output.indication_name" \
+        | tee raw/$resolve.output.indication_name/strategic_briefing.md
+    depends_on: [strategic_scoring]
+    model: opus
+
+  - id: loe_analysis
+    bash: "python3 cli_anything/cortellis/skills/landscape/recipes/loe_analysis.py raw/$resolve.output.indication_name | tee raw/$resolve.output.indication_name/loe_analysis.md"
+    depends_on: [strategic_scoring]
+    model: opus
+
+  # ── Step 15: Compile to wiki (opus — final synthesis) ─────────────────────
+
+  - id: compile
+    bash: |
+      python3 cli_anything/cortellis/skills/landscape/recipes/compile_dossier.py \
+        raw/$resolve.output.indication_name "$resolve.output.indication_name"
+    depends_on: [strategic_narrative, loe_analysis, opportunity_matrix]
+    trigger_rule: all_done
+    model: opus

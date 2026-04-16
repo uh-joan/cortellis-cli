@@ -1707,25 +1707,29 @@ def run_skill() -> None:
 @run_skill.command(name="landscape")
 @click.argument("indication")
 @click.option("--force-refresh", is_flag=True, help="Re-fetch even if wiki article is fresh")
-def run_skill_landscape(indication: str, force_refresh: bool) -> None:
+@click.option("--review", is_flag=True, help="Pause for analyst approval before wiki compilation")
+def run_skill_landscape(indication: str, force_refresh: bool, review: bool) -> None:
     """Run the full landscape pipeline for INDICATION with enforced step order.
 
     Example: cortellis run-skill landscape obesity
+             cortellis run-skill landscape obesity --review
     """
     from cli_anything.cortellis.core.skill_runner import run_landscape
-    run_landscape(indication, force_refresh=force_refresh)
+    run_landscape(indication, force_refresh=force_refresh, review=review)
 
 
 @run_skill.command(name="pipeline")
 @click.argument("company")
 @click.option("--force-refresh", is_flag=True, help="Re-fetch even if wiki article is fresh")
-def run_skill_pipeline(company: str, force_refresh: bool) -> None:
+@click.option("--review", is_flag=True, help="Pause for analyst approval before wiki compilation")
+def run_skill_pipeline(company: str, force_refresh: bool, review: bool) -> None:
     """Run the full pipeline workflow for COMPANY with enforced step order.
 
     Example: cortellis run-skill pipeline Pfizer
+             cortellis run-skill pipeline Pfizer --review
     """
     from cli_anything.cortellis.core.skill_runner import run_pipeline
-    run_pipeline(company, force_refresh=force_refresh)
+    run_pipeline(company, force_refresh=force_refresh, review=review)
 
 
 # repl — interactive command REPL
