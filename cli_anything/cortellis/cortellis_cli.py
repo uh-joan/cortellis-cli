@@ -1708,14 +1708,38 @@ def run_skill() -> None:
 @click.argument("indication")
 @click.option("--force-refresh", is_flag=True, help="Re-fetch even if wiki article is fresh")
 @click.option("--review", is_flag=True, help="Pause for analyst approval before wiki compilation")
-def run_skill_landscape(indication: str, force_refresh: bool, review: bool) -> None:
+@click.option("--dry-run", is_flag=True, help="Print wave schedule without executing")
+def run_skill_landscape(indication: str, force_refresh: bool, review: bool, dry_run: bool) -> None:
     """Run the full landscape pipeline for INDICATION with enforced step order.
 
     Example: cortellis run-skill landscape obesity
              cortellis run-skill landscape obesity --review
+             cortellis run-skill landscape obesity --dry-run
     """
-    from cli_anything.cortellis.core.skill_runner import run_landscape
-    run_landscape(indication, force_refresh=force_refresh, review=review)
+    import re
+    from pathlib import Path
+    from cli_anything.cortellis.core.harness_runner import HarnessRunner
+
+    workflow_yaml = Path(__file__).resolve().parent / "skills/landscape/workflow.yaml"
+    runner = HarnessRunner(workflow_yaml)
+
+    if dry_run:
+        runner.dry_run()
+        return
+
+    slug = re.sub(r"[^a-z0-9]+", "-", indication.lower()).strip("-")
+    repo_root = Path(__file__).resolve().parents[3]
+    output_dir = repo_root / "raw" / slug
+
+    exit_code = runner.execute(
+        indication,
+        output_dir,
+        dry_run=False,
+        force_refresh=force_refresh,
+        review=review,
+    )
+    if exit_code != 0:
+        raise SystemExit(exit_code)
 
 
 @run_skill.command(name="pipeline")

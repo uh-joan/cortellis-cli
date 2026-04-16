@@ -70,6 +70,7 @@ nodes:
         cli_anything/cortellis/skills/pipeline/recipes
     depends_on: [freshness]
     when: "$freshness.output.status != 'fresh'"
+    api_calls: true
 
   - id: fetch_phase3
     bash: |
@@ -79,6 +80,7 @@ nodes:
         cli_anything/cortellis/skills/pipeline/recipes
     depends_on: [freshness]
     when: "$freshness.output.status != 'fresh'"
+    api_calls: true
 
   - id: fetch_phase2
     bash: |
@@ -88,6 +90,7 @@ nodes:
         cli_anything/cortellis/skills/pipeline/recipes
     depends_on: [freshness]
     when: "$freshness.output.status != 'fresh'"
+    api_calls: true
 
   - id: fetch_phase1
     bash: |
@@ -97,6 +100,7 @@ nodes:
         cli_anything/cortellis/skills/pipeline/recipes
     depends_on: [freshness]
     when: "$freshness.output.status != 'fresh'"
+    api_calls: true
 
   - id: fetch_discovery
     bash: |
@@ -106,6 +110,7 @@ nodes:
         cli_anything/cortellis/skills/pipeline/recipes
     depends_on: [freshness]
     when: "$freshness.output.status != 'fresh'"
+    api_calls: true
 
   # ── Step 3–4: Enrichment (sequential — each depends on all fetches) ────────
 
@@ -113,16 +118,24 @@ nodes:
     bash: "python3 cli_anything/cortellis/skills/landscape/recipes/enrich_mechanisms.py raw/$resolve.output.indication_name"
     depends_on: [fetch_launched, fetch_phase3, fetch_phase2, fetch_phase1, fetch_discovery]
     trigger_rule: all_done   # run even if some phases returned 0 results
+    when: "$freshness.output.status != 'fresh'"
+    allow_fail: true
+    api_calls: true
 
   - id: group_biosimilars
     bash: "python3 cli_anything/cortellis/skills/landscape/recipes/group_biosimilars.py raw/$resolve.output.indication_name"
     depends_on: [enrich_mechanisms]
+    allow_fail: true
+    fs_exclusive: true
 
   - id: catch_missing
     bash: |
       python3 cli_anything/cortellis/skills/landscape/recipes/catch_missing_drugs.py \
         $resolve.output.indication_id raw/$resolve.output.indication_name
     depends_on: [enrich_mechanisms]
+    allow_fail: true
+    fs_exclusive: true
+    api_calls: true
 
   # ── Step 5: Company chain (serial) ─────────────────────────────────────────
 
@@ -151,6 +164,7 @@ nodes:
         cli_anything/cortellis/skills/pipeline/recipes
     depends_on: [freshness]
     when: "$freshness.output.status != 'fresh'"
+    api_calls: true
 
   - id: deal_analytics
     bash: |
@@ -159,6 +173,7 @@ nodes:
         raw/$resolve.output.indication_name/deals.meta.json \
         | tee raw/$resolve.output.indication_name/deals_analytics.md
     depends_on: [fetch_deals]
+    allow_fail: true
 
   # ── Step 7: Trials ─────────────────────────────────────────────────────────
 
@@ -188,11 +203,13 @@ nodes:
     bash: "python3 cli_anything/cortellis/skills/landscape/recipes/strategic_scoring.py raw/$resolve.output.indication_name | tee raw/$resolve.output.indication_name/strategic_scores.md"
     depends_on: [report]
     model: opus
+    allow_fail: true
 
   - id: opportunity_matrix
     bash: "python3 cli_anything/cortellis/skills/landscape/recipes/opportunity_matrix.py raw/$resolve.output.indication_name | tee raw/$resolve.output.indication_name/opportunity_analysis.md"
     depends_on: [strategic_scoring]
     model: opus
+    allow_fail: true
 
   - id: strategic_narrative
     bash: |
@@ -201,11 +218,13 @@ nodes:
         | tee raw/$resolve.output.indication_name/strategic_briefing.md
     depends_on: [strategic_scoring]
     model: opus
+    allow_fail: true
 
   - id: loe_analysis
     bash: "python3 cli_anything/cortellis/skills/landscape/recipes/loe_analysis.py raw/$resolve.output.indication_name | tee raw/$resolve.output.indication_name/loe_analysis.md"
     depends_on: [strategic_scoring]
     model: opus
+    allow_fail: true
 
   # ── Step 15: Compile to wiki (opus — final synthesis) ─────────────────────
 
@@ -216,3 +235,5 @@ nodes:
     depends_on: [strategic_narrative, loe_analysis, opportunity_matrix]
     trigger_rule: all_done
     model: opus
+    review_gate: true
+    fs_exclusive: true
