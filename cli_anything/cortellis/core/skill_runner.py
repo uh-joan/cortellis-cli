@@ -82,28 +82,17 @@ def _prompt_approval(report_path: Path) -> bool:
 def run_landscape(indication: str, force_refresh: bool = False, review: bool = False) -> None:
     """Run the landscape skill pipeline with enforced step sequencing."""
 
-    # Step 0: freshness check
+    # Step 0: freshness check (direct import — runs in the same venv process)
     if not force_refresh:
         _step("Step 0: Wiki freshness check")
-        r = _run(
-            [PYTHON, "-c",
-             f"import sys; sys.path.insert(0, r'{REPO_ROOT}');"
-             f"from cli_anything.cortellis.utils.wiki import check_freshness, slugify;"
-             f"print(check_freshness(slugify('{indication}')))"],
-            capture_stdout=True,
-        )
-        status = r.stdout.strip()
+        from cli_anything.cortellis.utils.wiki import check_freshness, slugify, read_article
+        status = check_freshness(slugify(indication))
         print(f"  Status: {status}", file=sys.stderr)
         if status == "fresh":
             print("  Serving from wiki cache. Use --force-refresh to re-fetch.", file=sys.stderr)
-            # Print compiled article to stdout
-            _run_shell(
-                f"{PYTHON} -c \""
-                f"import sys; sys.path.insert(0, r'{REPO_ROOT}');"
-                f"from cli_anything.cortellis.utils.wiki import read_article, slugify;"
-                f"art = read_article('wiki/indications/' + slugify('{indication}') + '.md');"
-                f"print(art['body'] if art else '')\""
-            )
+            art = read_article(f"wiki/indications/{slugify(indication)}.md")
+            if art:
+                print(art["body"])
             return
 
     # Step 1: Resolve indication ID

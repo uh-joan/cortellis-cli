@@ -60,7 +60,7 @@ def ner_resolve(name):
         for e in entities:
             if e.get("@type") in ("Indication", "Condition"):
                 return e.get("@id", ""), e.get("@name", "")
-    except (json.JSONDecodeError, KeyError, TypeError):
+    except (json.JSONDecodeError, KeyError, TypeError, AttributeError):
         pass
     return "", ""
 
@@ -90,7 +90,7 @@ def ontology_resolve(name):
         # Fallback: first result
         if nodes:
             return nodes[0].get("@id", ""), nodes[0].get("@name", "")
-    except (json.JSONDecodeError, KeyError, TypeError, ValueError):
+    except (json.JSONDecodeError, KeyError, TypeError, ValueError, AttributeError):
         pass
     return "", ""
 

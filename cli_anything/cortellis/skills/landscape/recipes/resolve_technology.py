@@ -59,7 +59,7 @@ def ner_resolve(name):
         for e in entities:
             if e.get("@type") == "Technology":
                 return e.get("@id", ""), e.get("@name", "")
-    except (json.JSONDecodeError, KeyError, TypeError, ValueError):
+    except (json.JSONDecodeError, KeyError, TypeError, ValueError, AttributeError):
         pass
     return "", ""
 
