@@ -17,7 +17,13 @@ Analyze a company's full drug development pipeline, merging CI and Drug Design (
 
 ## Workflow
 
-### Step 1: Resolve company ID (if name given)
+<!-- Model routing
+  haiku  — Step 1 (resolve company ID — lightweight classification)
+  sonnet — Steps 2–8 (fetch CI/SI pipeline, deals, trials — script execution)
+  opus   — Steps 8a, report generation, wiki compile (synthesis + external enrichment)
+-->
+
+### Step 1: Resolve company ID (if name given) <!-- model: haiku -->
 ```bash
 RESULT=$(python3 $RECIPES/resolve_company.py "<COMPANY>")
 # Output: company_id,company_name,active_drugs,method

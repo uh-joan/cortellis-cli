@@ -17,12 +17,18 @@ Everything about a single drug from Cortellis data.
 
 ## Workflow
 
+<!-- Model routing
+  haiku  — Step 1 (resolve drug ID — lightweight lookup)
+  sonnet — Steps 2–9 (fetch drug record, financials, history, deals, trials, externals)
+  opus   — Steps 10–11 (report generation, SWOT synthesis, wiki compile)
+-->
+
 ### Setup
 ```bash
 RECIPES="cli_anything/cortellis/skills/drug-profile/recipes"
 ```
 
-### Step 1: Resolve drug ID and INN slug
+### Step 1: Resolve drug ID and INN slug <!-- model: haiku -->
 ```bash
 RESULT=$(python3 $RECIPES/resolve_drug.py "<DRUG_NAME>")
 DRUG_ID=$(echo "$RESULT" | cut -d',' -f1)
@@ -148,7 +154,7 @@ Adds: research codes, pharmacology records, biologic flag, SI phase.
 python3 $RECIPES/drug_report_generator.py $DIR
 ```
 
-### Step 11: Compile to wiki
+### Step 11: Compile to wiki <!-- model: opus -->
 ```bash
 uv run --with pyyaml python3 $RECIPES/compile_drug.py $DIR "$DRUG_NAME_RESOLVED" [--wiki-dir /path/to/wiki-root]
 ```

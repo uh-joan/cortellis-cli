@@ -53,6 +53,12 @@ Generate a full competitive landscape for a therapeutic indication.
 
 ## Technology Mode Workflow
 
+<!-- Model routing
+  haiku  — Tech Step 1 (resolve technology/indication ID)
+  sonnet — Tech Steps 2–5 (fetch drugs, enrich, deals)
+  opus   — Tech Step 6 (report, scoring, narrative, wiki compile)
+-->
+
 When invoked as `/landscape --technology "<TECH>"` (optionally with `--indication "<IND>"`), use the following workflow.
 
 ### Technology Setup
@@ -151,6 +157,12 @@ python3 $RECIPES/narrate.py $DIR "$TECH_NAME"
 
 ## Target Mode Workflow
 
+<!-- Model routing
+  haiku  — Target Step 1 (resolve action name)
+  sonnet — Target Steps 2–4 (fetch drugs, enrich, deals)
+  opus   — Target Step 5 (report, scoring, narrative, wiki compile)
+-->
+
 When invoked as `/landscape --target "<TARGET>"`, use the following workflow instead of the indication workflow below.
 
 ### Target Setup
@@ -230,7 +242,13 @@ python3 $RECIPES/narrate.py $DIR "$ACTION_NAME"
 
 ## Indication Workflow
 
-### Step 0: Wiki freshness check
+<!-- Model routing
+  haiku  — Steps 0, 1 (resolve/classify — lightweight decisions, no synthesis)
+  sonnet — Steps 2–8 (fetch + enrich — script execution + moderate interpretation)
+  opus   — Steps 9–15 (report, scoring, narrative, wiki compile — deep synthesis)
+-->
+
+### Step 0: Wiki freshness check <!-- model: haiku -->
 Before running the pipeline, check if a fresh compiled wiki article exists:
 ```bash
 python3 -c "
@@ -254,7 +272,7 @@ HEADER="name,id,phase,indication,mechanism,company,source"
 ```
 Use a slug derived from the indication name (e.g., `raw/obesity`, `raw/nsclc`, `raw/mash`, `raw/huntingtons-disease`). Lowercase, hyphens for spaces, no apostrophes.
 
-### Step 1: Resolve indication ID
+### Step 1: Resolve indication ID <!-- model: haiku -->
 ```bash
 RESULT=$(python3 $RECIPES/resolve_indication.py "<INDICATION>")
 # Output: indication_id,indication_name
@@ -398,7 +416,7 @@ python3 $RECIPES/enrich_historical_timeline.py $DIR --max-drugs 100 --months 24
 # Use when: "how has the pipeline evolved?", "show me trends", "historical view"
 ```
 
-### Step 9: Generate report
+### Step 9: Generate report <!-- model: opus -->
 ```bash
 python3 $RECIPES/landscape_report_generator.py $DIR "<INDICATION_NAME>" "<INDICATION_ID>" "<USER_INPUT>" | tee $DIR/report.md
 # Reads .meta.json files for accurate truncation warnings.
@@ -437,7 +455,7 @@ python3 $RECIPES/opportunity_matrix.py $DIR | tee $DIR/opportunity_analysis.md
 # Classifies mechanisms: Mature, Crowded Pipeline, Emerging, White Space, Active
 ```
 
-### Step 12: Strategic narrative (executive briefing)
+### Step 12: Strategic narrative (executive briefing) <!-- model: opus -->
 ```bash
 python3 $RECIPES/strategic_narrative.py $DIR "<INDICATION_NAME>" | tee $DIR/strategic_briefing.md
 # Produces 2-page executive briefing from scored data:
@@ -489,7 +507,7 @@ python3 $RECIPES/narrate.py $DIR "<INDICATION_NAME>"
 # Honors council recommendation: structured LLM prompts over scored data (no freeform)
 ```
 
-### Step 15: Compile landscape to wiki
+### Step 15: Compile landscape to wiki <!-- model: opus -->
 ```bash
 python3 $RECIPES/compile_dossier.py $DIR "<INDICATION_NAME>"
 # Compiles all landscape outputs into wiki/indications/<slug>.md
