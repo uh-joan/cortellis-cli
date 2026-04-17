@@ -1,0 +1,175 @@
+# Drug-profile skill — machine-parseable DAG workflow
+#
+# resolve_drug.py output: drug_id,drug_name,phase,indication_count,inn_slug
+# Wave 1: resolve
+# Wave 2: 7 parallel Cortellis fetches (record, swot, financials, history, deals, trials, literature)
+# Wave 3: regulatory + 7 parallel external enrichers (ct_trials, fda, ema, patent, chembl, cpic, biorxiv)
+# Wave 4: report (all_done — skips gracefully if any enricher failed)
+# Wave 5: compile (review_gate)
+
+name: drug-profile
+description: |
+  Use when: user requests a deep profile of a single drug.
+  Triggers: "drug-profile <drug>", "/drug-profile", "everything about <drug>"
+model: sonnet
+argument-hint: "<drug_name | drug_id>"
+
+nodes:
+
+  # ── Step 1: Resolve drug ID ────────────────────────────────────────────────
+
+  - id: resolve
+    bash: "python3 cli_anything/cortellis/skills/drug-profile/recipes/resolve_drug.py '$ARGUMENTS'"
+    model: haiku
+    # Output: drug_id,drug_name,phase,indication_count,inn_slug
+
+  # ── Step 2: Cortellis fetches (parallel) ──────────────────────────────────
+
+  - id: fetch_record
+    bash: |
+      mkdir -p raw/drugs/$resolve.output.inn_slug
+      cortellis --json drugs get $resolve.output.drug_id --category report --include-sources \
+        > raw/drugs/$resolve.output.inn_slug/record.json
+    depends_on: [resolve]
+    api_calls: true
+
+  - id: fetch_swot
+    bash: |
+      mkdir -p raw/drugs/$resolve.output.inn_slug
+      cortellis --json drugs swots $resolve.output.drug_id \
+        > raw/drugs/$resolve.output.inn_slug/swot.json
+    depends_on: [resolve]
+    api_calls: true
+    allow_fail: true
+
+  - id: fetch_financials
+    bash: |
+      mkdir -p raw/drugs/$resolve.output.inn_slug
+      cortellis --json drugs financials $resolve.output.drug_id \
+        > raw/drugs/$resolve.output.inn_slug/financials.json
+    depends_on: [resolve]
+    api_calls: true
+    allow_fail: true
+
+  - id: fetch_history
+    bash: |
+      mkdir -p raw/drugs/$resolve.output.inn_slug
+      cortellis --json drugs history $resolve.output.drug_id \
+        > raw/drugs/$resolve.output.inn_slug/history.json
+    depends_on: [resolve]
+    api_calls: true
+
+  - id: fetch_deals
+    bash: |
+      mkdir -p raw/drugs/$resolve.output.inn_slug
+      cortellis --json deals search --drug "$resolve.output.inn_slug" --hits 10 \
+        --sort-by "-dealDateStart" > raw/drugs/$resolve.output.inn_slug/deals.json
+    depends_on: [resolve]
+    api_calls: true
+    allow_fail: true
+
+  - id: fetch_trials
+    bash: |
+      mkdir -p raw/drugs/$resolve.output.inn_slug
+      bash cli_anything/cortellis/skills/drug-profile/recipes/fetch_trials.sh \
+        "$resolve.output.inn_slug" raw/drugs/$resolve.output.inn_slug/trials.json
+    depends_on: [resolve]
+    api_calls: true
+    allow_fail: true
+
+  - id: fetch_literature
+    bash: |
+      mkdir -p raw/drugs/$resolve.output.inn_slug
+      cortellis --json literature search --query "$resolve.output.inn_slug" --hits 10 \
+        --sort-by "-date" > raw/drugs/$resolve.output.inn_slug/literature.json
+    depends_on: [resolve]
+    api_calls: true
+    allow_fail: true
+
+  # ── Step 3: Regulatory (depends on record) ────────────────────────────────
+
+  - id: enrich_regulatory
+    bash: |
+      python3 cli_anything/cortellis/skills/landscape/recipes/enrich_regulatory_milestones.py \
+        raw/drugs/$resolve.output.inn_slug "$resolve.output.drug_canonical"
+    depends_on: [fetch_record]
+    api_calls: true
+    allow_fail: true
+
+  # ── Step 3: External enrichers (parallel, no API auth required) ───────────
+
+  - id: enrich_ct_trials
+    bash: |
+      python3 cli_anything/cortellis/skills/drug-profile/recipes/enrich_ct_trials.py \
+        raw/drugs/$resolve.output.inn_slug "$resolve.output.drug_canonical"
+    depends_on: [resolve]
+    allow_fail: true
+
+  - id: enrich_fda
+    bash: |
+      python3 cli_anything/cortellis/skills/drug-profile/recipes/enrich_fda_approval.py \
+        raw/drugs/$resolve.output.inn_slug "$resolve.output.drug_canonical" \
+        --phase "$resolve.output.drug_phase"
+    depends_on: [resolve]
+    allow_fail: true
+
+  - id: enrich_ema
+    bash: |
+      python3 cli_anything/cortellis/skills/drug-profile/recipes/enrich_ema.py \
+        raw/drugs/$resolve.output.inn_slug "$resolve.output.drug_canonical" \
+        --phase "$resolve.output.drug_phase"
+    depends_on: [resolve]
+    allow_fail: true
+
+  - id: enrich_patent
+    bash: |
+      python3 cli_anything/cortellis/skills/drug-profile/recipes/enrich_fda_patent.py \
+        raw/drugs/$resolve.output.inn_slug "$resolve.output.drug_canonical"
+    depends_on: [resolve]
+    allow_fail: true
+
+  - id: enrich_chembl
+    bash: |
+      python3 cli_anything/cortellis/skills/drug-profile/recipes/enrich_chembl.py \
+        raw/drugs/$resolve.output.inn_slug "$resolve.output.drug_canonical"
+    depends_on: [resolve]
+    allow_fail: true
+
+  - id: enrich_cpic
+    bash: |
+      python3 cli_anything/cortellis/skills/drug-profile/recipes/enrich_cpic.py \
+        raw/drugs/$resolve.output.inn_slug "$resolve.output.drug_canonical"
+    depends_on: [resolve]
+    allow_fail: true
+
+  - id: enrich_biorxiv
+    bash: |
+      python3 cli_anything/cortellis/skills/drug-profile/recipes/enrich_biorxiv.py \
+        raw/drugs/$resolve.output.inn_slug "$resolve.output.drug_canonical"
+    depends_on: [resolve]
+    allow_fail: true
+
+  # ── Step 4: Report (all_done — tolerates enricher failures) ───────────────
+
+  - id: report
+    bash: |
+      python3 cli_anything/cortellis/skills/drug-profile/recipes/drug_report_generator.py \
+        raw/drugs/$resolve.output.inn_slug \
+        | tee raw/drugs/$resolve.output.inn_slug/report.md
+    depends_on: [fetch_record, fetch_swot, fetch_financials, fetch_history,
+                 fetch_deals, fetch_trials, fetch_literature,
+                 enrich_regulatory, enrich_ct_trials, enrich_fda, enrich_ema,
+                 enrich_patent, enrich_chembl, enrich_cpic, enrich_biorxiv]
+    trigger_rule: all_done
+    model: opus
+
+  # ── Step 5: Compile to wiki ────────────────────────────────────────────────
+
+  - id: compile
+    bash: |
+      python3 cli_anything/cortellis/skills/drug-profile/recipes/compile_drug.py \
+        raw/drugs/$resolve.output.inn_slug "$resolve.output.drug_canonical"
+    depends_on: [report]
+    model: opus
+    review_gate: true
+    fs_exclusive: true

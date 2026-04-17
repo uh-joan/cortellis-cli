@@ -1,0 +1,36 @@
+# Changelog skill — machine-parseable DAG workflow
+#
+# Wave 1: resolve (slugify indication name)
+# Wave 2: extract (reads raw/ history files + wiki article, prints narrative)
+
+name: changelog
+description: |
+  Use when: user asks how a competitive landscape evolved over time.
+  Triggers: "changelog <indication>", "/changelog", "history of <indication> pipeline"
+model: haiku
+argument-hint: "<indication>"
+
+nodes:
+
+  # ── Step 1: Resolve indication slug ───────────────────────────────────────
+
+  - id: resolve
+    bash: |
+      python3 -c "
+      import sys; sys.path.insert(0, '.')
+      from cli_anything.cortellis.utils.wiki import slugify
+      slug = slugify(sys.argv[1])
+      print(f'indication,{slug}')
+      " '$ARGUMENTS'
+    model: haiku
+    # Output: indication,<slug>  (field 1 slugified → matches raw/<slug> dir)
+
+  # ── Step 2: Extract and display changelog ─────────────────────────────────
+
+  - id: extract
+    bash: |
+      python3 cli_anything/cortellis/skills/changelog/recipes/extract_changes.py \
+        wiki/indications/$resolve.output.indication_name.md \
+        raw/$resolve.output.indication_name \
+        '$ARGUMENTS'
+    depends_on: [resolve]

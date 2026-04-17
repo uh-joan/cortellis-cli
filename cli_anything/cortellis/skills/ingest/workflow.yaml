@@ -1,0 +1,38 @@
+# Ingest skill — machine-parseable DAG workflow
+#
+# Ingests an internal document into wiki/internal/.
+# Wave 1: resolve (derive slug from filename)
+# Wave 2: ingest (extract entities + compile_internal in one call)
+#
+# ARGUMENTS = path to file (markdown, txt, pdf, pptx, etc.)
+
+name: ingest
+description: |
+  Use when: user wants to ingest an internal document into the wiki.
+  Triggers: "ingest <file>", "/ingest", "add document to wiki"
+model: haiku
+argument-hint: "<file_path>"
+
+nodes:
+
+  # ── Step 1: Derive stable slug from filename ───────────────────────────────
+
+  - id: resolve
+    bash: |
+      python3 -c "
+      import re, sys
+      from pathlib import Path
+      filepath = sys.argv[1]
+      name = re.sub(r'[^a-z0-9]+', '-', Path(filepath).stem.lower()).strip('-')
+      print(f'ingest,{name}')
+      " '$ARGUMENTS'
+    model: haiku
+    # Output: ingest,<slug>  (field 1 slugified → log dir name)
+
+  # ── Step 2: Extract entities and compile to wiki/internal/ ────────────────
+
+  - id: ingest
+    bash: |
+      python3 cli_anything/cortellis/skills/ingest/recipes/ingest_wrapper.py '$ARGUMENTS'
+    depends_on: [resolve]
+    fs_exclusive: true

@@ -1,0 +1,59 @@
+# Conference-intel skill — machine-parseable DAG workflow
+#
+# Wave 1: resolve (stable slug for the conference query)
+# Wave 2: fetch_data (conference search + top 5 detail records)
+# Wave 3: briefing (cross-references wiki; writes briefing.md)
+# Wave 4: compile (review_gate — writes wiki/conferences/<slug>.md)
+
+name: conference-intel
+description: |
+  Use when: user requests conference intelligence or a briefing for a conference.
+  Triggers: "conference-intel <name>", "/conference-intel", "what's at <conference>"
+model: sonnet
+argument-hint: "<conference_name | topic>"
+
+nodes:
+
+  # ── Step 1: Produce stable slug ───────────────────────────────────────────
+
+  - id: resolve
+    bash: |
+      python3 -c "
+      import re, sys
+      query = sys.argv[1]
+      slug = re.sub(r'[^a-z0-9]+', '-', query.lower()).strip('-')
+      print(f'conference,{slug}')
+      " '$ARGUMENTS'
+    model: haiku
+    # Output: conference,<slug>  (field 1 slugified → conference dir name)
+
+  # ── Step 2: Fetch conference data ─────────────────────────────────────────
+
+  - id: fetch_data
+    bash: |
+      python3 cli_anything/cortellis/skills/conference-intel/recipes/fetch_conference.py \
+        '$ARGUMENTS' \
+        raw/conferences/$resolve.output.conference_name
+    depends_on: [resolve]
+    api_calls: true
+
+  # ── Step 3: Generate briefing ─────────────────────────────────────────────
+
+  - id: briefing
+    bash: |
+      python3 cli_anything/cortellis/skills/conference-intel/recipes/conference_briefing.py \
+        raw/conferences/$resolve.output.conference_name '$ARGUMENTS' \
+        | tee raw/conferences/$resolve.output.conference_name/briefing.md
+    depends_on: [fetch_data]
+    model: sonnet
+
+  # ── Step 4: Compile to wiki ────────────────────────────────────────────────
+
+  - id: compile
+    bash: |
+      python3 cli_anything/cortellis/skills/conference-intel/recipes/compile_conference.py \
+        raw/conferences/$resolve.output.conference_name '$ARGUMENTS'
+    depends_on: [briefing]
+    model: sonnet
+    review_gate: true
+    fs_exclusive: true
