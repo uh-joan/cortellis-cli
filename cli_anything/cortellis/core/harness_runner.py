@@ -112,24 +112,44 @@ def _resolve_vars(text: str, state: dict[str, NodeResult]) -> str:
     """Replace $node_id.output references with captured stdout from that node.
 
     CSV field aliases (resolve nodes output comma-separated values):
-      field 0: indication_id, company_id              → raw (no slugify)
-      field 1: indication_name, company_name,
-               company_slug                           → slugified
-               indication_canonical, company_canonical → raw
-      field 2: active_drugs                           → raw
+      field 0: indication_id, company_id, drug_id, target_id  → raw
+      field 1: indication_name, company_name, drug_name,
+               target_name, conference_name, comparison_name  → slugified
+               *_canonical                                    → raw
+      field 2: active_drugs, drug_phase, gene_symbol          → raw
+      field 3+: action_name (join_remaining=True)             → raw joined
+      field 4: inn_slug                                       → raw
     """
-    # Maps suffix → (csv_index, slugify)
-    _FIELD_MAP: dict[str, tuple[int, bool]] = {
-        ".output.indication_id":    (0, False),
-        ".output.company_id":       (0, False),
-        ".output.indication_name":  (1, True),
-        ".output.company_name":     (1, True),
-        ".output.company_slug":     (1, True),
+    # Maps suffix → (csv_index, slugify[, join_remaining])
+    _FIELD_MAP: dict[str, tuple] = {
+        # Indication / landscape
+        ".output.indication_id":        (0, False),
+        ".output.indication_name":      (1, True),
         ".output.indication_canonical": (1, False),
+        # Company / pipeline
+        ".output.company_id":           (0, False),
+        ".output.company_name":         (1, True),
+        ".output.company_slug":         (1, True),
         ".output.company_canonical":    (1, False),
-        ".output.active_drugs":     (2, False),
-        ".output.status":           (-1, False),  # single-value, use raw
-        ".output":                  (-1, False),
+        ".output.active_drugs":         (2, False),
+        # Drug-profile (resolve_drug.py: drug_id,drug_name,phase,indication_count,inn_slug)
+        ".output.drug_id":              (0, False),
+        ".output.drug_name":            (1, True),
+        ".output.drug_canonical":       (1, False),
+        ".output.drug_phase":           (2, False),
+        ".output.inn_slug":             (4, False),
+        # Target-profile (resolve_target_id.py: target_id,target_name,gene_symbol,action_name)
+        ".output.target_id":            (0, False),
+        ".output.target_name":          (1, True),
+        ".output.target_canonical":     (1, False),
+        ".output.gene_symbol":          (2, False),
+        ".output.action_name":          (3, False, True),  # join fields 3+ (action may have commas)
+        # Generic slug for conference, comparison, changelog (field 1 slugified)
+        ".output.conference_name":      (1, True),
+        ".output.comparison_name":      (1, True),
+        # Fallbacks
+        ".output.status":               (-1, False),
+        ".output":                      (-1, False),
     }
 
     def replacer(m):
@@ -141,14 +161,19 @@ def _resolve_vars(text: str, state: dict[str, NodeResult]) -> str:
         output = result.output.strip()
 
         if rest in _FIELD_MAP:
-            idx, do_slug = _FIELD_MAP[rest]
+            entry = _FIELD_MAP[rest]
+            idx, do_slug = entry[0], entry[1]
+            join_remaining = entry[2] if len(entry) > 2 else False
             if idx == -1:
                 return output
             parts = output.split(",")
-            if idx < len(parts):
+            if join_remaining:
+                val = ",".join(parts[idx:]) if len(parts) > idx else ""
+            elif idx < len(parts):
                 val = parts[idx]
-                return _slug_name(val) if do_slug else val
-            return output
+            else:
+                return output
+            return _slug_name(val) if do_slug else val
 
         return output
 

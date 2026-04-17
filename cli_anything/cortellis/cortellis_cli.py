@@ -1778,6 +1778,181 @@ def run_skill_pipeline(company: str, force_refresh: bool, review: bool, dry_run:
         raise SystemExit(exit_code)
 
 
+@run_skill.command(name="drug-profile")
+@click.argument("drug")
+@click.option("--review", is_flag=True, help="Pause for analyst approval before wiki compilation")
+@click.option("--dry-run", is_flag=True, help="Print wave schedule without executing")
+def run_skill_drug_profile(drug: str, review: bool, dry_run: bool) -> None:
+    """Run the full drug-profile pipeline for DRUG with enforced step order.
+
+    Example: cortellis run-skill drug-profile semaglutide
+             cortellis run-skill drug-profile tirzepatide --review
+             cortellis run-skill drug-profile semaglutide --dry-run
+    """
+    import re
+    from pathlib import Path
+    from cli_anything.cortellis.core.harness_runner import HarnessRunner, REPO_ROOT
+
+    workflow_yaml = Path(__file__).resolve().parent / "skills/drug-profile/workflow.yaml"
+    runner = HarnessRunner(workflow_yaml)
+
+    if dry_run:
+        runner.dry_run()
+        return
+
+    slug = re.sub(r"[^a-z0-9]+", "-", drug.lower()).strip("-")
+    output_dir = REPO_ROOT / "raw" / "drugs" / slug
+
+    exit_code = runner.execute(drug, output_dir, review=review)
+    if exit_code != 0:
+        raise SystemExit(exit_code)
+
+
+@run_skill.command(name="target-profile")
+@click.argument("target")
+@click.option("--review", is_flag=True, help="Pause for analyst approval before wiki compilation")
+@click.option("--dry-run", is_flag=True, help="Print wave schedule without executing")
+def run_skill_target_profile(target: str, review: bool, dry_run: bool) -> None:
+    """Run the full target-profile pipeline for TARGET with enforced step order.
+
+    Example: cortellis run-skill target-profile GLP-1
+             cortellis run-skill target-profile EGFR --review
+             cortellis run-skill target-profile PD-L1 --dry-run
+    """
+    import re
+    from pathlib import Path
+    from cli_anything.cortellis.core.harness_runner import HarnessRunner, REPO_ROOT
+
+    workflow_yaml = Path(__file__).resolve().parent / "skills/target-profile/workflow.yaml"
+    runner = HarnessRunner(workflow_yaml)
+
+    if dry_run:
+        runner.dry_run()
+        return
+
+    slug = re.sub(r"[^a-z0-9]+", "-", target.lower()).strip("-")
+    output_dir = REPO_ROOT / "raw" / "targets" / slug
+
+    exit_code = runner.execute(target, output_dir, review=review)
+    if exit_code != 0:
+        raise SystemExit(exit_code)
+
+
+@run_skill.command(name="drug-comparison")
+@click.argument("query")
+@click.option("--dry-run", is_flag=True, help="Print wave schedule without executing")
+def run_skill_drug_comparison(query: str, dry_run: bool) -> None:
+    """Run the drug-comparison pipeline for QUERY (e.g. "tirzepatide vs semaglutide").
+
+    Example: cortellis run-skill drug-comparison "tirzepatide vs semaglutide"
+             cortellis run-skill drug-comparison "ozempic versus wegovy versus mounjaro"
+             cortellis run-skill drug-comparison "tirzepatide vs semaglutide" --dry-run
+    """
+    import re
+    from pathlib import Path
+    from cli_anything.cortellis.core.harness_runner import HarnessRunner, REPO_ROOT
+
+    workflow_yaml = Path(__file__).resolve().parent / "skills/drug-comparison/workflow.yaml"
+    runner = HarnessRunner(workflow_yaml)
+
+    if dry_run:
+        runner.dry_run()
+        return
+
+    slug = re.sub(r"[^a-z0-9]+", "-", query.lower()).strip("-")
+    output_dir = REPO_ROOT / "raw" / "comparisons" / slug
+
+    exit_code = runner.execute(query, output_dir)
+    if exit_code != 0:
+        raise SystemExit(exit_code)
+
+
+@run_skill.command(name="conference-intel")
+@click.argument("query")
+@click.option("--review", is_flag=True, help="Pause for analyst approval before wiki compilation")
+@click.option("--dry-run", is_flag=True, help="Print wave schedule without executing")
+def run_skill_conference_intel(query: str, review: bool, dry_run: bool) -> None:
+    """Run the conference-intel pipeline for QUERY.
+
+    Example: cortellis run-skill conference-intel "ASCO 2026"
+             cortellis run-skill conference-intel "obesity conferences"
+             cortellis run-skill conference-intel "ASCO 2026" --dry-run
+    """
+    import re
+    from pathlib import Path
+    from cli_anything.cortellis.core.harness_runner import HarnessRunner, REPO_ROOT
+
+    workflow_yaml = Path(__file__).resolve().parent / "skills/conference-intel/workflow.yaml"
+    runner = HarnessRunner(workflow_yaml)
+
+    if dry_run:
+        runner.dry_run()
+        return
+
+    slug = re.sub(r"[^a-z0-9]+", "-", query.lower()).strip("-")
+    output_dir = REPO_ROOT / "raw" / "conferences" / slug
+
+    exit_code = runner.execute(query, output_dir, review=review)
+    if exit_code != 0:
+        raise SystemExit(exit_code)
+
+
+@run_skill.command(name="changelog")
+@click.argument("indication")
+@click.option("--dry-run", is_flag=True, help="Print wave schedule without executing")
+def run_skill_changelog(indication: str, dry_run: bool) -> None:
+    """Show competitive landscape history for INDICATION.
+
+    Example: cortellis run-skill changelog obesity
+             cortellis run-skill changelog MASH --dry-run
+    """
+    import re
+    from pathlib import Path
+    from cli_anything.cortellis.core.harness_runner import HarnessRunner, REPO_ROOT
+
+    workflow_yaml = Path(__file__).resolve().parent / "skills/changelog/workflow.yaml"
+    runner = HarnessRunner(workflow_yaml)
+
+    if dry_run:
+        runner.dry_run()
+        return
+
+    slug = re.sub(r"[^a-z0-9]+", "-", indication.lower()).strip("-")
+    output_dir = REPO_ROOT / "raw" / slug
+
+    exit_code = runner.execute(indication, output_dir)
+    if exit_code != 0:
+        raise SystemExit(exit_code)
+
+
+@run_skill.command(name="ingest")
+@click.argument("file_path")
+@click.option("--dry-run", is_flag=True, help="Print wave schedule without executing")
+def run_skill_ingest(file_path: str, dry_run: bool) -> None:
+    """Ingest an internal document into the wiki.
+
+    Example: cortellis run-skill ingest raw/internal/deal_memo.md
+             cortellis run-skill ingest path/to/report.pdf --dry-run
+    """
+    import re
+    from pathlib import Path
+    from cli_anything.cortellis.core.harness_runner import HarnessRunner, REPO_ROOT
+
+    workflow_yaml = Path(__file__).resolve().parent / "skills/ingest/workflow.yaml"
+    runner = HarnessRunner(workflow_yaml)
+
+    if dry_run:
+        runner.dry_run()
+        return
+
+    slug = re.sub(r"[^a-z0-9]+", "-", Path(file_path).stem.lower()).strip("-")
+    output_dir = REPO_ROOT / "raw" / "internal" / slug
+
+    exit_code = runner.execute(file_path, output_dir)
+    if exit_code != 0:
+        raise SystemExit(exit_code)
+
+
 # repl — interactive command REPL
 # ---------------------------------------------------------------------------
 

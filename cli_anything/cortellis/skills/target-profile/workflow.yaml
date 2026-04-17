@@ -1,0 +1,168 @@
+# Target-profile skill — machine-parseable DAG workflow
+#
+# resolve_target_id.py output: target_id,target_name,gene_symbol,action_name[,...]
+# Wave 1: resolve
+# Wave 2: 8 parallel Cortellis fetches (record, condition_drugs, condition_genes,
+#          interactions, pharmacology, literature, patents, briefings)
+#         + fetch_drugs_by_action (when action_name != '')
+# Wave 3: 5 parallel external enrichers (uniprot, opentargets, chembl, cpic)
+# Wave 4: report (all_done)
+# Wave 5: compile (review_gate)
+
+name: target-profile
+description: |
+  Use when: user requests a deep profile of a biological target.
+  Triggers: "target-profile <target>", "/target-profile", "everything about <target> target"
+model: sonnet
+argument-hint: "<target_name | gene_symbol>"
+
+nodes:
+
+  # ── Step 1: Resolve target ID ──────────────────────────────────────────────
+
+  - id: resolve
+    bash: "python3 cli_anything/cortellis/skills/target-profile/recipes/resolve_target_id.py '$ARGUMENTS'"
+    model: haiku
+    # Output: target_id,target_name,gene_symbol,action_name
+
+  # ── Step 2: Cortellis fetches (parallel) ──────────────────────────────────
+
+  - id: fetch_record
+    bash: |
+      mkdir -p raw/targets/$resolve.output.target_name
+      cortellis --json targets records $resolve.output.target_id \
+        > raw/targets/$resolve.output.target_name/record.json
+    depends_on: [resolve]
+    api_calls: true
+
+  - id: fetch_condition_drugs
+    bash: |
+      mkdir -p raw/targets/$resolve.output.target_name
+      cortellis --json targets condition-drugs $resolve.output.target_id \
+        > raw/targets/$resolve.output.target_name/condition_drugs.json
+    depends_on: [resolve]
+    api_calls: true
+    allow_fail: true
+
+  - id: fetch_condition_genes
+    bash: |
+      mkdir -p raw/targets/$resolve.output.target_name
+      cortellis --json targets condition-genes $resolve.output.target_id \
+        > raw/targets/$resolve.output.target_name/condition_genes.json
+    depends_on: [resolve]
+    api_calls: true
+    allow_fail: true
+
+  - id: fetch_interactions
+    bash: |
+      mkdir -p raw/targets/$resolve.output.target_name
+      cortellis --json targets interactions $resolve.output.target_id \
+        > raw/targets/$resolve.output.target_name/interactions.json
+    depends_on: [resolve]
+    api_calls: true
+    allow_fail: true
+
+  - id: fetch_pharmacology
+    bash: |
+      mkdir -p raw/targets/$resolve.output.target_name
+      cortellis --json drug-design pharmacology \
+        --query "$resolve.output.gene_symbol" --hits 50 \
+        > raw/targets/$resolve.output.target_name/pharmacology.json
+    depends_on: [resolve]
+    api_calls: true
+    allow_fail: true
+
+  - id: fetch_literature
+    bash: |
+      mkdir -p raw/targets/$resolve.output.target_name
+      cortellis --json literature search \
+        --query "$resolve.output.gene_symbol" --hits 10 --sort-by "-date" \
+        > raw/targets/$resolve.output.target_name/literature.json
+    depends_on: [resolve]
+    api_calls: true
+    allow_fail: true
+
+  - id: fetch_patents
+    bash: |
+      mkdir -p raw/targets/$resolve.output.target_name
+      cortellis --json targets patents $resolve.output.target_id \
+        > raw/targets/$resolve.output.target_name/patents.json
+    depends_on: [resolve]
+    api_calls: true
+    allow_fail: true
+
+  - id: fetch_briefings
+    bash: |
+      mkdir -p raw/targets/$resolve.output.target_name
+      cortellis --json drug-design disease-briefings-search \
+        --query "$resolve.output.target_canonical" --hits 3 \
+        > raw/targets/$resolve.output.target_name/briefings.json
+    depends_on: [resolve]
+    api_calls: true
+    allow_fail: true
+
+  - id: fetch_drugs_pipeline
+    bash: |
+      mkdir -p raw/targets/$resolve.output.target_name
+      bash cli_anything/cortellis/skills/target-profile/recipes/fetch_drugs_by_action.sh \
+        "$resolve.output.action_name" \
+        raw/targets/$resolve.output.target_name/drugs_pipeline.json
+    depends_on: [resolve]
+    when: "$resolve.output.action_name != ''"
+    api_calls: true
+    allow_fail: true
+
+  # ── Step 3: External enrichers (parallel) ─────────────────────────────────
+
+  - id: enrich_uniprot
+    bash: |
+      python3 cli_anything/cortellis/skills/target-profile/recipes/enrich_target_uniprot.py \
+        raw/targets/$resolve.output.target_name "$resolve.output.gene_symbol"
+    depends_on: [resolve]
+    allow_fail: true
+
+  - id: enrich_opentargets
+    bash: |
+      python3 cli_anything/cortellis/skills/target-profile/recipes/enrich_target_opentargets.py \
+        raw/targets/$resolve.output.target_name "$resolve.output.gene_symbol"
+    depends_on: [resolve]
+    allow_fail: true
+
+  - id: enrich_chembl
+    bash: |
+      python3 cli_anything/cortellis/skills/target-profile/recipes/enrich_target_chembl.py \
+        raw/targets/$resolve.output.target_name "$resolve.output.gene_symbol"
+    depends_on: [resolve]
+    allow_fail: true
+
+  - id: enrich_cpic
+    bash: |
+      python3 cli_anything/cortellis/skills/target-profile/recipes/enrich_target_cpic.py \
+        raw/targets/$resolve.output.target_name "$resolve.output.gene_symbol"
+    depends_on: [resolve]
+    allow_fail: true
+
+  # ── Step 4: Report (all_done — tolerates enricher failures) ───────────────
+
+  - id: report
+    bash: |
+      python3 cli_anything/cortellis/skills/target-profile/recipes/target_report_generator.py \
+        raw/targets/$resolve.output.target_name \
+        | tee raw/targets/$resolve.output.target_name/report.md
+    depends_on: [fetch_record, fetch_condition_drugs, fetch_condition_genes,
+                 fetch_interactions, fetch_pharmacology, fetch_literature,
+                 fetch_patents, fetch_briefings, fetch_drugs_pipeline,
+                 enrich_uniprot, enrich_opentargets, enrich_chembl, enrich_cpic]
+    trigger_rule: all_done
+    model: opus
+
+  # ── Step 5: Compile to wiki ────────────────────────────────────────────────
+
+  - id: compile
+    bash: |
+      python3 cli_anything/cortellis/skills/target-profile/recipes/compile_target.py \
+        raw/targets/$resolve.output.target_name "$resolve.output.target_canonical"
+    depends_on: [report]
+    model: opus
+    review_gate: true
+    fs_exclusive: true
