@@ -87,11 +87,11 @@ wiki/
 Prefer a browser? The same intelligence is available as a web app:
 
 ```bash
-cortellis web          # open http://localhost:7337
-cortellis web --dev    # hot-reload mode (Vite + FastAPI)
+cortellis web          # auto-builds UI on first run, opens http://localhost:7337
+cortellis web --dev    # hot-reload mode for UI development (requires node/npm)
 ```
 
-Chat with your compiled wiki, run queries, and explore the knowledge graph — no terminal required.
+Chat with your compiled wiki, run queries, and explore the knowledge graph — no terminal required. First run builds the React app automatically if node/npm is available.
 
 ## See It In Action
 

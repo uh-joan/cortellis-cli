@@ -2060,14 +2060,15 @@ def web_cmd(host, port, dev) -> None:
     Launches a FastAPI server that exposes the same intelligence capabilities
     as the CLI chat, accessible from any browser at http://<host>:<port>.
 
+    For production (serves built React app):
+      cortellis web
+      # UI is built automatically on first run (requires node/npm)
+
     For development (hot-reload UI):
       cortellis web --dev
       # Then open http://localhost:5173 (Vite proxy → FastAPI on 7337)
-
-    For production (serves built React app):
-      cd web/ui && npm run build
-      cortellis web
     """
+    import shutil as _shutil
     import subprocess as _sp
     import sys as _sys
     from pathlib import Path as _Path
@@ -2076,8 +2077,14 @@ def web_cmd(host, port, dev) -> None:
 
     ui_dir = _Path(__file__).resolve().parents[2] / "web" / "ui"
 
+    def _ensure_npm():
+        if not _shutil.which("npm"):
+            click.echo("Error: node/npm is required to build the web UI.", err=True)
+            click.echo("  Install Node.js from https://nodejs.org/ and re-run.", err=True)
+            raise SystemExit(1)
+
     if dev:
-        # Start Vite dev server in background
+        _ensure_npm()
         if not (ui_dir / "node_modules").exists():
             click.echo("  Installing UI dependencies (first run)…")
             _sp.run(["npm", "install"], cwd=str(ui_dir), check=True)
@@ -2097,7 +2104,8 @@ def web_cmd(host, port, dev) -> None:
     else:
         dist = ui_dir / "dist"
         if not dist.exists():
-            click.echo("  UI not built yet. Building now…")
+            _ensure_npm()
+            click.echo("  Building web UI (first run — takes ~30s)…")
             if not (ui_dir / "node_modules").exists():
                 click.echo("  Installing UI dependencies…")
                 _sp.run(["npm", "install"], cwd=str(ui_dir), check=True)
