@@ -583,11 +583,19 @@ def compile_target_article(target_dir, target_name, slug, base_dir=None):
         **({"aliases": target_aliases} if target_aliases else {}),
     }
 
-    # Cross-profile links: related indication wiki articles
+    # Cross-profile links: indications + drugs + companies that hit this target
     indication_slugs = [slugify(d["disease"]) for d in disease_associations[:10] if d.get("disease")]
+    drug_slugs = list(dict.fromkeys(
+        slugify(normalize_drug_name(d["drug"])) for d in drug_pipeline[:20] if d.get("drug")
+    ))
+    company_slugs = list(dict.fromkeys(filter(None, (
+        find_company_slug(d["company"], base_dir) for d in drug_pipeline[:20] if d.get("company")
+    ))))
     if indication_slugs:
         meta["indications"] = indication_slugs
-        meta["related"] = indication_slugs
+    related = list(dict.fromkeys(indication_slugs + drug_slugs + company_slugs))
+    if related:
+        meta["related"] = related
 
     body_parts = []
 
@@ -819,6 +827,10 @@ def main():
     print(f"  Updated: {os.path.join(w_dir, 'INDEX.md')}")
 
     log_activity(w_dir, "compile", f"Target: {target_name}")
+
+    from cli_anything.cortellis.core.graph_utils import refresh_graph
+    refresh_graph(base_dir)
+
     print(f"Done. Wiki article compiled for {target_name}.")
 
 

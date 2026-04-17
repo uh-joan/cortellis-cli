@@ -1966,6 +1966,87 @@ def repl_cmd(ctx) -> None:
 
 
 # ---------------------------------------------------------------------------
+# wiki — knowledge base management
+# ---------------------------------------------------------------------------
+
+@cli.group("wiki")
+def wiki_group() -> None:
+    """Manage the compiled wiki knowledge base."""
+
+
+@wiki_group.command("refresh")
+@click.option(
+    "--fetch", "tier", flag_value=2, default=1,
+    help="Tier 2: re-fetch structured data from APIs + recompile (no LLM).",
+)
+@click.option(
+    "--full", "tier", flag_value=3,
+    help="Tier 3: full refresh including LLM synthesis via HarnessRunner.",
+)
+@click.option(
+    "--type", "types",
+    default=None,
+    help="Comma-separated entity types to refresh: drug,target,company,indication,conference.",
+)
+@click.option("--dry-run", is_flag=True, help="Show what would be refreshed without making changes.")
+@click.option("--verbose/--quiet", default=True, show_default=True)
+def wiki_refresh_cmd(tier, types, dry_run, verbose) -> None:
+    """Refresh the wiki knowledge base.
+
+    \b
+    Tier 1 (default)  — recompile from existing raw/ data. Fast, no API calls.
+    Tier 2 (--fetch)  — re-fetch structured + external data, then recompile.
+    Tier 3 (--full)   — full refresh including LLM synthesis via HarnessRunner.
+
+    \b
+    Examples:
+      cortellis wiki refresh                        # compile-only (all types)
+      cortellis wiki refresh --fetch --type drug    # re-fetch drugs only
+      cortellis wiki refresh --dry-run              # preview what would run
+    """
+    import sys as _sys
+    from cli_anything.cortellis.core.wiki_refresh import refresh_compile, refresh_data, refresh_full
+
+    type_set = None
+    if types:
+        type_set = {t.strip().lower() for t in types.split(",") if t.strip()}
+
+    base_dir = "."
+
+    tier_label = {1: "compile-only", 2: "fetch+compile", 3: "full"}.get(tier, "?")
+    scope = ", ".join(sorted(type_set)) if type_set else "all"
+    click.echo(f"\nWiki refresh — tier {tier} ({tier_label}), types: {scope}")
+    if dry_run:
+        click.echo("  [dry-run mode — no changes will be written]\n")
+
+    try:
+        if tier == 1:
+            results = refresh_compile(base_dir, types=type_set, verbose=verbose, dry_run=dry_run)
+        elif tier == 2:
+            results = refresh_data(base_dir, types=type_set, verbose=verbose, dry_run=dry_run)
+        else:
+            results = refresh_full(base_dir, types=type_set, verbose=verbose, dry_run=dry_run)
+    except NotImplementedError as exc:
+        click.echo(f"\nError: {exc}", err=True)
+        _sys.exit(1)
+
+    ok = len(results.get("ok", []))
+    skipped = len(results.get("skipped", []))
+    errors = len(results.get("error", []))
+    click.echo(f"\nDone — {ok} refreshed, {skipped} skipped, {errors} errors.")
+
+    if results.get("skipped") and verbose:
+        click.echo("\nSkipped:")
+        for slug, reason in results["skipped"]:
+            click.echo(f"  {slug}: {reason}")
+
+    if results.get("error"):
+        click.echo("\nErrors:")
+        for slug, reason in results["error"]:
+            click.echo(f"  {slug}: {reason}", err=True)
+
+
+# ---------------------------------------------------------------------------
 # web — browser-based chat UI
 # ---------------------------------------------------------------------------
 

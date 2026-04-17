@@ -817,6 +817,9 @@ def main():
 
     log_activity(w_dir, "compile", f"Drug: {drug_name}")
 
+    from cli_anything.cortellis.core.graph_utils import refresh_graph
+    refresh_graph(base_dir)
+
     print(f"Done. Wiki article compiled for {drug_name}.")
 
 

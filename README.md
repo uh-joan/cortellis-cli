@@ -59,6 +59,8 @@ Slash commands that orchestrate full analytical pipelines — works with [Claude
 | `/signals` | Strategic intelligence report across all analyzed landscapes |
 | `/insights` | Accumulated analytical insights from previous sessions |
 
+→ **[Knowledge base commands](KNOWLEDGE_BASE.md)** — `wiki refresh`, `changelog`, `ingest`, `/signals`, `/insights`.
+
 ### 3. Knowledge Base — Persistent, Compounding Intelligence
 
 Every analysis compiles into a persistent wiki that gets richer over time.
@@ -79,6 +81,17 @@ wiki/
 **Compile** — each skill run writes wiki articles with YAML frontmatter and `[[wikilinks]]`. **Accumulate** — session hooks capture conversation insights automatically. **Inject** — next session starts with everything in context. **Lint** — 7 structural health checks keep the wiki healthy.
 
 **Open in [Obsidian](https://obsidian.md)** for graph view, backlinks, and visual navigation — `Open folder as vault → wiki/`.
+
+## Web UI
+
+Prefer a browser? The same intelligence is available as a web app:
+
+```bash
+cortellis web          # open http://localhost:7337
+cortellis web --dev    # hot-reload mode (Vite + FastAPI)
+```
+
+Chat with your compiled wiki, run queries, and explore the knowledge graph — no terminal required.
 
 ## See It In Action
 
