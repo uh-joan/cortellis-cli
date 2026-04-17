@@ -59,6 +59,8 @@ Slash commands that orchestrate full analytical pipelines — works with [Claude
 | `/signals` | Strategic intelligence report across all analyzed landscapes |
 | `/insights` | Accumulated analytical insights from previous sessions |
 
+→ **[Knowledge base commands](KNOWLEDGE_BASE.md)** — `wiki refresh`, `changelog`, `ingest`, `/signals`, `/insights`.
+
 ### 3. Knowledge Base — Persistent, Compounding Intelligence
 
 Every analysis compiles into a persistent wiki that gets richer over time.

@@ -1981,7 +1981,7 @@ def wiki_group() -> None:
 )
 @click.option(
     "--full", "tier", flag_value=3,
-    help="Tier 3: full refresh including LLM synthesis (not yet implemented).",
+    help="Tier 3: full refresh including LLM synthesis via HarnessRunner.",
 )
 @click.option(
     "--type", "types",
@@ -1996,7 +1996,7 @@ def wiki_refresh_cmd(tier, types, dry_run, verbose) -> None:
     \b
     Tier 1 (default)  — recompile from existing raw/ data. Fast, no API calls.
     Tier 2 (--fetch)  — re-fetch structured + external data, then recompile.
-    Tier 3 (--full)   — full refresh including LLM synthesis (coming soon).
+    Tier 3 (--full)   — full refresh including LLM synthesis via HarnessRunner.
 
     \b
     Examples:
