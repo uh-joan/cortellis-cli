@@ -10,6 +10,7 @@ Usage: python3 compile_conference.py <conference_dir> <conference_name> [--wiki-
 
 import json
 import os
+import re
 import sys
 from datetime import datetime, timezone
 
@@ -118,6 +119,10 @@ def compile_conference_article(conference_dir, conference_name, slug, base_dir=N
 
     abstract_count = count_abstracts(conference_dir)
 
+    # Extract [[wikilinks]] from briefing body for graph cross-references
+    all_content = briefing_content or load_report_md(conference_dir)
+    linked_slugs = list(dict.fromkeys(re.findall(r"\[\[([^\]|#]+?)(?:\|[^\]]+)?\]\]", all_content)))
+
     meta = {
         "title": conference_name,
         "type": "conference",
@@ -127,6 +132,8 @@ def compile_conference_article(conference_dir, conference_name, slug, base_dir=N
     }
     if abstract_count:
         meta["abstract_count"] = abstract_count
+    if linked_slugs:
+        meta["related"] = linked_slugs
 
     body_parts = []
 
@@ -209,6 +216,9 @@ def main():
     print(f"  Updated: {os.path.join(w_dir, 'INDEX.md')}")
 
     log_activity(w_dir, "compile", f"Conference: {conference_name}")
+
+    from cli_anything.cortellis.core.graph_utils import refresh_graph
+    refresh_graph(base_dir)
 
     print(f"Done. Wiki article compiled for {conference_name}.")
 

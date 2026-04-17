@@ -104,6 +104,18 @@ def compile_pipeline_article(pipeline_dir, company_name, slug, base_dir=None):
         "pipeline_dir": pipeline_dir,
     }
     meta["compiled_at"] = now
+
+    # Cross-profile links: drugs in this company's pipeline
+    _all_rows = launched_rows + phase3_rows + phase2_rows + phase1_rows + preclinical_rows + other_rows
+    _drug_slugs = list(dict.fromkeys(
+        slugify(normalize_drug_name(r.get("name") or r.get("drug_name") or r.get("drug", "")))
+        for r in _all_rows
+        if r.get("name") or r.get("drug_name") or r.get("drug")
+    ))
+    if _drug_slugs:
+        existing_related = meta.get("related", [])
+        meta["related"] = list(dict.fromkeys(existing_related + _drug_slugs[:30]))
+
     if "title" not in meta:
         meta["title"] = company_name
     if "type" not in meta:
@@ -289,6 +301,9 @@ def main():
     print(f"  Updated: {os.path.join(w_dir, 'INDEX.md')}")
 
     log_activity(w_dir, "compile", f"Pipeline: {company_name}")
+
+    from cli_anything.cortellis.core.graph_utils import refresh_graph
+    refresh_graph(base_dir)
 
     print(f"Done. Wiki article compiled for {company_name}.")
 

@@ -156,6 +156,12 @@ def build_graph_from_wiki(wiki_dir: str) -> "nx.Graph":
                 if related_slug != slug and related_slug in known_slugs and not G.has_edge(slug, related_slug):
                     G.add_edge(slug, related_slug, weight=1.0, source="related")
 
+        elif atype == "conference":
+            # conference.related → conference↔drug/company/indication/target edges
+            for related_slug in meta.get("related", []):
+                if related_slug != slug and related_slug in known_slugs and not G.has_edge(slug, related_slug):
+                    G.add_edge(slug, related_slug, weight=1.0, source="related")
+
     return G
 
 
