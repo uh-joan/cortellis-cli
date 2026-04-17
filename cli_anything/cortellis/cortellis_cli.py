@@ -1680,16 +1680,16 @@ def setup_cmd() -> None:
     try:
         import uvicorn  # noqa
         import fastapi  # noqa
-    except ImportError as _e:
-        click.echo(f"  Missing dependency: {_e}")
-        click.echo("  Re-install to pick up new dependencies:")
-        click.echo("    pip install --upgrade git+https://github.com/uh-joan/cortellis-cli.git")
-        click.echo("  Then re-run: cortellis setup")
-        click.echo()
-        click.echo("  " + "=" * 50)
-        click.echo("  Setup incomplete — fix dependency above and re-run.")
-        click.echo("  " + "=" * 50)
-        return
+    except ImportError:
+        click.echo("  Web dependencies missing — installing now…")
+        import sys as _sys
+        result = _sp.run(
+            [_sys.executable, "-m", "pip", "install", "fastapi>=0.115", "uvicorn[standard]>=0.30"],
+            check=False,
+        )
+        if result.returncode != 0:
+            click.echo("  Install failed. Run manually: pip install fastapi 'uvicorn[standard]'")
+            return
     from pathlib import Path as _Path
     ui_dir = _Path(__file__).resolve().parents[2] / "web" / "ui"
     dist_dir = ui_dir / "dist"
