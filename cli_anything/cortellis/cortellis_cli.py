@@ -1684,9 +1684,14 @@ def setup_cmd() -> None:
         import sys as _sys
         click.echo("  Web dependencies missing — installing now…")
         _pkgs = ["fastapi>=0.115", "uvicorn[standard]>=0.30"]
-        result = _sp.run([_sys.executable, "-m", "pip", "install"] + _pkgs, check=False)
+        _pip_base = [_sys.executable, "-m", "pip", "install"]
+        result = _sp.run(_pip_base + _pkgs, check=False, capture_output=True)
         if result.returncode != 0:
-            result = _sp.run([_sys.executable, "-m", "pip", "install", "--user"] + _pkgs, check=False)
+            if b"externally-managed-environment" in result.stderr:
+                # Homebrew Python — safe to break-system-packages since cortellis itself was installed this way
+                result = _sp.run(_pip_base + ["--break-system-packages"] + _pkgs, check=False)
+            else:
+                result = _sp.run(_pip_base + ["--user"] + _pkgs, check=False)
         if result.returncode != 0:
             click.echo("  Install failed. Run manually: pip install fastapi 'uvicorn[standard]'")
             return
