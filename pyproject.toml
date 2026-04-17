@@ -30,6 +30,10 @@ graph = [
     "networkx>=3.0",
     "graspologic>=3.0",
 ]
+web = [
+    "fastapi>=0.115",
+    "uvicorn[standard]>=0.30",
+]
 
 [project.scripts]
 cortellis = "cli_anything.cortellis.__main__:main"

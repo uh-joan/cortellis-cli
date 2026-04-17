@@ -1966,6 +1966,92 @@ def repl_cmd(ctx) -> None:
 
 
 # ---------------------------------------------------------------------------
+# web — browser-based chat UI
+# ---------------------------------------------------------------------------
+
+@cli.command("web")
+@click.option("--host", default="127.0.0.1", show_default=True, help="Bind host.")
+@click.option("--port", default=7337, show_default=True, help="Bind port.")
+@click.option("--dev", is_flag=True, help="Run Vite dev server alongside FastAPI (hot reload).")
+def web_cmd(host, port, dev) -> None:
+    """Start the Cortellis web UI in your browser.
+
+    Launches a FastAPI server that exposes the same intelligence capabilities
+    as the CLI chat, accessible from any browser at http://<host>:<port>.
+
+    For development (hot-reload UI):
+      cortellis web --dev
+      # Then open http://localhost:5173 (Vite proxy → FastAPI on 7337)
+
+    For production (serves built React app):
+      cd web/ui && npm run build
+      cortellis web
+    """
+    import subprocess as _sp
+    import sys as _sys
+    from pathlib import Path as _Path
+
+    try:
+        import uvicorn
+    except ImportError:
+        click.echo("Error: uvicorn is required for the web UI. Install it:")
+        click.echo("  pip install uvicorn[standard]")
+        raise SystemExit(1)
+
+    try:
+        import fastapi  # noqa
+    except ImportError:
+        click.echo("Error: fastapi is required for the web UI. Install it:")
+        click.echo("  pip install fastapi")
+        raise SystemExit(1)
+
+    ui_dir = _Path(__file__).resolve().parents[2] / "web" / "ui"
+
+    if dev:
+        # Start Vite dev server in background
+        if not (ui_dir / "node_modules").exists():
+            click.echo("  Installing UI dependencies (first run)…")
+            _sp.run(["npm", "install"], cwd=str(ui_dir), check=True)
+        vite = _sp.Popen(["npm", "run", "dev"], cwd=str(ui_dir))
+        click.echo(f"  Vite dev server starting at http://localhost:5173")
+        click.echo(f"  FastAPI backend at http://{host}:{port}")
+        click.echo("  Press Ctrl-C to stop both servers.\n")
+        import sys as _sys
+        _repo = str(_Path(__file__).resolve().parents[2])
+        if _repo not in _sys.path:
+            _sys.path.insert(0, _repo)
+        from web.server.main import app as _app
+        try:
+            uvicorn.run(_app, host=host, port=port, reload=False, log_level="info")
+        finally:
+            vite.terminate()
+    else:
+        dist = ui_dir / "dist"
+        if not dist.exists():
+            click.echo("  UI not built yet. Building now…")
+            if not (ui_dir / "node_modules").exists():
+                click.echo("  Installing UI dependencies…")
+                _sp.run(["npm", "install"], cwd=str(ui_dir), check=True)
+            _sp.run(["npm", "run", "build"], cwd=str(ui_dir), check=True)
+
+        url = f"http://{host}:{port}"
+        click.echo(f"\n  Cortellis Web UI → {url}")
+        click.echo("  Press Ctrl-C to stop.\n")
+
+        import sys as _sys
+        _repo = str(_Path(__file__).resolve().parents[2])
+        if _repo not in _sys.path:
+            _sys.path.insert(0, _repo)
+        from web.server.main import app as _app
+
+        import threading as _th
+        import webbrowser as _wb
+        _th.Timer(1.2, lambda: _wb.open(url)).start()
+
+        uvicorn.run(_app, host=host, port=port, reload=False, log_level="warning")
+
+
+# ---------------------------------------------------------------------------
 # chat — AI-powered natural language interface via Claude Code
 # ---------------------------------------------------------------------------
 
