@@ -18,6 +18,7 @@ dependencies = [
     "pyyaml>=6.0",
     "python-pptx>=0.6.21",
     "openpyxl>=3.0.0",
+    "networkx>=3.0",
 ]
 
 [project.optional-dependencies]
@@ -27,7 +28,6 @@ dev = [
     "responses>=0.23",
 ]
 graph = [
-    "networkx>=3.0",
     "graspologic>=3.0",
 ]
 web = [

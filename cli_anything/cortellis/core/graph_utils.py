@@ -1,6 +1,6 @@
 """graph_utils.py — Shared graph refresh utility.
 
-Rebuilds graph.json from all wiki articles. Silent no-op if networkx is not installed.
+Rebuilds graph.json from all wiki articles after each skill compile step.
 """
 
 import os
@@ -10,15 +10,8 @@ def refresh_graph(base_dir: str) -> None:
     """Rebuild wiki/graph.json from all wiki articles using NetworkX.
 
     Called at the end of each skill's compile step so the graph stays current
-    after drug-profile, pipeline, and target-profile runs — not only after landscape.
-
-    Silent no-op when networkx is not installed (optional [graph] extra).
+    after drug-profile, pipeline, target-profile, and conference-intel runs.
     """
-    try:
-        import networkx as nx  # noqa: F401
-    except ImportError:
-        return
-
     from cli_anything.cortellis.skills.landscape.recipes.graphify_wiki import (
         build_graph_from_wiki,
         write_graph_json,

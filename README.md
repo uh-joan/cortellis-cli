@@ -105,8 +105,6 @@ cortellis --engine codex         # OpenAI Codex
 The SessionStart hook injects compiled wiki context — the AI already knows your landscapes, signals, and previous insights.
 
 ```
-cortellis
-
 you> what is the competitive landscape for obesity?
 ```
 
@@ -164,4 +162,4 @@ Accumulated session insights — key findings, scenarios, implications from past
   - **[Claude Code](https://docs.anthropic.com/en/docs/claude-code)** — `npm install -g @anthropic-ai/claude-code` + `claude login`
   - **[OpenAI Codex](https://github.com/openai/codex)** — `npm install -g @openai/codex` + `codex login --device-auth` (ChatGPT Plus/Pro subscription)
 - **[Obsidian](https://obsidian.md)** *(optional)* — for wiki graph view and visual navigation
-- **NetworkX** *(optional)* — `pip install cortellis-cli[graph]` for knowledge graph features
+- **NetworkX** — included automatically; builds `wiki/graph.json` after every skill run
