@@ -49,7 +49,7 @@ export default function ConversationSidebar({
       <div className="sidebar-header" onClick={onGoHome} style={{ cursor: 'pointer' }}>
         <div>
           <div className="sidebar-title">Cortellis</div>
-          <div className="sidebar-subtitle">Intelligence Platform</div>
+          <div className="sidebar-subtitle">Pharmaceutical Intelligence</div>
         </div>
       </div>
 

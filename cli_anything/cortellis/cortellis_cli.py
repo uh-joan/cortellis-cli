@@ -2081,6 +2081,105 @@ def wiki_refresh_cmd(tier, types, dry_run, verbose) -> None:
             click.echo(f"  {slug}: {reason}", err=True)
 
 
+@wiki_group.command("cleanup")
+@click.option("--keep", default=3, show_default=True, help="Most-recent files to keep per indication.")
+@click.option("--confirm", is_flag=True, default=False, help="Execute the cleanup (moves surplus files to backup). Without this flag, runs as dry-run.")
+def wiki_cleanup_cmd(keep, confirm) -> None:
+    """Remove surplus session insight files, keeping the N most recent per indication.
+
+    \b
+    Safety model:
+      • Without --confirm  → dry-run only. Lists files that would be moved.
+      • With    --confirm  → moves surplus files to wiki/insights/sessions/.backup/
+                             Nothing is deleted permanently until you verify the backup.
+
+    \b
+    Examples:
+      cortellis wiki cleanup                  # preview surplus (dry-run)
+      cortellis wiki cleanup --keep 5         # preview keeping 5 per indication
+      cortellis wiki cleanup --confirm        # move surplus to .backup/
+      cortellis wiki cleanup --keep 1 --confirm
+    """
+    import shutil as _shutil
+    import os as _os
+
+    sessions_dir = _os.path.join("wiki", "insights", "sessions")
+    backup_dir = _os.path.join(sessions_dir, ".backup")
+
+    if not _os.path.isdir(sessions_dir):
+        click.echo(f"Sessions directory not found: {sessions_dir}", err=True)
+        return
+
+    # Gather all .md files (exclude anything inside .backup/)
+    all_files = sorted(
+        [
+            f for f in _os.listdir(sessions_dir)
+            if f.endswith(".md") and not f.startswith(".")
+        ]
+    )
+
+    if not all_files:
+        click.echo("No session files found.")
+        return
+
+    # Group by indication slug (strip leading date prefix YYYY-MM-DD-HHmmss-)
+    from collections import defaultdict as _dd
+    groups: dict = _dd(list)
+    for fname in all_files:
+        # filename pattern: YYYY-MM-DD-HHMMSS-<slug>.md
+        parts = fname.split("-")
+        if len(parts) >= 4:
+            # date is YYYY-MM-DD, time is HHMMSS → 4 prefix parts
+            slug = "-".join(parts[4:]).removesuffix(".md")
+        else:
+            slug = fname.removesuffix(".md")
+        groups[slug].append(fname)
+
+    to_move: list[str] = []
+    to_keep: list[str] = []
+
+    for slug, files in sorted(groups.items()):
+        # Sort newest first (filename starts with ISO date — lexicographic = chronological)
+        files_sorted = sorted(files, reverse=True)
+        keepers = files_sorted[:keep]
+        surplus = files_sorted[keep:]
+        to_keep.extend(keepers)
+        to_move.extend(surplus)
+
+    total = len(all_files)
+    click.echo(f"\nWiki session cleanup — {total} files across {len(groups)} indications")
+    click.echo(f"Keep per indication: {keep}  |  Files to keep: {len(to_keep)}  |  Files to move: {len(to_move)}")
+
+    if not to_move:
+        click.echo("\nNothing to do — all indications are within the keep limit.")
+        return
+
+    click.echo("\nFiles that would be moved to .backup/:")
+    for fname in sorted(to_move):
+        click.echo(f"  {fname}")
+
+    if not confirm:
+        click.echo(f"\n[dry-run] Re-run with --confirm to move {len(to_move)} file(s) to {backup_dir}")
+        return
+
+    _os.makedirs(backup_dir, exist_ok=True)
+    moved = 0
+    errors = 0
+    for fname in to_move:
+        src = _os.path.join(sessions_dir, fname)
+        dst = _os.path.join(backup_dir, fname)
+        try:
+            _shutil.move(src, dst)
+            moved += 1
+        except Exception as exc:
+            click.echo(f"  ERROR moving {fname}: {exc}", err=True)
+            errors += 1
+
+    click.echo(f"\nDone — {moved} file(s) moved to {backup_dir}, {errors} error(s).")
+    click.echo("Verify the backup, then delete it manually when satisfied:")
+    click.echo(f"  rm -rf {backup_dir}")
+
+
 # ---------------------------------------------------------------------------
 # web — browser-based chat UI
 # ---------------------------------------------------------------------------
