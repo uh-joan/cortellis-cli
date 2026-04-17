@@ -82,6 +82,17 @@ wiki/
 
 **Open in [Obsidian](https://obsidian.md)** for graph view, backlinks, and visual navigation — `Open folder as vault → wiki/`.
 
+## Web UI
+
+Prefer a browser? The same intelligence is available as a web app:
+
+```bash
+cortellis web          # open http://localhost:7337
+cortellis web --dev    # hot-reload mode (Vite + FastAPI)
+```
+
+Chat with your compiled wiki, run queries, and explore the knowledge graph — no terminal required.
+
 ## See It In Action
 
 Start the CLI with Claude Code (default) or OpenAI Codex:
