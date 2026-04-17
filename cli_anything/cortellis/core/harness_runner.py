@@ -108,7 +108,29 @@ def _slug_name(s: str) -> str:
 
 
 def _resolve_vars(text: str, state: dict[str, NodeResult]) -> str:
-    """Replace $node_id.output references with captured stdout from that node."""
+    """Replace $node_id.output references with captured stdout from that node.
+
+    CSV field aliases (resolve nodes output comma-separated values):
+      field 0: indication_id, company_id              → raw (no slugify)
+      field 1: indication_name, company_name,
+               company_slug                           → slugified
+               indication_canonical, company_canonical → raw
+      field 2: active_drugs                           → raw
+    """
+    # Maps suffix → (csv_index, slugify)
+    _FIELD_MAP: dict[str, tuple[int, bool]] = {
+        ".output.indication_id":    (0, False),
+        ".output.company_id":       (0, False),
+        ".output.indication_name":  (1, True),
+        ".output.company_name":     (1, True),
+        ".output.company_slug":     (1, True),
+        ".output.indication_canonical": (1, False),
+        ".output.company_canonical":    (1, False),
+        ".output.active_drugs":     (2, False),
+        ".output.status":           (-1, False),  # single-value, use raw
+        ".output":                  (-1, False),
+    }
+
     def replacer(m):
         node_id = m.group(1)
         rest = m.group(2) or ""
@@ -116,17 +138,19 @@ def _resolve_vars(text: str, state: dict[str, NodeResult]) -> str:
         if result is None:
             return m.group(0)
         output = result.output.strip()
-        # resolve node outputs "id,name" — extract sub-fields
-        if rest in (".output.indication_id", ".indication_id"):
-            return output.split(",", 1)[0] if "," in output else output
-        if rest in (".output.indication_name", ".indication_name"):
-            # slug form — safe for directory paths and recipe script args
-            raw_name = output.split(",", 1)[1] if "," in output else output
-            return _slug_name(raw_name)
-        # single-value nodes (freshness status, etc.)
-        if rest in (".output.status", ".output", ""):
+
+        if rest in _FIELD_MAP:
+            idx, do_slug = _FIELD_MAP[rest]
+            if idx == -1:
+                return output
+            parts = output.split(",")
+            if idx < len(parts):
+                val = parts[idx]
+                return _slug_name(val) if do_slug else val
             return output
+
         return output
+
     return re.sub(r'\$([a-z_][a-z0-9_]*)(\.[a-z_.]+)?', replacer, text)
 
 
@@ -253,12 +277,14 @@ class HarnessRunner:
 
         for wave_idx, wave in enumerate(self.waves):
             # After resolve completes, pin output_dir to the canonical slug
+            # (resolve outputs "id,name" or "id,name,active_drugs,..." — field 1 is name)
             if wave_idx > 0 and "resolve" in state:
                 r = state["resolve"]
-                if r.status == "success" and "," in r.output:
-                    canonical = r.output.strip().split(",", 1)[1]
-                    output_dir = output_dir.parent / _slug_name(canonical)
-                    output_dir.mkdir(parents=True, exist_ok=True)
+                if r.status == "success":
+                    parts = r.output.strip().split(",")
+                    if len(parts) >= 2:
+                        output_dir = output_dir.parent / _slug_name(parts[1])
+                        output_dir.mkdir(parents=True, exist_ok=True)
             wave_label = " ".join(n.id for n in wave)
             print(f"\n▶ Wave {wave_idx}: {wave_label}", file=sys.stderr, flush=True)
 

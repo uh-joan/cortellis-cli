@@ -1746,14 +1746,38 @@ def run_skill_landscape(indication: str, force_refresh: bool, review: bool, dry_
 @click.argument("company")
 @click.option("--force-refresh", is_flag=True, help="Re-fetch even if wiki article is fresh")
 @click.option("--review", is_flag=True, help="Pause for analyst approval before wiki compilation")
-def run_skill_pipeline(company: str, force_refresh: bool, review: bool) -> None:
+@click.option("--dry-run", is_flag=True, help="Print wave schedule without executing")
+def run_skill_pipeline(company: str, force_refresh: bool, review: bool, dry_run: bool) -> None:
     """Run the full pipeline workflow for COMPANY with enforced step order.
 
     Example: cortellis run-skill pipeline Pfizer
              cortellis run-skill pipeline Pfizer --review
+             cortellis run-skill pipeline Pfizer --dry-run
     """
-    from cli_anything.cortellis.core.skill_runner import run_pipeline
-    run_pipeline(company, force_refresh=force_refresh, review=review)
+    import re
+    from pathlib import Path
+    from cli_anything.cortellis.core.harness_runner import HarnessRunner
+
+    workflow_yaml = Path(__file__).resolve().parent / "skills/pipeline/workflow.yaml"
+    runner = HarnessRunner(workflow_yaml)
+
+    if dry_run:
+        runner.dry_run()
+        return
+
+    slug = re.sub(r"[^a-z0-9]+", "-", company.lower()).strip("-")
+    repo_root = Path(__file__).resolve().parents[3]
+    output_dir = repo_root / "raw" / slug
+
+    exit_code = runner.execute(
+        company,
+        output_dir,
+        dry_run=False,
+        force_refresh=force_refresh,
+        review=review,
+    )
+    if exit_code != 0:
+        raise SystemExit(exit_code)
 
 
 # repl — interactive command REPL
