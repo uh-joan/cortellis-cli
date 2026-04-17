@@ -1966,6 +1966,92 @@ def repl_cmd(ctx) -> None:
 
 
 # ---------------------------------------------------------------------------
+# web — browser-based chat UI
+# ---------------------------------------------------------------------------
+
+@cli.command("web")
+@click.option("--host", default="127.0.0.1", show_default=True, help="Bind host.")
+@click.option("--port", default=7337, show_default=True, help="Bind port.")
+@click.option("--dev", is_flag=True, help="Run Vite dev server alongside FastAPI (hot reload).")
+def web_cmd(host, port, dev) -> None:
+    """Start the Cortellis web UI in your browser.
+
+    Launches a FastAPI server that exposes the same intelligence capabilities
+    as the CLI chat, accessible from any browser at http://<host>:<port>.
+
+    For development (hot-reload UI):
+      cortellis web --dev
+      # Then open http://localhost:5173 (Vite proxy → FastAPI on 7337)
+
+    For production (serves built React app):
+      cd web/ui && npm run build
+      cortellis web
+    """
+    import subprocess as _sp
+    import sys as _sys
+    from pathlib import Path as _Path
+
+    try:
+        import uvicorn
+    except ImportError:
+        click.echo("Error: uvicorn is required for the web UI. Install it:")
+        click.echo("  pip install uvicorn[standard]")
+        raise SystemExit(1)
+
+    try:
+        import fastapi  # noqa
+    except ImportError:
+        click.echo("Error: fastapi is required for the web UI. Install it:")
+        click.echo("  pip install fastapi")
+        raise SystemExit(1)
+
+    ui_dir = _Path(__file__).resolve().parents[2] / "web" / "ui"
+
+    if dev:
+        # Start Vite dev server in background
+        if not (ui_dir / "node_modules").exists():
+            click.echo("  Installing UI dependencies (first run)…")
+            _sp.run(["npm", "install"], cwd=str(ui_dir), check=True)
+        vite = _sp.Popen(["npm", "run", "dev"], cwd=str(ui_dir))
+        click.echo(f"  Vite dev server starting at http://localhost:5173")
+        click.echo(f"  FastAPI backend at http://{host}:{port}")
+        click.echo("  Press Ctrl-C to stop both servers.\n")
+        import sys as _sys
+        _repo = str(_Path(__file__).resolve().parents[2])
+        if _repo not in _sys.path:
+            _sys.path.insert(0, _repo)
+        from web.server.main import app as _app
+        try:
+            uvicorn.run(_app, host=host, port=port, reload=False, log_level="info")
+        finally:
+            vite.terminate()
+    else:
+        dist = ui_dir / "dist"
+        if not dist.exists():
+            click.echo("  UI not built yet. Building now…")
+            if not (ui_dir / "node_modules").exists():
+                click.echo("  Installing UI dependencies…")
+                _sp.run(["npm", "install"], cwd=str(ui_dir), check=True)
+            _sp.run(["npm", "run", "build"], cwd=str(ui_dir), check=True)
+
+        url = f"http://{host}:{port}"
+        click.echo(f"\n  Cortellis Web UI → {url}")
+        click.echo("  Press Ctrl-C to stop.\n")
+
+        import sys as _sys
+        _repo = str(_Path(__file__).resolve().parents[2])
+        if _repo not in _sys.path:
+            _sys.path.insert(0, _repo)
+        from web.server.main import app as _app
+
+        import threading as _th
+        import webbrowser as _wb
+        _th.Timer(1.2, lambda: _wb.open(url)).start()
+
+        uvicorn.run(_app, host=host, port=port, reload=False, log_level="warning")
+
+
+# ---------------------------------------------------------------------------
 # chat — AI-powered natural language interface via Claude Code
 # ---------------------------------------------------------------------------
 
@@ -2156,6 +2242,19 @@ All skills and their workflows are included below in the system context."""
 
     turn_number = 0
     first_turn = True
+
+    # In-session + cross-session 5-turn conversation history
+    conversation_history: list[dict] = []
+    try:
+        import json as _jh
+        from datetime import datetime as _dth, timezone as _tzh
+        _hist_path = os.path.join(os.getcwd(), "daily",
+                                  f"{_dth.now(_tzh.utc).strftime('%Y-%m-%d')}.json")
+        if os.path.exists(_hist_path):
+            conversation_history = _jh.loads(Path(_hist_path).read_text())[-5:]
+    except Exception:
+        pass
+
     while True:
         try:
             question = input("  you> ").strip()
@@ -2282,8 +2381,16 @@ All skills and their workflows are included below in the system context."""
                 parts.append("--- END COMPILED ARTICLES ---\n")
                 wiki_context = "".join(parts)
 
-        effective_prompt = system_prompt + wiki_context
+        history_block = ""
+        if conversation_history:
+            _hlines = ["\n\n## Recent Conversation\n\n"]
+            for _t in conversation_history[-5:]:
+                _a = _t["a"][:400] + ("..." if len(_t["a"]) > 400 else "")
+                _hlines.append(f"**User:** {_t['q']}\n\n**Assistant:** {_a}\n\n---\n\n")
+            history_block = "".join(_hlines)
+        effective_prompt = system_prompt + wiki_context + history_block
 
+        text = ""
         if engine == "codex":
             # codex exec: non-interactive mode with sandboxed auto-approval.
             # System context is prepended to the message (no --append-system-prompt equiv).
@@ -2487,4 +2594,20 @@ All skills and their workflows are included below in the system context."""
 
         proc.wait()
         click.echo()
+
+        # Append Q&A to history and persist for cross-session recall
+        if text:
+            conversation_history.append({"q": question[:300], "a": text[:600]})
+            if len(conversation_history) > 5:
+                conversation_history = conversation_history[-5:]
+            try:
+                import json as _jsave
+                from datetime import datetime as _dts, timezone as _tzs
+                _hdir = os.path.join(os.getcwd(), "daily")
+                os.makedirs(_hdir, exist_ok=True)
+                _hpath = os.path.join(_hdir, f"{_dts.now(_tzs.utc).strftime('%Y-%m-%d')}.json")
+                Path(_hpath).write_text(_jsave.dumps(conversation_history, indent=2))
+            except Exception:
+                pass
+
         first_turn = False
