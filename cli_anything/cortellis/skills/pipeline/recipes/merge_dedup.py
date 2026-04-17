@@ -16,6 +16,7 @@ file1, file2 = sys.argv[1], sys.argv[2]
 seen = set()
 writer = csv.writer(sys.stdout)
 header_written = False
+data_rows = 0
 
 for filepath in [file1, file2]:
     with open(filepath) as f:
@@ -33,3 +34,8 @@ for filepath in [file1, file2]:
             if key not in seen:
                 seen.add(key)
                 writer.writerow(row)
+                data_rows += 1
+
+if data_rows == 0:
+    print("WARN: merged output has no data rows", file=sys.stderr)
+    sys.exit(1)

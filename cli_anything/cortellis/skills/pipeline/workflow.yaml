@@ -1,0 +1,125 @@
+# Pipeline skill — machine-parseable DAG workflow
+#
+# Companion to SKILL.md. Defines the pipeline (company view) as a DAG for
+# HarnessRunner execution via `cortellis run-skill pipeline <company>`.
+#
+# All 7 fetch nodes (5 CI + 2 SI) run in parallel in Wave 1 after resolve.
+# Rate-limit semaphore (Semaphore(3)) in HarnessRunner caps concurrent API calls.
+
+name: pipeline
+description: |
+  Use when: user requests a company drug pipeline analysis.
+  Triggers: "pipeline <company>", "/pipeline", "what's in <company>'s pipeline"
+model: sonnet
+argument-hint: "<company_name | company_id>"
+
+nodes:
+
+  # ── Step 1: Resolve company ID (haiku — lightweight) ─────────────────────
+
+  - id: resolve
+    bash: "python3 cli_anything/cortellis/skills/pipeline/recipes/resolve_company.py '$ARGUMENTS'"
+    model: haiku
+    # Output: company_id,company_name,active_drugs[,method]
+
+  # ── Step 2: Parallel CI + SI fetches (all depend only on resolve) ─────────
+
+  - id: fetch_launched
+    bash: |
+      bash cli_anything/cortellis/skills/pipeline/recipes/fetch_phase.sh \
+        $resolve.output.company_id L \
+        raw/$resolve.output.company_name/launched.csv \
+        cli_anything/cortellis/skills/pipeline/recipes
+    depends_on: [resolve]
+    api_calls: true
+
+  - id: fetch_phase3
+    bash: |
+      bash cli_anything/cortellis/skills/pipeline/recipes/fetch_phase.sh \
+        $resolve.output.company_id C3 \
+        raw/$resolve.output.company_name/phase3.csv \
+        cli_anything/cortellis/skills/pipeline/recipes
+    depends_on: [resolve]
+    api_calls: true
+
+  - id: fetch_phase2
+    bash: |
+      bash cli_anything/cortellis/skills/pipeline/recipes/fetch_phase.sh \
+        $resolve.output.company_id C2 \
+        raw/$resolve.output.company_name/phase2.csv \
+        cli_anything/cortellis/skills/pipeline/recipes
+    depends_on: [resolve]
+    api_calls: true
+
+  - id: fetch_phase1_ci
+    bash: |
+      bash cli_anything/cortellis/skills/pipeline/recipes/fetch_phase.sh \
+        $resolve.output.company_id C1 \
+        raw/$resolve.output.company_name/phase1_ci.csv \
+        cli_anything/cortellis/skills/pipeline/recipes
+    depends_on: [resolve]
+    api_calls: true
+
+  - id: fetch_discovery_ci
+    bash: |
+      bash cli_anything/cortellis/skills/pipeline/recipes/fetch_phase.sh \
+        $resolve.output.company_id DR \
+        raw/$resolve.output.company_name/discovery_ci.csv \
+        cli_anything/cortellis/skills/pipeline/recipes
+    depends_on: [resolve]
+    api_calls: true
+
+  - id: fetch_si_phase1
+    bash: |
+      bash cli_anything/cortellis/skills/pipeline/recipes/fetch_phase_si.sh \
+        'organizationsOriginator:"$resolve.output.company_canonical" AND developmentIsActive:Yes AND phaseHighest:"Phase I"' \
+        raw/$resolve.output.company_name/phase1_si.csv \
+        cli_anything/cortellis/skills/pipeline/recipes
+    depends_on: [resolve]
+    api_calls: true
+
+  - id: fetch_si_preclinical
+    bash: |
+      bash cli_anything/cortellis/skills/pipeline/recipes/fetch_phase_si.sh \
+        'organizationsOriginator:"$resolve.output.company_canonical" AND developmentIsActive:Yes AND phaseHighest:"Preclinical"' \
+        raw/$resolve.output.company_name/preclinical_si.csv \
+        cli_anything/cortellis/skills/pipeline/recipes
+    depends_on: [resolve]
+    api_calls: true
+
+  # ── Step 3: Catch missing drugs (after all fetches complete) ──────────────
+
+  - id: catch_missing
+    bash: |
+      python3 cli_anything/cortellis/skills/pipeline/recipes/catch_missing_drugs.py \
+        $resolve.output.company_id raw/$resolve.output.company_name
+    depends_on: [fetch_launched, fetch_phase3, fetch_phase2, fetch_phase1_ci,
+                 fetch_discovery_ci, fetch_si_phase1, fetch_si_preclinical]
+    trigger_rule: all_done
+    allow_fail: true
+    api_calls: true
+    fs_exclusive: true
+
+  # ── Report (opus — synthesis) ─────────────────────────────────────────────
+
+  - id: report
+    bash: |
+      python3 cli_anything/cortellis/skills/pipeline/recipes/report_generator.py \
+        raw/$resolve.output.company_name \
+        "$resolve.output.company_canonical" \
+        "$resolve.output.company_id" \
+        "$resolve.output.active_drugs"
+    depends_on: [catch_missing]
+    trigger_rule: all_done
+    model: opus
+
+  # ── Compile to wiki ───────────────────────────────────────────────────────
+
+  - id: compile
+    bash: |
+      python3 cli_anything/cortellis/skills/pipeline/recipes/compile_pipeline.py \
+        raw/$resolve.output.company_name "$resolve.output.company_canonical"
+    depends_on: [report]
+    model: opus
+    review_gate: true
+    fs_exclusive: true

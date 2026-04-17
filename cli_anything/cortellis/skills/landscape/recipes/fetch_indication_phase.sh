@@ -70,6 +70,12 @@ done
 
 COUNT=$(($(wc -l < "$OUTPUT") - 1))
 
+# Guard: API reported drugs but we fetched none — likely API error or bad params
+if [ "$COUNT" -eq 0 ] && [ "$TOTAL" -gt 0 ] 2>/dev/null; then
+    echo "ERROR: API reported $TOTAL drugs for phase $PHASE (ind $IND_ID) but fetched 0 rows" >&2
+    exit 1
+fi
+
 # Save metadata for report generator (totalResults vs fetched)
 echo "{\"phase\": \"$PHASE\", \"totalResults\": $TOTAL, \"fetched\": $COUNT}" > "$METADATA_FILE"
 

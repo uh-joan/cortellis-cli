@@ -17,6 +17,7 @@ if isinstance(drugs, dict): drugs = [drugs]
 writer = csv.writer(sys.stdout)
 # No header — add it externally or via: echo "name,id,phase,indication,mechanism,company,source"
 
+count = 0
 for d in drugs:
     name = d.get("@name", "")
     did = d.get("@id", "")
@@ -27,3 +28,7 @@ for d in drugs:
     if isinstance(actions, list): actions = "; ".join(actions[:3])
     company = d.get("CompanyOriginator", "")
     writer.writerow([name, did, phase, indics, actions, company, "CI"])
+    count += 1
+
+if count == 0:
+    print("WARN: no drug rows written to CSV", file=sys.stderr)

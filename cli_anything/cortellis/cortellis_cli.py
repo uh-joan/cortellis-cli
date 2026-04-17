@@ -1692,6 +1692,92 @@ def setup_cmd() -> None:
 
 
 # ---------------------------------------------------------------------------
+# run-skill — harness mode: enforced step sequencing for skill workflows
+# ---------------------------------------------------------------------------
+
+@cli.group(name="run-skill")
+def run_skill() -> None:
+    """Run a skill workflow with enforced step sequencing (harness mode).
+
+    Unlike invoking skills via the AI chat, this executes recipe scripts in
+    guaranteed order and exits 1 on any step failure — no silent data gaps.
+    """
+
+
+@run_skill.command(name="landscape")
+@click.argument("indication")
+@click.option("--force-refresh", is_flag=True, help="Re-fetch even if wiki article is fresh")
+@click.option("--review", is_flag=True, help="Pause for analyst approval before wiki compilation")
+@click.option("--dry-run", is_flag=True, help="Print wave schedule without executing")
+def run_skill_landscape(indication: str, force_refresh: bool, review: bool, dry_run: bool) -> None:
+    """Run the full landscape pipeline for INDICATION with enforced step order.
+
+    Example: cortellis run-skill landscape obesity
+             cortellis run-skill landscape obesity --review
+             cortellis run-skill landscape obesity --dry-run
+    """
+    import re
+    from pathlib import Path
+    from cli_anything.cortellis.core.harness_runner import HarnessRunner, REPO_ROOT
+
+    workflow_yaml = Path(__file__).resolve().parent / "skills/landscape/workflow.yaml"
+    runner = HarnessRunner(workflow_yaml)
+
+    if dry_run:
+        runner.dry_run()
+        return
+
+    slug = re.sub(r"[^a-z0-9]+", "-", indication.lower()).strip("-")
+    output_dir = REPO_ROOT / "raw" / slug
+
+    exit_code = runner.execute(
+        indication,
+        output_dir,
+        dry_run=False,
+        force_refresh=force_refresh,
+        review=review,
+    )
+    if exit_code != 0:
+        raise SystemExit(exit_code)
+
+
+@run_skill.command(name="pipeline")
+@click.argument("company")
+@click.option("--force-refresh", is_flag=True, help="Re-fetch even if wiki article is fresh")
+@click.option("--review", is_flag=True, help="Pause for analyst approval before wiki compilation")
+@click.option("--dry-run", is_flag=True, help="Print wave schedule without executing")
+def run_skill_pipeline(company: str, force_refresh: bool, review: bool, dry_run: bool) -> None:
+    """Run the full pipeline workflow for COMPANY with enforced step order.
+
+    Example: cortellis run-skill pipeline Pfizer
+             cortellis run-skill pipeline Pfizer --review
+             cortellis run-skill pipeline Pfizer --dry-run
+    """
+    import re
+    from pathlib import Path
+    from cli_anything.cortellis.core.harness_runner import HarnessRunner, REPO_ROOT
+
+    workflow_yaml = Path(__file__).resolve().parent / "skills/pipeline/workflow.yaml"
+    runner = HarnessRunner(workflow_yaml)
+
+    if dry_run:
+        runner.dry_run()
+        return
+
+    slug = re.sub(r"[^a-z0-9]+", "-", company.lower()).strip("-")
+    output_dir = REPO_ROOT / "raw" / slug
+
+    exit_code = runner.execute(
+        company,
+        output_dir,
+        dry_run=False,
+        force_refresh=force_refresh,
+        review=review,
+    )
+    if exit_code != 0:
+        raise SystemExit(exit_code)
+
+
 # repl — interactive command REPL
 # ---------------------------------------------------------------------------
 
@@ -1926,7 +2012,7 @@ All skills and their workflows are included below in the system context."""
 
         from cli_anything.cortellis.core.status_translator import translate_command
         from cli_anything.cortellis.core.skill_router import detect_skill
-        from cli_anything.cortellis.core.context_detector import needs_context
+        from cli_anything.cortellis.core.context_detector import needs_context, detect_multi_entity
 
         # Detect context need BEFORE any rewriting (uses original question)
         turn_number += 1
@@ -1945,6 +2031,18 @@ All skills and their workflows are included below in the system context."""
         # Auto-detect skill and prepend directive for natural language queries
         skill_directive = detect_skill(question)
         routed_question = f"{skill_directive}{question}" if skill_directive else question
+
+        # Parallel dispatch hint: prepend when 2+ entities detected for the same skill
+        multi = detect_multi_entity(question)
+        if multi and len(multi['entities']) >= 2:
+            entity_list = ', '.join(f'"{e}"' for e in multi['entities'])
+            routed_question = (
+                f"[PARALLEL DISPATCH: This query covers {len(multi['entities'])} entities "
+                f"({entity_list}) for the /{multi['skill']} skill. "
+                f"Run each as a separate Agent invocation with run_in_background=true "
+                f"so they execute concurrently. Synthesize results after all complete.]\n"
+                + routed_question
+            )
 
         # Wiki fast-path: inject ANY matching wiki articles (indications, drugs, companies)
         from cli_anything.cortellis.core.skill_router import check_wiki_fast_path
