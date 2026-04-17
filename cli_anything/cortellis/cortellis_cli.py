@@ -1681,14 +1681,20 @@ def setup_cmd() -> None:
         import uvicorn  # noqa
         import fastapi  # noqa
     except ImportError:
-        click.echo("  Web dependencies missing — installing now…")
         import sys as _sys
-        result = _sp.run(
-            [_sys.executable, "-m", "pip", "install", "fastapi>=0.115", "uvicorn[standard]>=0.30"],
-            check=False,
-        )
-        if result.returncode != 0:
-            click.echo("  Install failed. Run manually: pip install fastapi 'uvicorn[standard]'")
+        in_venv = _sys.prefix != _sys.base_prefix
+        if in_venv:
+            click.echo("  Web dependencies missing — installing now…")
+            result = _sp.run(
+                [_sys.executable, "-m", "pip", "install", "fastapi>=0.115", "uvicorn[standard]>=0.30"],
+                check=False,
+            )
+            if result.returncode != 0:
+                click.echo("  Install failed. Run manually: pip install fastapi 'uvicorn[standard]'")
+                return
+        else:
+            click.echo("  Web dependencies missing. Re-install cortellis-cli to pick them up:")
+            click.echo("    pip install --upgrade git+https://github.com/uh-joan/cortellis-cli.git")
             return
     from pathlib import Path as _Path
     ui_dir = _Path(__file__).resolve().parents[2] / "web" / "ui"
