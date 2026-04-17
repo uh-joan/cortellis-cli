@@ -268,6 +268,11 @@ class HarnessRunner:
         output_dir.mkdir(parents=True, exist_ok=True)
         state: dict[str, NodeResult] = {}
 
+        # force_refresh: pre-seed freshness as 'stale' so all fetch nodes run
+        # (bypasses the when: freshness != 'fresh' guards without touching the YAML)
+        if force_refresh:
+            state["freshness"] = NodeResult(status="success", output="stale")
+
         # Seed ARGUMENTS variable and pin python3 to the active venv interpreter
         python_bin = sys.executable
         def resolve(text: str) -> str:
@@ -291,6 +296,11 @@ class HarnessRunner:
             # Determine which nodes in this wave actually run
             to_run: list[Node] = []
             for node in wave:
+                # Pre-seeded state (e.g. freshness overridden by force_refresh)
+                if node.id in state:
+                    self._log_result(node, state[node.id])
+                    continue
+
                 if _should_skip(node, state):
                     print(f"  [{node.id}] SKIPPED (when/trigger)", file=sys.stderr)
                     state[node.id] = NodeResult(status="skipped")
@@ -325,7 +335,7 @@ class HarnessRunner:
                 state[node.id] = result
                 self._log_result(node, result)
                 if result.status == "success" and result.output.strip() and node.id in ("read_wiki", "report"):
-                    print(result.output)
+                    print(result.output, flush=True)
             else:
                 futures = {}
                 with ThreadPoolExecutor(max_workers=min(6, len(to_run))) as pool:
@@ -345,7 +355,7 @@ class HarnessRunner:
                         self._log_result(node, result)
                         # Print terminal-output nodes directly to stdout
                         if result.status == "success" and result.output.strip() and node.id in ("read_wiki", "report"):
-                            print(result.output)
+                            print(result.output, flush=True)
 
             # Check for hard failures (non-allow_fail nodes)
             for node in to_run:
