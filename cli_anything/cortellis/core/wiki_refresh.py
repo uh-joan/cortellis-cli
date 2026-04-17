@@ -1,13 +1,13 @@
 """wiki_refresh.py — Tiered wiki refresh orchestrator.
 
-Tier 1 — compile-only:   recompile all wiki articles from existing raw/ data.
-Tier 2 — fetch+compile:  re-fetch structured/external data, then recompile (no LLM).
-Tier 3 — full:           full refresh including LLM synthesis (Claude API, not yet impl).
+Tier 1 — compile-only:  recompile all wiki articles from existing raw/ data.
+Tier 2 — fetch+compile: re-fetch structured/external data, then recompile (no LLM).
+Tier 3 — full:          full refresh via HarnessRunner (all skill steps incl. LLM).
 
 Entry points:
-    refresh_compile(base_dir, types, verbose)  → Tier 1
-    refresh_data(base_dir, types, verbose)     → Tier 2
-    refresh_full(base_dir, types, verbose)     → Tier 3
+    refresh_compile(base_dir, types, verbose, dry_run)  → Tier 1
+    refresh_data(base_dir, types, verbose, dry_run)     → Tier 2
+    refresh_full(base_dir, types, verbose, dry_run)     → Tier 3
 """
 
 import importlib.util
@@ -15,6 +15,7 @@ import json
 import os
 import subprocess
 import sys
+from pathlib import Path
 from typing import Optional
 
 from cli_anything.cortellis.utils.data_helpers import read_json_safe
@@ -31,7 +32,19 @@ from cli_anything.cortellis.core.graph_utils import refresh_graph
 
 
 ALL_TYPES = {"drug", "target", "company", "indication", "conference"}
-_TIER2_TYPES = {"drug", "target", "company"}  # indication needs full landscape; conference has no structured fetch
+
+# Tier 2 covers these types natively; indications need full landscape (Tier 3)
+_TIER2_TYPES = {"drug", "target", "company"}
+
+_SKILLS_DIR = Path(__file__).resolve().parents[1] / "skills"
+
+_WORKFLOWS = {
+    "drug":       _SKILLS_DIR / "drug-profile"    / "workflow.yaml",
+    "target":     _SKILLS_DIR / "target-profile"  / "workflow.yaml",
+    "company":    _SKILLS_DIR / "pipeline"        / "workflow.yaml",
+    "indication": _SKILLS_DIR / "landscape"       / "workflow.yaml",
+    "conference": _SKILLS_DIR / "conference-intel"/ "workflow.yaml",
+}
 
 
 # ---------------------------------------------------------------------------
@@ -45,9 +58,7 @@ def _resolve_path(path: str, base_dir: str) -> str:
 
 
 def _skill_recipe(skill_dir: str, recipe_name: str) -> str:
-    return os.path.join(
-        os.path.dirname(__file__), "..", "skills", skill_dir, "recipes", recipe_name
-    )
+    return str(_SKILLS_DIR / skill_dir / "recipes" / recipe_name)
 
 
 def _load_compile_recipe(skill_dir: str, recipe_name: str):
@@ -58,7 +69,7 @@ def _load_compile_recipe(skill_dir: str, recipe_name: str):
     mod_name = recipe_name.replace(".py", "").replace("-", "_")
     spec = importlib.util.spec_from_file_location(mod_name, os.path.abspath(path))
     mod = importlib.util.module_from_spec(spec)
-    repo_root = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", ".."))
+    repo_root = str(Path(__file__).resolve().parents[3])
     if repo_root not in sys.path:
         sys.path.insert(0, repo_root)
     spec.loader.exec_module(mod)
@@ -73,6 +84,18 @@ def _run_script(cmd: list, verbose: bool = False) -> bool:
     if result.returncode != 0 and verbose:
         print(f"      [warn] exit {result.returncode}", flush=True)
     return result.returncode == 0
+
+
+def _finalize(w_dir: str, base_dir: str, tier_label: str, results: dict) -> None:
+    entries = load_index_entries(w_dir)
+    update_index(w_dir, entries)
+    refresh_graph(base_dir)
+    ok, skipped, errors = len(results["ok"]), len(results["skipped"]), len(results["error"])
+    log_activity(w_dir, "refresh", f"{tier_label}: {ok} ok, {skipped} skipped, {errors} errors")
+
+
+class _SkipError(Exception):
+    """Non-fatal: article cannot be refreshed for a known reason."""
 
 
 # ---------------------------------------------------------------------------
@@ -153,7 +176,7 @@ def _compile_one(atype: str, meta: dict, slug: str, title: str, base_dir: str) -
             new_meta, body = mod.compile_pipeline_article(pipeline_dir, title, slug, base_dir)
             write_article(article_path("companies", slug, base_dir), new_meta, body)
         else:
-            raise _SkipError("landscape-only company — run landscape skill to refresh")
+            raise _SkipError("landscape-only company — use --full to refresh via landscape skill")
 
     elif atype == "indication":
         source_dir = _resolve_path(meta.get("source_dir", ""), base_dir)
@@ -185,18 +208,24 @@ def refresh_data(
     verbose: bool = True,
     dry_run: bool = False,
 ) -> dict:
-    """Tier 2: re-fetch structured/external data from APIs, then recompile. No LLM.
+    """Tier 2: re-fetch structured/external API data, then recompile. No LLM synthesis.
 
     Coverage:
-      drug     — re-fetch Cortellis record + re-run all external enrichers
+      drug     — re-fetch Cortellis record + all external enrichers (FDA, CT.gov, etc.)
       target   — re-run external enrichers (UniProt, OpenTargets, ChEMBL, CPIC)
-      company  — re-run fetch_phase.sh pipeline CSVs + compile
-      indication / conference — not supported (use landscape skill / Tier 3)
+      company  — re-run fetch_phase.sh pipeline CSVs + external enrichers
+      indication / conference — use --full (requires landscape skill / LLM steps)
     """
     w_dir = wiki_root(base_dir)
     articles = list_articles(w_dir)
-    types = (types or _TIER2_TYPES) & _TIER2_TYPES
+    effective_types = (types or _TIER2_TYPES) & _TIER2_TYPES
+    skipped_types = (types or ALL_TYPES) - effective_types if types else set()
     results: dict = {"ok": [], "skipped": [], "error": []}
+
+    # Warn about types that require Tier 3
+    for t in sorted(skipped_types & {"indication", "conference"}):
+        if verbose:
+            print(f"  [note] type '{t}' requires full LLM refresh — use --full")
 
     for art in articles:
         meta = art.get("meta") or {}
@@ -204,7 +233,12 @@ def refresh_data(
         slug = meta.get("slug", "")
         title = meta.get("title", slug)
 
-        if not slug or atype not in types:
+        if not slug:
+            continue
+
+        if atype not in effective_types:
+            if atype in (types or set()):
+                results["skipped"].append((slug, f"use --full for {atype} refresh"))
             continue
 
         if verbose:
@@ -254,11 +288,11 @@ def _fetch_one(atype: str, meta: dict, slug: str, title: str, base_dir: str, ver
         pipeline_meta = meta.get("pipeline", {})
         pipeline_dir = pipeline_meta.get("pipeline_dir", "") if isinstance(pipeline_meta, dict) else ""
         if not pipeline_dir or not os.path.isdir(pipeline_dir):
-            raise _SkipError("no pipeline_dir — run landscape skill to refresh")
+            raise _SkipError("no pipeline_dir — use --full to refresh via landscape skill")
         _fetch_pipeline(pipeline_dir, title, verbose)
 
     else:
-        raise _SkipError(f"Tier 2 not supported for type: {atype}")
+        raise _SkipError(f"Tier 2 not supported for type '{atype}' — use --full")
 
 
 def _fetch_drug(source_dir: str, drug_name: str, verbose: bool) -> None:
@@ -272,9 +306,7 @@ def _fetch_drug(source_dir: str, drug_name: str, verbose: bool) -> None:
     if verbose:
         print(f"    fetching Cortellis record (id={drug_id})...", flush=True)
 
-    # Re-fetch core record
-    record_path = os.path.join(source_dir, "record.json")
-    with open(record_path, "w", encoding="utf-8") as f:
+    with open(os.path.join(source_dir, "record.json"), "w", encoding="utf-8") as f:
         result = subprocess.run(
             ["cortellis", "--json", "drugs", "records", drug_id],
             stdout=f, stderr=subprocess.PIPE, text=True,
@@ -282,37 +314,34 @@ def _fetch_drug(source_dir: str, drug_name: str, verbose: bool) -> None:
     if result.returncode != 0:
         raise RuntimeError(f"cortellis drugs records failed: {result.stderr[:200]}")
 
-    # Re-fetch trials (shell script)
+    # Re-fetch trials
     trials_sh = _skill_recipe("drug-profile", "fetch_trials.sh")
     if os.path.exists(trials_sh):
-        _run_script(
-            ["bash", trials_sh, drug_name, os.path.join(source_dir, "trials.json")],
-            verbose=verbose,
-        )
+        _run_script(["bash", trials_sh, drug_name, os.path.join(source_dir, "trials.json")], verbose)
 
     # Re-run external enrichers
-    python = sys.executable
-    for script, extra_args in [
-        ("enrich_ct_trials.py",    []),
-        ("enrich_fda_approval.py", []),
-        ("enrich_fda_patent.py",   []),
-        ("enrich_ema.py",          []),
-        ("enrich_chembl.py",       []),
-        ("enrich_cpic.py",         []),
-        ("enrich_biorxiv.py",      []),
+    py = sys.executable
+    for script in [
+        "enrich_ct_trials.py",
+        "enrich_fda_approval.py",
+        "enrich_fda_patent.py",
+        "enrich_ema.py",
+        "enrich_chembl.py",
+        "enrich_cpic.py",
+        "enrich_biorxiv.py",
     ]:
         path = _skill_recipe("drug-profile", script)
         if os.path.exists(path):
-            _run_script([python, path, source_dir, drug_name] + extra_args, verbose=verbose)
+            _run_script([py, path, source_dir, drug_name], verbose)
 
 
 def _fetch_target(source_dir: str, target_name: str, gene_symbol: str, verbose: bool) -> None:
-    """Re-run external enrichers for a target (UniProt, OpenTargets, ChEMBL, CPIC).
+    """Re-run external enrichers for a target.
 
-    Note: re-fetching the Cortellis target record requires multi-step shell scripts
-    from the target-profile skill. That is deferred to Tier 3 (full skill re-run).
+    Cortellis core record re-fetch (multi-step shell workflow) is covered by Tier 3.
+    Tier 2 refreshes all public external data sources.
     """
-    python = sys.executable
+    py = sys.executable
     identifier = gene_symbol or target_name
 
     if verbose:
@@ -327,11 +356,11 @@ def _fetch_target(source_dir: str, target_name: str, gene_symbol: str, verbose: 
     ]:
         path = _skill_recipe("target-profile", script)
         if os.path.exists(path):
-            _run_script([python, path, source_dir, arg], verbose=verbose)
+            _run_script([py, path, source_dir, arg], verbose)
 
 
 def _fetch_pipeline(pipeline_dir: str, company_name: str, verbose: bool) -> None:
-    """Re-resolve company ID and re-fetch pipeline CSVs from Cortellis."""
+    """Re-resolve company ID and re-fetch all pipeline phase CSVs from Cortellis."""
     resolve_script = _skill_recipe("pipeline", "resolve_company.py")
     if not os.path.exists(resolve_script):
         raise ValueError("resolve_company.py not found")
@@ -346,7 +375,6 @@ def _fetch_pipeline(pipeline_dir: str, company_name: str, verbose: bool) -> None
     if result.returncode != 0:
         raise RuntimeError(f"resolve_company failed: {result.stdout[:200]}")
 
-    # resolve_company.py outputs JSON with id field, or plain text
     company_id = ""
     try:
         resolved = json.loads(result.stdout)
@@ -358,7 +386,7 @@ def _fetch_pipeline(pipeline_dir: str, company_name: str, verbose: bool) -> None
         raise ValueError(f"Could not resolve company ID for '{company_name}'")
 
     if verbose:
-        print(f"    fetching pipeline phases (company_id={company_id})...", flush=True)
+        print(f"    fetching pipeline phases (id={company_id})...", flush=True)
 
     fetch_sh = _skill_recipe("pipeline", "fetch_phase.sh")
     recipes_dir = os.path.dirname(fetch_sh)
@@ -375,18 +403,16 @@ def _fetch_pipeline(pipeline_dir: str, company_name: str, verbose: bool) -> None
         _run_script(
             ["bash", fetch_sh, company_id, phase_code,
              os.path.join(pipeline_dir, filename), recipes_dir],
-            verbose=verbose,
+            verbose,
         )
 
-    # Re-run external enrichers
-    python = sys.executable
     enrich_script = _skill_recipe("pipeline", "enrich_pipeline_external.py")
     if os.path.exists(enrich_script):
-        _run_script([python, enrich_script, pipeline_dir, company_name], verbose=verbose)
+        _run_script([sys.executable, enrich_script, pipeline_dir, company_name], verbose)
 
 
 # ---------------------------------------------------------------------------
-# Tier 3 — full refresh with LLM synthesis
+# Tier 3 — full refresh via HarnessRunner (all skill steps including LLM)
 # ---------------------------------------------------------------------------
 
 def refresh_full(
@@ -395,44 +421,102 @@ def refresh_full(
     verbose: bool = True,
     dry_run: bool = False,
 ) -> dict:
-    """Tier 3: full refresh including LLM synthesis via Claude API.
+    """Tier 3: full refresh via HarnessRunner — runs all skill steps including LLM synthesis.
 
-    Not yet implemented. LLM synthesis (SWOT, narratives, reports) requires
-    orchestrating Claude agent runs per entity — the full skill workflow.
+    Uses the same workflow.yaml DAGs as `cortellis run-skill` commands.
+    Each entity is processed sequentially to respect API rate limits.
 
-    To refresh with LLM synthesis today, re-run each skill manually:
-      /drug-profile <name>
-      /target-profile <name>
-      /pipeline <company>
-      /landscape <indication>
+    Coverage: drug, target, company (pipeline), indication, conference.
+    Landscape-only companies are refreshed via their parent indication run.
     """
-    raise NotImplementedError(
-        "Tier 3 (full refresh with LLM synthesis) is not yet implemented.\n\n"
-        "To refresh with LLM synthesis, re-run skills manually:\n"
-        "  /drug-profile <name>\n"
-        "  /target-profile <name>\n"
-        "  /pipeline <company>\n"
-        "  /landscape <indication>"
-    )
+    from cli_anything.cortellis.core.harness_runner import HarnessRunner, REPO_ROOT
+
+    w_dir = wiki_root(base_dir)
+    articles = list_articles(w_dir)
+    types = types or ALL_TYPES
+    results: dict = {"ok": [], "skipped": [], "error": []}
+
+    for art in articles:
+        meta = art.get("meta") or {}
+        atype = meta.get("type", "")
+        slug = meta.get("slug", "")
+        title = meta.get("title", slug)
+
+        if not slug or atype not in types:
+            continue
+
+        if verbose:
+            print(f"  [{atype:12}] {slug} ...", flush=True)
+
+        try:
+            _full_one(atype, meta, slug, title, base_dir, REPO_ROOT, HarnessRunner, dry_run, verbose)
+            results["ok"].append(slug)
+            if verbose and not dry_run:
+                print(f"    [{slug}] done")
+        except _SkipError as exc:
+            results["skipped"].append((slug, str(exc)))
+            if verbose:
+                print(f"    skip — {exc}")
+        except Exception as exc:
+            results["error"].append((slug, str(exc)))
+            if verbose:
+                print(f"    ERROR: {exc}")
+
+    if not dry_run:
+        _finalize(w_dir, base_dir, "full", results)
+
+    return results
 
 
-# ---------------------------------------------------------------------------
-# Shared finalization
-# ---------------------------------------------------------------------------
+def _full_one(
+    atype: str, meta: dict, slug: str, title: str, base_dir: str,
+    REPO_ROOT: Path, HarnessRunner, dry_run: bool, verbose: bool,
+) -> None:
+    workflow = _WORKFLOWS.get(atype)
+    if not workflow or not workflow.exists():
+        raise _SkipError(f"no workflow.yaml for type '{atype}'")
 
-def _finalize(w_dir: str, base_dir: str, tier_label: str, results: dict) -> None:
-    entries = load_index_entries(w_dir)
-    update_index(w_dir, entries)
-    refresh_graph(base_dir)
-    ok = len(results["ok"])
-    skipped = len(results["skipped"])
-    errors = len(results["error"])
-    log_activity(w_dir, "refresh", f"{tier_label}: {ok} ok, {skipped} skipped, {errors} errors")
+    runner = HarnessRunner(workflow)
 
+    if dry_run:
+        if verbose:
+            print(f"    (dry-run) would run {workflow.name} for '{title}'")
+        return
 
-# ---------------------------------------------------------------------------
-# Sentinel
-# ---------------------------------------------------------------------------
+    if atype == "drug":
+        source_dir = _resolve_path(meta.get("source_dir", ""), base_dir)
+        output_dir = Path(source_dir) if source_dir and os.path.isdir(source_dir) \
+            else REPO_ROOT / "raw" / "drugs" / slug
+        exit_code = runner.execute(title, output_dir)
 
-class _SkipError(Exception):
-    """Non-fatal: article cannot be refreshed for a known reason (skip, not error)."""
+    elif atype == "target":
+        source_dir = _resolve_path(meta.get("source_dir", ""), base_dir)
+        output_dir = Path(source_dir) if source_dir and os.path.isdir(source_dir) \
+            else REPO_ROOT / "raw" / "targets" / slug
+        exit_code = runner.execute(title, output_dir)
+
+    elif atype == "company":
+        pipeline_meta = meta.get("pipeline", {})
+        pipeline_dir = pipeline_meta.get("pipeline_dir", "") if isinstance(pipeline_meta, dict) else ""
+        if pipeline_dir and os.path.isdir(pipeline_dir):
+            exit_code = runner.execute(title, Path(pipeline_dir))
+        else:
+            raise _SkipError("landscape-only company — refreshed when parent indication runs")
+
+    elif atype == "indication":
+        source_dir = _resolve_path(meta.get("source_dir", ""), base_dir)
+        output_dir = Path(source_dir) if source_dir and os.path.isdir(source_dir) \
+            else REPO_ROOT / "raw" / slug
+        exit_code = runner.execute(title, output_dir)
+
+    elif atype == "conference":
+        source_dir = _resolve_path(meta.get("source_dir", ""), base_dir)
+        if not source_dir or not os.path.isdir(source_dir):
+            raise _SkipError(f"source_dir not found: {meta.get('source_dir')}")
+        exit_code = runner.execute(title, Path(source_dir))
+
+    else:
+        raise _SkipError(f"no handler for type '{atype}'")
+
+    if exit_code != 0:
+        raise RuntimeError(f"HarnessRunner exited with code {exit_code}")
