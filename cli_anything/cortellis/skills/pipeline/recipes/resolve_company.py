@@ -82,7 +82,7 @@ def resolve(name):
             if e.get("@type") == "Company":
                 if names_match(name, e.get("@name", "")):
                     return e.get("@id", ""), get_active(e["@id"]), "ner"
-    except (KeyError, TypeError, ValueError):
+    except (KeyError, TypeError, ValueError, AttributeError):
         pass
 
     # Strategy 1: ontology depth-1 parents
@@ -113,7 +113,7 @@ def resolve(name):
         pid, active = best_from_search(comps, query_name=name)
         if active >= 10:
             return pid, active, "broad"
-    except (KeyError, TypeError, ValueError):
+    except (KeyError, TypeError, ValueError, AttributeError):
         pass
 
     # Strategy 3: suffix search
@@ -134,7 +134,7 @@ def resolve(name):
         pid, active = best_from_search(comps, query_name=name)
         if active > 0:
             return pid, active, "best-effort"
-    except (KeyError, TypeError, ValueError):
+    except (KeyError, TypeError, ValueError, AttributeError):
         pass
 
     return "", 0, "FAIL"

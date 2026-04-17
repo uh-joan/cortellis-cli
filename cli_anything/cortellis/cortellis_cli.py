@@ -1718,7 +1718,7 @@ def run_skill_landscape(indication: str, force_refresh: bool, review: bool, dry_
     """
     import re
     from pathlib import Path
-    from cli_anything.cortellis.core.harness_runner import HarnessRunner
+    from cli_anything.cortellis.core.harness_runner import HarnessRunner, REPO_ROOT
 
     workflow_yaml = Path(__file__).resolve().parent / "skills/landscape/workflow.yaml"
     runner = HarnessRunner(workflow_yaml)
@@ -1728,8 +1728,7 @@ def run_skill_landscape(indication: str, force_refresh: bool, review: bool, dry_
         return
 
     slug = re.sub(r"[^a-z0-9]+", "-", indication.lower()).strip("-")
-    repo_root = Path(__file__).resolve().parents[3]
-    output_dir = repo_root / "raw" / slug
+    output_dir = REPO_ROOT / "raw" / slug
 
     exit_code = runner.execute(
         indication,
@@ -1756,7 +1755,7 @@ def run_skill_pipeline(company: str, force_refresh: bool, review: bool, dry_run:
     """
     import re
     from pathlib import Path
-    from cli_anything.cortellis.core.harness_runner import HarnessRunner
+    from cli_anything.cortellis.core.harness_runner import HarnessRunner, REPO_ROOT
 
     workflow_yaml = Path(__file__).resolve().parent / "skills/pipeline/workflow.yaml"
     runner = HarnessRunner(workflow_yaml)
@@ -1766,8 +1765,7 @@ def run_skill_pipeline(company: str, force_refresh: bool, review: bool, dry_run:
         return
 
     slug = re.sub(r"[^a-z0-9]+", "-", company.lower()).strip("-")
-    repo_root = Path(__file__).resolve().parents[3]
-    output_dir = repo_root / "raw" / slug
+    output_dir = REPO_ROOT / "raw" / slug
 
     exit_code = runner.execute(
         company,
