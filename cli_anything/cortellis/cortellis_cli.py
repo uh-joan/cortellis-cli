@@ -2156,6 +2156,19 @@ All skills and their workflows are included below in the system context."""
 
     turn_number = 0
     first_turn = True
+
+    # In-session + cross-session 5-turn conversation history
+    conversation_history: list[dict] = []
+    try:
+        import json as _jh
+        from datetime import datetime as _dth, timezone as _tzh
+        _hist_path = os.path.join(os.getcwd(), "daily",
+                                  f"{_dth.now(_tzh.utc).strftime('%Y-%m-%d')}.json")
+        if os.path.exists(_hist_path):
+            conversation_history = _jh.loads(Path(_hist_path).read_text())[-5:]
+    except Exception:
+        pass
+
     while True:
         try:
             question = input("  you> ").strip()
@@ -2282,8 +2295,16 @@ All skills and their workflows are included below in the system context."""
                 parts.append("--- END COMPILED ARTICLES ---\n")
                 wiki_context = "".join(parts)
 
-        effective_prompt = system_prompt + wiki_context
+        history_block = ""
+        if conversation_history:
+            _hlines = ["\n\n## Recent Conversation\n\n"]
+            for _t in conversation_history[-5:]:
+                _a = _t["a"][:400] + ("..." if len(_t["a"]) > 400 else "")
+                _hlines.append(f"**User:** {_t['q']}\n\n**Assistant:** {_a}\n\n---\n\n")
+            history_block = "".join(_hlines)
+        effective_prompt = system_prompt + wiki_context + history_block
 
+        text = ""
         if engine == "codex":
             # codex exec: non-interactive mode with sandboxed auto-approval.
             # System context is prepended to the message (no --append-system-prompt equiv).
@@ -2487,4 +2508,20 @@ All skills and their workflows are included below in the system context."""
 
         proc.wait()
         click.echo()
+
+        # Append Q&A to history and persist for cross-session recall
+        if text:
+            conversation_history.append({"q": question[:300], "a": text[:600]})
+            if len(conversation_history) > 5:
+                conversation_history = conversation_history[-5:]
+            try:
+                import json as _jsave
+                from datetime import datetime as _dts, timezone as _tzs
+                _hdir = os.path.join(os.getcwd(), "daily")
+                os.makedirs(_hdir, exist_ok=True)
+                _hpath = os.path.join(_hdir, f"{_dts.now(_tzs.utc).strftime('%Y-%m-%d')}.json")
+                Path(_hpath).write_text(_jsave.dumps(conversation_history, indent=2))
+            except Exception:
+                pass
+
         first_turn = False
