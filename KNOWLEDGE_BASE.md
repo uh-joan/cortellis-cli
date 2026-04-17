@@ -96,6 +96,32 @@ wiki/internal/<slug>.md    ← entity-linked article with [[wikilinks]]
 
 ---
 
+## `cortellis run-skill ingest-internal <file> <indication>` — Ingest + merge into indication
+
+Like `ingest` but also extracts commercial sections (market forecasts, epidemiology, physician insights, reimbursement, unmet need) and merges them directly into the indication wiki article in one step.
+
+```bash
+cortellis run-skill ingest-internal raw/internal/obesity/Obesity_Forecast.csv obesity
+cortellis run-skill ingest-internal raw/internal/masld/Clarivate_MASLD_Epidemiology.pdf masld
+cortellis run-skill ingest-internal raw/internal/obesity/GLP1_Physician_Insights.pptx obesity
+```
+
+**Supported formats:** `.md`, `.txt`, `.csv`, `.pdf`, `.pptx`, `.xlsx`
+
+**Output:**
+```
+wiki/internal/<slug>.md           ← entity-linked article
+wiki/indications/<indication>.md  ← updated with extracted commercial sections
+```
+
+**vs `/ingest`:** Use `ingest` for deal memos, expert call notes, general research — documents where you just want cross-linking. Use `ingest-internal` when the document contains structured commercial data (forecasts, market share, epidemiology numbers) that should live inside the indication article.
+
+**Idempotent:** Safe to re-run — duplicate section headers are detected and skipped.
+
+**Also available as slash command:** `/ingest-internal <file> <indication>`
+
+---
+
 ## `/signals` — Morning intelligence briefing
 
 Scans all compiled wiki articles and raw staging files for pipeline changes, emerging science, and high-confidence genetic evidence. No API calls — reads from `wiki/` and `raw/`.
