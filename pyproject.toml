@@ -19,6 +19,8 @@ dependencies = [
     "python-pptx>=0.6.21",
     "openpyxl>=3.0.0",
     "networkx>=3.0",
+    "fastapi>=0.115",
+    "uvicorn[standard]>=0.30",
 ]
 
 [project.optional-dependencies]
@@ -29,10 +31,6 @@ dev = [
 ]
 graph = [
     "graspologic>=3.0",
-]
-web = [
-    "fastapi>=0.115",
-    "uvicorn[standard]>=0.30",
 ]
 
 [project.scripts]

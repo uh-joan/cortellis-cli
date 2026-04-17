@@ -2072,19 +2072,7 @@ def web_cmd(host, port, dev) -> None:
     import sys as _sys
     from pathlib import Path as _Path
 
-    try:
-        import uvicorn
-    except ImportError:
-        click.echo("Error: uvicorn is required for the web UI. Install it:")
-        click.echo("  pip install uvicorn[standard]")
-        raise SystemExit(1)
-
-    try:
-        import fastapi  # noqa
-    except ImportError:
-        click.echo("Error: fastapi is required for the web UI. Install it:")
-        click.echo("  pip install fastapi")
-        raise SystemExit(1)
+    import uvicorn  # noqa
 
     ui_dir = _Path(__file__).resolve().parents[2] / "web" / "ui"
 
