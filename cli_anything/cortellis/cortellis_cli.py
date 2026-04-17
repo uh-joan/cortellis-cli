@@ -1677,6 +1677,19 @@ def setup_cmd() -> None:
     # Step 4: Build web UI
     click.echo("  Step 4/4: Web UI")
     click.echo("  " + "-" * 40)
+    try:
+        import uvicorn  # noqa
+        import fastapi  # noqa
+    except ImportError as _e:
+        click.echo(f"  Missing dependency: {_e}")
+        click.echo("  Re-install to pick up new dependencies:")
+        click.echo("    pip install --upgrade git+https://github.com/uh-joan/cortellis-cli.git")
+        click.echo("  Then re-run: cortellis setup")
+        click.echo()
+        click.echo("  " + "=" * 50)
+        click.echo("  Setup incomplete — fix dependency above and re-run.")
+        click.echo("  " + "=" * 50)
+        return
     from pathlib import Path as _Path
     ui_dir = _Path(__file__).resolve().parents[2] / "web" / "ui"
     dist_dir = ui_dir / "dist"
