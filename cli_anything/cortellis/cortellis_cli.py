@@ -1719,15 +1719,11 @@ def setup_cmd() -> None:
     click.echo("  " + "=" * 50)
     click.echo()
     click.echo("  Quick start:")
-    click.echo("    cortellis drugs search --phase L --hits 5")
-    click.echo("    cortellis --json companies search --query \"Pfizer\"")
-    click.echo("    cortellis ontology search --term \"obesity\" --category indication")
-    if claude_bin:
-        click.echo("    cortellis chat                       # AI chat via Claude Code")
-    if codex_bin:
-        click.echo("    cortellis --engine codex chat        # AI chat via OpenAI Codex")
+    click.echo("    cortellis                            # AI chat (Claude Code)")
+    click.echo("    cortellis --engine codex             # AI chat (OpenAI Codex)")
+    click.echo("    cortellis web                        # browser UI at localhost:7337")
     click.echo()
-    click.echo("  Run 'cortellis --help' to see all 17 command groups.")
+    click.echo("  Run 'cortellis --help' to see all 21 command groups.")
 
 
 # ---------------------------------------------------------------------------
