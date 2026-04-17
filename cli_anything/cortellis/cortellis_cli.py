@@ -1564,7 +1564,7 @@ def config_cmd(env_file: str) -> None:
 def setup_cmd() -> None:
     """First-time setup wizard for new users.
 
-    Walks through: credentials, API connectivity test, and Claude Code check.
+    Walks through: credentials, API connectivity test, AI engine check, and web UI build.
     """
     import os
     import shutil
@@ -1574,7 +1574,7 @@ def setup_cmd() -> None:
     click.echo("  Welcome to Cortellis CLI Setup!\n")
 
     # Step 1: Credentials
-    click.echo("  Step 1/3: Cortellis API Credentials")
+    click.echo("  Step 1/4: Cortellis API Credentials")
     click.echo("  " + "-" * 40)
 
     env_path = Path.cwd() / ".env"
@@ -1606,7 +1606,7 @@ def setup_cmd() -> None:
     click.echo(f"  Saved to {env_path}\n")
 
     # Step 2: Test API connectivity
-    click.echo("  Step 2/3: Testing API Connection")
+    click.echo("  Step 2/4: Testing API Connection")
     click.echo("  " + "-" * 40)
     try:
         from cli_anything.cortellis.core.client import CortellisClient as _TestClient
@@ -1621,7 +1621,7 @@ def setup_cmd() -> None:
     click.echo()
 
     # Step 3: AI engine check (for chat mode)
-    click.echo("  Step 3/3: AI Chat Engine (for AI Chat Mode)")
+    click.echo("  Step 3/4: AI Chat Engine (for AI Chat Mode)")
     click.echo("  " + "-" * 40)
     import subprocess as _sp
     claude_bin = shutil.which("claude")
@@ -1672,6 +1672,29 @@ def setup_cmd() -> None:
 
     if not claude_bin and not codex_bin:
         click.echo("  (Optional — all other commands work without an AI engine)")
+    click.echo()
+
+    # Step 4: Build web UI
+    click.echo("  Step 4/4: Web UI")
+    click.echo("  " + "-" * 40)
+    from pathlib import Path as _Path
+    ui_dir = _Path(__file__).resolve().parents[2] / "web" / "ui"
+    dist_dir = ui_dir / "dist"
+    if dist_dir.exists():
+        click.echo("  Web UI already built. Run: cortellis web")
+    elif not shutil.which("npm"):
+        click.echo("  node/npm not found — skipping web UI build.")
+        click.echo("  Install Node.js from https://nodejs.org/ then run: cortellis web")
+    else:
+        click.echo("  Building web UI (takes ~30s)…")
+        if not (ui_dir / "node_modules").exists():
+            click.echo("  Installing UI dependencies…")
+            _sp.run(["npm", "install"], cwd=str(ui_dir), check=True)
+        result = _sp.run(["npm", "run", "build"], cwd=str(ui_dir))
+        if result.returncode == 0:
+            click.echo("  Web UI built. Run: cortellis web")
+        else:
+            click.echo("  Build failed. Try manually: cd web/ui && npm run build")
     click.echo()
 
     # Summary
@@ -2062,7 +2085,6 @@ def web_cmd(host, port, dev) -> None:
 
     For production (serves built React app):
       cortellis web
-      # UI is built automatically on first run (requires node/npm)
 
     For development (hot-reload UI):
       cortellis web --dev
@@ -2077,14 +2099,10 @@ def web_cmd(host, port, dev) -> None:
 
     ui_dir = _Path(__file__).resolve().parents[2] / "web" / "ui"
 
-    def _ensure_npm():
-        if not _shutil.which("npm"):
-            click.echo("Error: node/npm is required to build the web UI.", err=True)
-            click.echo("  Install Node.js from https://nodejs.org/ and re-run.", err=True)
-            raise SystemExit(1)
-
     if dev:
-        _ensure_npm()
+        if not _shutil.which("npm"):  # noqa: needed for --dev npm check
+            click.echo("Error: node/npm is required for --dev mode.", err=True)
+            raise SystemExit(1)
         if not (ui_dir / "node_modules").exists():
             click.echo("  Installing UI dependencies (first run)…")
             _sp.run(["npm", "install"], cwd=str(ui_dir), check=True)
@@ -2104,12 +2122,8 @@ def web_cmd(host, port, dev) -> None:
     else:
         dist = ui_dir / "dist"
         if not dist.exists():
-            _ensure_npm()
-            click.echo("  Building web UI (first run — takes ~30s)…")
-            if not (ui_dir / "node_modules").exists():
-                click.echo("  Installing UI dependencies…")
-                _sp.run(["npm", "install"], cwd=str(ui_dir), check=True)
-            _sp.run(["npm", "run", "build"], cwd=str(ui_dir), check=True)
+            click.echo("Error: web UI not built. Run: cortellis setup", err=True)
+            raise SystemExit(1)
 
         url = f"http://{host}:{port}"
         click.echo(f"\n  Cortellis Web UI → {url}")
