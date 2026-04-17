@@ -1698,20 +1698,17 @@ def setup_cmd() -> None:
             return
     from pathlib import Path as _Path
     ui_dir = _Path(__file__).resolve().parents[2] / "web" / "ui"
-    dist_dir = ui_dir / "dist"
-    if dist_dir.exists():
-        click.echo("  Web UI already built. Run: cortellis web")
-    elif not shutil.which("npm"):
+    if not shutil.which("npm"):
         click.echo("  node/npm not found — skipping web UI build.")
-        click.echo("  Install Node.js from https://nodejs.org/ then run: cortellis web")
+        click.echo("  Install Node.js from https://nodejs.org/ then re-run: cortellis setup")
     else:
-        click.echo("  Building web UI (takes ~30s)…")
+        click.echo("  Building web UI…")
         if not (ui_dir / "node_modules").exists():
             click.echo("  Installing UI dependencies…")
             _sp.run(["npm", "install"], cwd=str(ui_dir), check=True)
         result = _sp.run(["npm", "run", "build"], cwd=str(ui_dir))
         if result.returncode == 0:
-            click.echo("  Web UI built. Run: cortellis web")
+            click.echo("  Web UI built successfully. Run: cortellis web")
         else:
             click.echo("  Build failed. Try manually: cd web/ui && npm run build")
     click.echo()
