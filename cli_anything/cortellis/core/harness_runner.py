@@ -12,6 +12,7 @@ Reads a workflow YAML DAG and executes recipe nodes with:
 """
 
 import re
+import shlex
 import subprocess
 import sys
 import threading
@@ -201,22 +202,29 @@ def _prompt_approval(report_path: Path) -> bool:
     return answer in ("y", "yes")
 
 
+_NODE_TIMEOUT = 600  # seconds; a hung recipe blocks its wave thread indefinitely
+
+
 def _exec_node(node: Node, bash: str, output_dir: Path) -> NodeResult:
     """Run the resolved bash command and return a NodeResult."""
     t0 = time.monotonic()
-    result = subprocess.run(
-        bash,
-        shell=True,
-        capture_output=True,
-        text=True,
-        cwd=str(REPO_ROOT),
-    )
+    try:
+        result = subprocess.run(
+            bash,
+            shell=True,
+            capture_output=True,
+            text=True,
+            cwd=str(REPO_ROOT),
+            timeout=_NODE_TIMEOUT,
+        )
+    except subprocess.TimeoutExpired:
+        duration = time.monotonic() - t0
+        print(f"  [{node.id}] TIMEOUT after {_NODE_TIMEOUT}s", file=sys.stderr)
+        return NodeResult(status="failed", returncode=-1, duration=duration)
     duration = time.monotonic() - t0
-    status = "success" if result.returncode == 0 else ("failed" if not node.allow_fail else "success")
     if result.returncode != 0:
         print(f"  [{node.id}] stderr: {result.stderr.strip()[:300]}", file=sys.stderr)
-        if not node.allow_fail:
-            status = "failed"
+    status = "success" if result.returncode == 0 or node.allow_fail else "failed"
     return NodeResult(
         status=status,
         output=result.stdout,
@@ -276,7 +284,7 @@ class HarnessRunner:
         # Seed ARGUMENTS variable and pin python3 to the active venv interpreter
         python_bin = sys.executable
         def resolve(text: str) -> str:
-            t = text.replace("$ARGUMENTS", indication)
+            t = text.replace("$ARGUMENTS", shlex.quote(indication))
             t = re.sub(r'\bpython3\b', python_bin, t)
             return _resolve_vars(t, state)
 
