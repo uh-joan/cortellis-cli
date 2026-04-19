@@ -1,9 +1,13 @@
 import os
 import re
+import subprocess
+import threading
 from pathlib import Path
 
 import yaml
 from fastapi import APIRouter, HTTPException
+
+from web.server.jobs import create_job, finish_job, get_job
 
 _WIKILINK_RE = re.compile(r"\[\[([^\]|\\]+?)(?:[|\\][^\]]+?)?\]\]")
 
@@ -122,6 +126,53 @@ def get_wiki_graph(workspace_path: str):
                 links.append({"source": source_slug, "target": target_slug})
 
     return {"nodes": list(nodes.values()), "links": links}
+
+
+@router.get("/wiki/jobs/{job_id}")
+def get_wiki_job(job_id: str):
+    job = get_job(job_id)
+    if not job:
+        raise HTTPException(404, "Job not found")
+    return job
+
+
+@router.post("/wiki/refresh")
+def wiki_refresh(workspace_path: str):
+    job_id = create_job()
+
+    def _run():
+        proc = subprocess.run(
+            ["cortellis", "wiki", "refresh"],
+            capture_output=True, text=True, cwd=workspace_path,
+        )
+        finish_job(job_id, proc.returncode, proc.stdout + proc.stderr)
+
+    threading.Thread(target=_run, daemon=True).start()
+    return {"job_id": job_id}
+
+
+@router.post("/wiki/{slug}/changelog")
+def run_changelog(slug: str, workspace_path: str):
+    md_path = Path(workspace_path) / "wiki" / "indications" / f"{slug}.md"
+    raw_dir = Path(workspace_path) / "raw" / slug
+    if not md_path.exists():
+        return {"prereq_missing": True, "message": "Run /landscape first to generate data for this indication."}
+    if not raw_dir.is_dir() or not (raw_dir / "historical_snapshots.csv").exists():
+        return {"prereq_missing": True, "message": f"No historical data for '{slug}'. Run /landscape {slug} first."}
+
+    import sys
+    job_id = create_job()
+    script = str(Path(__file__).resolve().parents[3] / "cli_anything" / "cortellis" / "skills" / "changelog" / "recipes" / "extract_changes.py")
+
+    def _run():
+        proc = subprocess.run(
+            [sys.executable, script, str(md_path), str(raw_dir), slug],
+            capture_output=True, text=True, cwd=workspace_path,
+        )
+        finish_job(job_id, proc.returncode, proc.stdout + proc.stderr)
+
+    threading.Thread(target=_run, daemon=True).start()
+    return {"job_id": job_id, "prereq_missing": False}
 
 
 @router.get("/wiki/{article_type}/{slug}")

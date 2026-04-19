@@ -1,7 +1,7 @@
-import { useState, useEffect, useMemo } from 'react'
+import { useState, useEffect, useMemo, useRef } from 'react'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
-import { getWikiArticle, listWiki } from '../lib/api.js'
+import { getWikiArticle, listWiki, postChangelog, pollJob } from '../lib/api.js'
 
 const TYPE_COLOR = { indications: '#4f8ef7', companies: '#f59e0b', drugs: '#22c55e', targets: '#a78bfa' }
 
@@ -21,16 +21,50 @@ function parseWikilinks(content) {
   })
 }
 
-export default function WikiPanel({ article, onBack, onNavigate }) {
+export default function WikiPanel({ article, onBack, onNavigate, historyDepth = 0 }) {
   const [data, setData] = useState(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
   const [allArticles, setAllArticles] = useState([])
+  const [changelogOpen, setChangelogOpen] = useState(false)
+  const [changelogRunning, setChangelogRunning] = useState(false)
+  const [changelogOutput, setChangelogOutput] = useState(null)
+  const [changelogError, setChangelogError] = useState(null)
+  const changelogIntervalRef = useRef(null)
   const workspace = window.__WORKSPACE__ || '.'
 
   useEffect(() => {
     listWiki(workspace).then(setAllArticles).catch(() => {})
   }, [workspace])
+
+  async function handleChangelog() {
+    if (changelogOpen && !changelogRunning) { setChangelogOpen(false); return }
+    if (changelogRunning) return
+    setChangelogOpen(true)
+    setChangelogRunning(true)
+    setChangelogOutput(null)
+    setChangelogError(null)
+    try {
+      const result = await postChangelog(article.slug, workspace)
+      if (result.prereq_missing) {
+        setChangelogError(result.message)
+        setChangelogRunning(false)
+        return
+      }
+      changelogIntervalRef.current = setInterval(async () => {
+        const job = await pollJob(result.job_id)
+        if (job.status !== 'running') {
+          clearInterval(changelogIntervalRef.current)
+          if (job.status === 'error') setChangelogError(job.output || 'Changelog failed.')
+          else setChangelogOutput(job.output)
+          setChangelogRunning(false)
+        }
+      }, 2000)
+    } catch (e) {
+      setChangelogError(e.message)
+      setChangelogRunning(false)
+    }
+  }
 
   // slug → {type, slug, title} lookup
   const slugLookup = useMemo(() => {
@@ -95,13 +129,14 @@ export default function WikiPanel({ article, onBack, onNavigate }) {
 
   return (
     <div className="wiki-viewer">
-      <button className="wiki-back" onClick={onBack}>← Back</button>
+      <button className="wiki-back" onClick={onBack}>← {historyDepth > 0 ? 'Back' : 'Wiki'}</button>
 
       {loading && <div style={{ color: 'var(--text-dim)' }}>Loading…</div>}
       {error && <div style={{ color: 'var(--error)' }}>Error: {error}</div>}
 
       {data && (
         <>
+          <h1 className="wiki-article-title">{article.title}</h1>
           <div className="wiki-content">
             <ReactMarkdown remarkPlugins={[remarkGfm]} components={components} urlTransform={u => u}>
               {processedContent}
@@ -123,6 +158,36 @@ export default function WikiPanel({ article, onBack, onNavigate }) {
                   </button>
                 ))}
               </div>
+            </div>
+          )}
+
+          {article.type === 'indications' && (
+            <div className="wiki-changelog">
+              <button className="wiki-graph-btn" onClick={handleChangelog}>
+                {changelogRunning ? '⟳ Running…' : changelogOpen ? '▲ Hide History' : '▼ History'}
+              </button>
+              {changelogOpen && (
+                <div className="wiki-changelog-panel">
+                  {changelogRunning && <div style={{ color: 'var(--text-dim)', padding: '12px 0' }}>Generating pipeline history…</div>}
+                  {changelogError && <div style={{ color: 'var(--error)', padding: '12px 0' }}>{changelogError}</div>}
+                  {changelogOutput && (() => {
+                    const clean = changelogOutput
+                      .split('\n')
+                      .filter(l => !l.match(/^[▶✓✗]\s*(Wave|\[)/) && !l.match(/\] (running|success|error|skipped)/))
+                      .join('\n')
+                      .trim()
+                    return clean ? (
+                      <div className="wiki-content">
+                        <ReactMarkdown remarkPlugins={[remarkGfm]}>{clean}</ReactMarkdown>
+                      </div>
+                    ) : (
+                      <div style={{ color: 'var(--text-dim)', padding: '12px 0', fontSize: '13px' }}>
+                        No changelog data yet. Run <code>/landscape {article.slug}</code> first to generate pipeline history.
+                      </div>
+                    )
+                  })()}
+                </div>
+              )}
             </div>
           )}
         </>

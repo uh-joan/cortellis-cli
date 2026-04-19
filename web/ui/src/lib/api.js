@@ -111,3 +111,72 @@ export async function importHistory(workspacePath) {
   if (!res.ok) return { imported: 0 }
   return res.json()
 }
+
+// Job polling (shared by wiki refresh, changelog, signals)
+export async function pollJob(jobId) {
+  const res = await fetch(`${BASE}/wiki/jobs/${jobId}`)
+  if (!res.ok) throw new Error('Job not found')
+  return res.json()
+}
+
+export async function postWikiRefresh(workspacePath) {
+  const res = await fetch(`${BASE}/wiki/refresh?workspace_path=${encodeURIComponent(workspacePath)}`, { method: 'POST' })
+  if (!res.ok) throw new Error('Failed to start refresh')
+  return res.json()
+}
+
+export async function postChangelog(slug, workspacePath) {
+  const res = await fetch(`${BASE}/wiki/${slug}/changelog?workspace_path=${encodeURIComponent(workspacePath)}`, { method: 'POST' })
+  if (!res.ok) throw new Error('Failed to start changelog')
+  return res.json()
+}
+
+export async function getSignalsReport(workspacePath) {
+  const res = await fetch(`${BASE}/signals/report?workspace_path=${encodeURIComponent(workspacePath)}`)
+  if (!res.ok) return { exists: false, content: null }
+  return res.json()
+}
+
+export async function runSignals(workspacePath) {
+  const res = await fetch(`${BASE}/signals/run?workspace_path=${encodeURIComponent(workspacePath)}`, { method: 'POST' })
+  if (!res.ok) throw new Error('Failed to start signals run')
+  return res.json()
+}
+
+export async function pollSignalsJob(jobId) {
+  const res = await fetch(`${BASE}/internal/jobs/${jobId}`)
+  if (!res.ok) throw new Error('Job not found')
+  return res.json()
+}
+
+export async function listInternalSources(workspacePath) {
+  const res = await fetch(`${BASE}/internal/sources?workspace_path=${encodeURIComponent(workspacePath)}`)
+  if (!res.ok) return { indications: {} }
+  return res.json()
+}
+
+export async function uploadInternalFile(indication, file, workspacePath) {
+  const form = new FormData()
+  form.append('indication', indication)
+  form.append('workspace_path', workspacePath)
+  form.append('file', file)
+  const res = await fetch(`${BASE}/internal/upload`, { method: 'POST', body: form })
+  if (!res.ok) throw new Error('Upload failed')
+  return res.json()
+}
+
+export async function startIngest(filePath, workspacePath) {
+  const res = await fetch(`${BASE}/internal/ingest`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ file_path: filePath, workspace_path: workspacePath }),
+  })
+  if (!res.ok) throw new Error('Failed to start ingest')
+  return res.json()
+}
+
+export async function pollIngestJob(jobId) {
+  const res = await fetch(`${BASE}/internal/jobs/${jobId}`)
+  if (!res.ok) throw new Error('Job not found')
+  return res.json()
+}

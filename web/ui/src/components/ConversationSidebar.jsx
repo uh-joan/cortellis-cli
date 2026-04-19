@@ -1,152 +1,89 @@
-import { useState, useEffect, useCallback } from 'react'
-import { listWiki } from '../lib/api.js'
-import MemoryPanel from './MemoryPanel.jsx'
 
-const TYPE_LABELS = {
-  indications: 'Indications',
-  companies: 'Companies',
-  drugs: 'Drugs',
-  targets: 'Targets',
-  internal: 'Internal Research',
-  conferences: 'Conferences',
-  sessions: 'Session Insights',
-  root: 'Index',
-}
+const NAV_ITEMS = [
+  { id: 'wiki',          label: 'Wiki',          icon: '◎' },
+  { id: 'insights',      label: 'Insights',      icon: '✦' },
+  { id: 'internal-docs', label: 'Internal', icon: '⬙' },
+  { id: 'signals',       label: 'Signals',       icon: '◈' },
+]
 
 export default function ConversationSidebar({
-  conversations, activeConvId, tab, workspace,
-  onTabChange, onNewChat, onSelectConv, onDeleteConv,
-  onWikiOpen, onShowInsights, onShowGraph, onGoHome,
-  activeWikiSlug, insightsActive,
+  conversations, activeConvId, tab,
+  insightsActive, memoryActive, cliSessionsActive, signalsActive, internalDocsActive,
+  onNewChat, onSelectConv, onDeleteConv,
+  onShowWiki, onShowMemory, onShowInsights, onShowCliSessions, onShowSignals, onShowInternalDocs, onGoHome,
 }) {
-  const [wikiArticles, setWikiArticles] = useState([])
-  const [openTypes, setOpenTypes] = useState({})
-  const [showCli, setShowCli] = useState(false)
 
-  const loadWiki = useCallback(async () => {
-    const articles = await listWiki(workspace)
-    setWikiArticles(articles)
-  }, [workspace])
+  const webConvs = conversations.filter(c => !c.title.startsWith('CLI — '))
+  const cliConvs = conversations.filter(c => c.title.startsWith('CLI — '))
+  const convIsActive = !insightsActive && !memoryActive && !signalsActive && !internalDocsActive && tab === 'chats'
 
-  useEffect(() => {
-    if (tab === 'wiki') loadWiki()
-  }, [tab, loadWiki])
-
-  const wikiByType = wikiArticles.reduce((acc, a) => {
-    if (!acc[a.type]) acc[a.type] = []
-    acc[a.type].push(a)
-    return acc
-  }, {})
-
-  function toggleType(type) {
-    setOpenTypes(prev => ({ ...prev, [type]: !prev[type] }))
+  function isNavActive(id) {
+    if (id === 'wiki')          return tab === 'wiki' && !insightsActive && !memoryActive && !signalsActive && !internalDocsActive
+    if (id === 'insights')      return insightsActive
+    if (id === 'signals')       return signalsActive
+    if (id === 'internal-docs') return internalDocsActive
+    return false
   }
 
-  const typeOrder = ['root', 'indications', 'companies', 'drugs', 'targets', 'internal', 'conferences', 'sessions']
+  function handleNavClick(id) {
+    if (id === 'wiki')          onShowWiki()
+    if (id === 'insights')      onShowInsights()
+    if (id === 'signals')       onShowSignals()
+    if (id === 'internal-docs') onShowInternalDocs()
+  }
 
   return (
     <div className="sidebar">
-      <div className="sidebar-header" onClick={onGoHome} style={{ cursor: 'pointer' }}>
-        <div>
-          <div className="sidebar-title">Cortellis</div>
-          <div className="sidebar-subtitle">Pharmaceutical Intelligence</div>
-        </div>
+      <div className="sidebar-header" onClick={onGoHome}>
+        <div className="sidebar-title">Cortellis</div>
       </div>
 
-      <div className="sidebar-tabs">
-        {['chats', 'wiki', 'memory'].map(t => (
+      <nav className="sidebar-nav">
+        <button className="sidebar-nav-item new-chat-item" onClick={onNewChat}>
+          <span className="sidebar-nav-icon new-chat-icon">+</span>
+          <span>New chat</span>
+        </button>
+
+        <div className="sidebar-nav-divider" />
+
+        {NAV_ITEMS.map(item => (
           <button
-            key={t}
-            className={`sidebar-tab ${tab === t && !insightsActive ? 'active' : ''}`}
-            onClick={() => onTabChange(t)}
+            key={item.id}
+            className={`sidebar-nav-item ${isNavActive(item.id) ? 'active' : ''}`}
+            onClick={() => handleNavClick(item.id)}
           >
-            {t.charAt(0).toUpperCase() + t.slice(1)}
+            <span className="sidebar-nav-icon">{item.icon}</span>
+            <span>{item.label}</span>
           </button>
         ))}
-      </div>
+      </nav>
+
+      <div className="sidebar-section-label">Recent</div>
 
       <div className="sidebar-body">
-        {tab === 'chats' && (
-          <>
-            <button className="new-chat-btn" onClick={onNewChat}>+ New Chat</button>
-            {(() => {
-              const webConvs = conversations.filter(c => !c.title.startsWith('CLI — '))
-              const cliConvs = conversations.filter(c => c.title.startsWith('CLI — '))
-              return (
-                <>
-                  {webConvs.length === 0 && cliConvs.length === 0 && (
-                    <div className="no-convs">No conversations yet</div>
-                  )}
-                  {webConvs.map(conv => (
-                    <ConvItem key={conv.id} conv={conv}
-                      active={conv.id === activeConvId && !insightsActive}
-                      onSelect={() => onSelectConv(conv.id)}
-                      onDelete={() => onDeleteConv(conv.id)} />
-                  ))}
-                  {cliConvs.length > 0 && (
-                    <div className="cli-section">
-                      <button className="cli-toggle" onClick={() => setShowCli(s => !s)}>
-                        CLI sessions ({cliConvs.length}) {showCli ? '▲' : '▼'}
-                      </button>
-                      {showCli && cliConvs.map(conv => (
-                        <ConvItem key={conv.id} conv={conv}
-                          active={conv.id === activeConvId && !insightsActive}
-                          onSelect={() => onSelectConv(conv.id)}
-                          onDelete={() => onDeleteConv(conv.id)} />
-                      ))}
-                    </div>
-                  )}
-                </>
-              )
-            })()}
-          </>
+        {webConvs.length === 0 && cliConvs.length === 0 && (
+          <div className="no-convs">No conversations yet</div>
         )}
-
-        {tab === 'wiki' && (
-          <>
-            <button className="wiki-graph-cta" onClick={onShowGraph}>◎ Graph view</button>
-
-            {Object.keys(wikiByType).length === 0 ? (
-              <div className="no-convs">No wiki articles yet</div>
-            ) : (
-              typeOrder.filter(t => wikiByType[t]?.length).map(type => {
-                const articles = wikiByType[type]
-                const isOpen = !!openTypes[type]
-                return (
-                  <div key={type}>
-                    <div
-                      className="wiki-type-header wiki-type-toggle"
-                      onClick={() => toggleType(type)}
-                    >
-                      <span>{TYPE_LABELS[type] || type}</span>
-                      <span className="wiki-type-count">{articles.length} {isOpen ? '▲' : '▼'}</span>
-                    </div>
-                    {isOpen && articles.map(a => (
-                      <div
-                        key={a.slug}
-                        className={`wiki-item ${activeWikiSlug === a.slug ? 'active' : ''}`}
-                        onClick={() => onWikiOpen(a)}
-                      >
-                        {a.title}
-                      </div>
-                    ))}
-                  </div>
-                )
-              })
+        {webConvs.map(conv => (
+          <ConvItem
+            key={conv.id} conv={conv}
+            active={convIsActive && conv.id === activeConvId}
+            onSelect={() => onSelectConv(conv.id)}
+            onDelete={() => onDeleteConv(conv.id)}
+          />
+        ))}
+        {(
+          <div className="cli-section">
+            <button className={`cli-toggle memory-link ${memoryActive ? 'active' : ''}`} onClick={onShowMemory}>
+              Memory
+            </button>
+            {cliConvs.length > 0 && (
+              <button className={`cli-toggle memory-link ${cliSessionsActive ? 'active' : ''}`} onClick={onShowCliSessions}>
+                Sessions
+              </button>
             )}
-          </>
+          </div>
         )}
-
-        {tab === 'memory' && <MemoryPanel workspace={workspace} />}
-      </div>
-
-      <div className="sidebar-footer">
-        <button
-          className={`insights-nav-btn ${insightsActive ? 'active' : ''}`}
-          onClick={onShowInsights}
-        >
-          Strategic Insights
-        </button>
       </div>
     </div>
   )
@@ -171,5 +108,7 @@ function ConvItem({ conv, active, onSelect, onDelete }) {
 
 function isToday(date) {
   const now = new Date()
-  return date.getDate() === now.getDate() && date.getMonth() === now.getMonth() && date.getFullYear() === now.getFullYear()
+  return date.getDate() === now.getDate() &&
+    date.getMonth() === now.getMonth() &&
+    date.getFullYear() === now.getFullYear()
 }

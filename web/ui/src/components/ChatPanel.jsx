@@ -4,12 +4,13 @@ import MessageList from './MessageList.jsx'
 import MessageInput from './MessageInput.jsx'
 import ContextBanner from './ContextBanner.jsx'
 
-export default function ChatPanel({ convId, workspace, onTitleUpdate }) {
+export default function ChatPanel({ convId, workspace, initialMessage, onReady, onTitleUpdate, readOnly = false }) {
   const [messages, setMessages] = useState([])
   const [streaming, setStreaming] = useState(false)
   const [toolCalls, setToolCalls] = useState([])
   const bottomRef = useRef(null)
   const isFirstMessage = useRef(true)
+  const isStreamingRef = useRef(false)
 
   const scrollToBottom = useCallback(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
@@ -19,12 +20,17 @@ export default function ChatPanel({ convId, workspace, onTitleUpdate }) {
     listMessages(convId).then(msgs => {
       setMessages(msgs)
       isFirstMessage.current = msgs.filter(m => m.role === 'user').length === 0
-      setTimeout(scrollToBottom, 50)
+      if (!readOnly) setTimeout(scrollToBottom, 50)
+      if (initialMessage && msgs.length === 0) {
+        onReady?.()
+        handleSend(initialMessage)
+      }
     })
   }, [convId, scrollToBottom])
 
   async function handleSend(content) {
-    if (!content.trim() || streaming) return
+    if (!content.trim() || isStreamingRef.current) return
+    isStreamingRef.current = true
 
     const userMsg = {
       id: `tmp-${Date.now()}`,
@@ -89,6 +95,7 @@ export default function ChatPanel({ convId, workspace, onTitleUpdate }) {
         created_at: new Date().toISOString(),
       }])
     } finally {
+      isStreamingRef.current = false
       setStreaming(false)
       setToolCalls([])
     }
@@ -96,9 +103,7 @@ export default function ChatPanel({ convId, workspace, onTitleUpdate }) {
 
   return (
     <>
-      <ContextBanner workspace={workspace} />
-
-      <div className="chat-area">
+      <div className={`chat-area ${readOnly ? 'chat-area-readonly' : ''}`}>
         <div className="messages-wrap">
           <MessageList messages={messages} />
 
@@ -126,7 +131,7 @@ export default function ChatPanel({ convId, workspace, onTitleUpdate }) {
         </div>
       </div>
 
-      <MessageInput onSend={handleSend} disabled={streaming} />
+      {!readOnly && <MessageInput onSend={handleSend} disabled={streaming} />}
     </>
   )
 }

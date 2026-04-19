@@ -7,7 +7,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 
 from web.server import db
-from web.server.routes import conversations, wiki, memory
+from web.server.routes import conversations, wiki, memory, internal
 
 
 @asynccontextmanager
@@ -35,6 +35,7 @@ app.add_middleware(
 app.include_router(conversations.router, prefix="/api")
 app.include_router(wiki.router, prefix="/api")
 app.include_router(memory.router, prefix="/api")
+app.include_router(internal.router, prefix="/api")
 
 # Workspace is always the repo root (two levels up from web/server/)
 _WORKSPACE = str(Path(__file__).resolve().parents[2])

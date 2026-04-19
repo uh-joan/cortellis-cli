@@ -24,12 +24,18 @@ def _build_wiki_context(question: str, workspace_path: str) -> str:
         if wiki_article_path:
             art = _read_wiki(wiki_article_path)
             if art:
+                compiled_at = art['meta'].get('compiled_at', 'Unknown')
+                title = art['meta'].get('title', 'Unknown')
                 return (
                     "\n\n--- COMPILED WIKI ARTICLE ---\n"
-                    "A compiled article is available. Use it to answer the question. "
-                    "Only call the API if the user explicitly requests fresh data.\n\n"
-                    f"Title: {art['meta'].get('title', 'Unknown')}\n"
-                    f"Compiled: {art['meta'].get('compiled_at', 'Unknown')}\n\n"
+                    f"A compiled article for '{title}' is available (compiled: {compiled_at}). "
+                    "Use it to answer the question. Only call the API if the user explicitly requests fresh data.\n"
+                    "IMPORTANT: Begin your response by acknowledging the compiled source, e.g. "
+                    f"'The compiled {title} landscape is fresh (compiled {compiled_at}). Here\\'s the summary:'\n"
+                    "IMPORTANT: End your response with 2-3 specific follow-up suggestions using skill shortcuts "
+                    "like /pipeline, /drug-profile, /landscape. Example: "
+                    "'Want me to drill into Novo Nordisk's pipeline (/pipeline), profile tirzepatide (/drug-profile semaglutide), "
+                    "or run a head-to-head comparison (/drug-comparison)?'\n\n"
                     f"{art['body']}\n"
                     "--- END COMPILED ARTICLE ---\n"
                 )

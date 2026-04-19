@@ -3,9 +3,13 @@
 import json
 import os
 import re
+import subprocess
+import threading
 from pathlib import Path
 
 from fastapi import APIRouter, HTTPException
+
+from web.server.jobs import create_job, finish_job, get_job
 
 router = APIRouter()
 
@@ -177,3 +181,27 @@ def import_history(workspace_path: str):
     from web.server.history import import_cli_history
     created = import_cli_history(workspace_path)
     return {"imported": created}
+
+
+@router.get("/signals/report")
+def get_signals_report(workspace_path: str):
+    path = Path(workspace_path) / "wiki" / "SIGNALS_REPORT.md"
+    if not path.exists():
+        return {"content": None, "exists": False}
+    return {"content": path.read_text(encoding="utf-8"), "exists": True}
+
+
+@router.post("/signals/run")
+def run_signals(workspace_path: str):
+    import sys
+    job_id = create_job()
+
+    def _run():
+        proc = subprocess.run(
+            [sys.executable, "-m", "cli_anything.cortellis.skills.landscape.recipes.signals_report"],
+            capture_output=True, text=True, cwd=workspace_path,
+        )
+        finish_job(job_id, proc.returncode, proc.stdout + proc.stderr)
+
+    threading.Thread(target=_run, daemon=True).start()
+    return {"job_id": job_id}
