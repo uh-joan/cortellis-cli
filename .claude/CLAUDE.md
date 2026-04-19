@@ -92,6 +92,16 @@ Examples that should trigger `/insights`:
 - "What have we found so far?" → `/insights`
 - "Key findings across indications" → `/insights`
 
+## Frontend development
+
+When fixing or developing the web UI (`web/ui/`), use the **web browser tool** to verify changes visually before claiming completion. Workflow:
+1. Start the dev server (`cortellis web --dev`) if not already running.
+2. Make the code change.
+3. Open the browser to `http://localhost:7337` and verify the fix visually.
+4. Check for regressions on related UI areas before finishing.
+
+Do not rely solely on type checking or build success — always confirm in the browser.
+
 ## Setup
 
 Say "setup omc" or run `/oh-my-claudecode:omc-setup`.
