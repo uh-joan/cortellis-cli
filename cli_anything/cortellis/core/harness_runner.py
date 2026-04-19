@@ -108,7 +108,7 @@ def _slug_name(s: str) -> str:
     return re.sub(r"[^a-z0-9]+", "-", s.lower()).strip("-")
 
 
-def _resolve_vars(text: str, state: dict[str, NodeResult]) -> str:
+def _resolve_vars(text: str, state: dict[str, NodeResult], for_shell: bool = False) -> str:
     """Replace $node_id.output references with captured stdout from that node.
 
     CSV field aliases (resolve nodes output comma-separated values):
@@ -119,6 +119,10 @@ def _resolve_vars(text: str, state: dict[str, NodeResult]) -> str:
       field 2: active_drugs, drug_phase, gene_symbol          → raw
       field 3+: action_name (join_remaining=True)             → raw joined
       field 4: inn_slug                                       → raw
+
+    for_shell: if True, all substituted values are shlex.quoted so the result
+               is safe to pass to shell=True subprocess. Use False (default)
+               for condition strings (_eval_when).
     """
     # Maps suffix → (csv_index, slugify[, join_remaining])
     _FIELD_MAP: dict[str, tuple] = {
@@ -165,17 +169,19 @@ def _resolve_vars(text: str, state: dict[str, NodeResult]) -> str:
             idx, do_slug = entry[0], entry[1]
             join_remaining = entry[2] if len(entry) > 2 else False
             if idx == -1:
-                return output
-            parts = output.split(",")
-            if join_remaining:
-                val = ",".join(parts[idx:]) if len(parts) > idx else ""
-            elif idx < len(parts):
-                val = parts[idx]
+                val = output
             else:
-                return output
-            return _slug_name(val) if do_slug else val
+                parts = output.split(",")
+                if join_remaining:
+                    val = ",".join(parts[idx:]) if len(parts) > idx else ""
+                elif idx < len(parts):
+                    val = parts[idx]
+                else:
+                    val = output
+            val = _slug_name(val) if do_slug else val
+            return shlex.quote(val) if for_shell else val
 
-        return output
+        return shlex.quote(output) if for_shell else output
 
     return re.sub(r'\$([a-z_][a-z0-9_]*)(\.[a-z_.]+)?', replacer, text)
 
@@ -311,7 +317,7 @@ class HarnessRunner:
         def resolve(text: str) -> str:
             t = text.replace("$ARGUMENTS", shlex.quote(indication))
             t = re.sub(r'\bpython3\b', python_bin, t)
-            return _resolve_vars(t, state)
+            return _resolve_vars(t, state, for_shell=True)
 
         for wave_idx, wave in enumerate(self.waves):
             # After resolve completes, pin output_dir to the canonical slug

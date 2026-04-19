@@ -12,6 +12,7 @@ from web.server.routes import conversations, wiki, memory, internal
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    db.init_db()
     # Auto-import CLI session history on startup
     try:
         from web.server.history import import_cli_history
@@ -43,8 +44,6 @@ _WORKSPACE = str(Path(__file__).resolve().parents[2])
 @app.get("/api/config")
 def get_config():
     return {"workspace_path": _WORKSPACE}
-
-db.init_db()
 
 # Serve the built React app — populated by `npm run build` inside web/ui/
 _static = Path(__file__).parent.parent / "ui" / "dist"
