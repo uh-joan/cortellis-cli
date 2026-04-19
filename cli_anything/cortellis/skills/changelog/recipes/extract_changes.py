@@ -257,20 +257,13 @@ def main():
         print("### Recent Drug Events (last 24 months)")
         # Group by month, show up to 15 events
         by_month: dict[str, list] = defaultdict(list)
-        for t in transitions[:30]:
+        for t in transitions:
             by_month[t["date"][:7]].append(t)
 
-        shown = 0
         for month_key in sorted(by_month.keys(), reverse=True):
-            evts = by_month[month_key]
-            for e in evts:
+            for e in by_month[month_key]:
                 company_part = f" ({e['company']})" if e["company"] else ""
                 print(f"- {month_label(e['date'])}: **{e['drug']}**{company_part} — {e['label']}")
-                shown += 1
-                if shown >= 15:
-                    break
-            if shown >= 15:
-                break
         print()
 
     # ── Footer ────────────────────────────────────────────────────────────
@@ -280,7 +273,6 @@ def main():
               f"Company rankings reflect current compiled state only._")
     else:
         print("_Only one snapshot available. Run /landscape periodically to build history._")
-    print(f"_Wiki file: {wiki_file} | Raw dir: {raw_dir}_")
 
 
 if __name__ == "__main__":

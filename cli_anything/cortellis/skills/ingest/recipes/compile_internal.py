@@ -37,7 +37,9 @@ def compile_internal_article(title, body_text, source_file=None, entities=None):
     is replaced with a [[slug|Name]] wikilink.
     """
     now = _now_iso()
-    slug = slugify(title)
+    # Derive slug from source filename for stability — same file always produces same slug
+    from pathlib import Path as _Path
+    slug = slugify(_Path(source_file).stem) if source_file else slugify(title)
 
     # Resolve entity slugs for frontmatter
     entity_slugs = []
@@ -112,6 +114,21 @@ def main():
 
     slug, meta, body = compile_internal_article(title, body_text, source_file, entities)
     int_path = article_path("internal", slug, base_dir)
+
+    # Remove any existing article with the same source_file but a different slug
+    if source_file:
+        from pathlib import Path as _P
+        int_dir = _P(int_path).parent
+        if int_dir.is_dir():
+            for old in int_dir.glob("*.md"):
+                if old == _P(int_path):
+                    continue
+                try:
+                    txt = old.read_text(encoding="utf-8")
+                    if f"source_file: {source_file}" in txt:
+                        old.unlink()
+                except Exception:
+                    pass
 
     write_article(int_path, meta, body)
     print(f"  Written: {int_path}")

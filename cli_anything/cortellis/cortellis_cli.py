@@ -1573,8 +1573,28 @@ def setup_cmd() -> None:
     click.echo(_BANNER)
     click.echo("  Welcome to Cortellis CLI Setup!\n")
 
+    # Step 0: Sync Python dependencies from pyproject.toml
+    click.echo("  Step 0/5: Syncing Python dependencies")
+    click.echo("  " + "-" * 40)
+    import subprocess as _sp0
+    import sys as _sys0
+    _pkg_root = str(Path(__file__).resolve().parents[2])
+    _pip = [_sys0.executable, "-m", "pip", "install", "-e", _pkg_root]
+    _r = _sp0.run(_pip, capture_output=True)
+    if _r.returncode != 0:
+        if b"externally-managed-environment" in _r.stderr:
+            _r = _sp0.run(_pip + ["--break-system-packages"], capture_output=True)
+        else:
+            _r = _sp0.run(_pip + ["--user"], capture_output=True)
+    if _r.returncode == 0:
+        click.echo("  All dependencies up to date.")
+    else:
+        click.echo("  Warning: could not sync dependencies. Run manually:")
+        click.echo(f"    pip install -e {_pkg_root}")
+    click.echo()
+
     # Step 1: Credentials
-    click.echo("  Step 1/4: Cortellis API Credentials")
+    click.echo("  Step 1/5: Cortellis API Credentials")
     click.echo("  " + "-" * 40)
 
     env_path = Path.cwd() / ".env"
@@ -1606,7 +1626,7 @@ def setup_cmd() -> None:
     click.echo(f"  Saved to {env_path}\n")
 
     # Step 2: Test API connectivity
-    click.echo("  Step 2/4: Testing API Connection")
+    click.echo("  Step 2/5: Testing API Connection")
     click.echo("  " + "-" * 40)
     try:
         from cli_anything.cortellis.core.client import CortellisClient as _TestClient
@@ -1621,7 +1641,7 @@ def setup_cmd() -> None:
     click.echo()
 
     # Step 3: AI engine check (for chat mode)
-    click.echo("  Step 3/4: AI Chat Engine (for AI Chat Mode)")
+    click.echo("  Step 3/5: AI Chat Engine (for AI Chat Mode)")
     click.echo("  " + "-" * 40)
     import subprocess as _sp
     claude_bin = shutil.which("claude")
@@ -1675,7 +1695,7 @@ def setup_cmd() -> None:
     click.echo()
 
     # Step 4: Build web UI
-    click.echo("  Step 4/4: Web UI")
+    click.echo("  Step 4/5: Web UI")
     click.echo("  " + "-" * 40)
     try:
         import uvicorn  # noqa

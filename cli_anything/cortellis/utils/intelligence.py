@@ -757,15 +757,14 @@ def generate_signals_report(
     # Research Library: internal docs grouped by indication
     internal_docs = load_internal_docs(w_dir)
     if internal_docs:
-        # Group by indication slug (first entity that matches a compiled indication)
+        # Group by primary indication — first entity that matches a compiled indication slug
         indication_slugs = {os.path.splitext(os.path.basename(a["path"]))[0] for a in articles}
         groups: dict[str, list[dict]] = {}
         ungrouped: list[dict] = []
         for doc in internal_docs:
-            matched = [e for e in doc["entities"] if e in indication_slugs]
-            if matched:
-                for ind in matched:
-                    groups.setdefault(ind, []).append(doc)
+            primary = next((e for e in doc["entities"] if e in indication_slugs), None)
+            if primary:
+                groups.setdefault(primary, []).append(doc)
             else:
                 ungrouped.append(doc)
 
