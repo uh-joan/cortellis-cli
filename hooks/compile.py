@@ -171,18 +171,6 @@ def _is_routine(log_content: str) -> bool:
 
 
 # ---------------------------------------------------------------------------
-# Slugify (local copy to avoid importing from wiki utils at top-level)
-# ---------------------------------------------------------------------------
-
-def _slugify(name: str) -> str:
-    s = name.lower().strip()
-    s = s.replace("'", "").replace("\u2019", "")
-    s = re.sub(r"[^a-z0-9\-]+", "-", s)
-    s = re.sub(r"-{2,}", "-", s)
-    return s.strip("-")
-
-
-# ---------------------------------------------------------------------------
 # Fallback deterministic compilation
 # ---------------------------------------------------------------------------
 
@@ -220,7 +208,7 @@ def compile_basic(log_content: str, log_date: str, wiki_dir: str) -> list[str]:
     concepts_created: list[str] = []
 
     sys.path.insert(0, str(PROJECT_ROOT))
-    from cli_anything.cortellis.utils.wiki import write_article, wiki_root as get_wiki_root
+    from cli_anything.cortellis.utils.wiki import write_article, wiki_root as get_wiki_root, slugify as _slugify
 
     w_dir = get_wiki_root(wiki_dir)
     concepts_dir = os.path.join(w_dir, "insights", "concepts")
