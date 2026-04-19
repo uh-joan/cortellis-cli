@@ -23,7 +23,7 @@ nodes:
       query = sys.argv[1]
       slug = re.sub(r'[^a-z0-9]+', '-', query.lower()).strip('-')
       print(f'conference,{slug}')
-      " '$ARGUMENTS'
+      " $ARGUMENTS
     model: haiku
     # Output: conference,<slug>  (field 1 slugified → conference dir name)
 
@@ -32,7 +32,7 @@ nodes:
   - id: fetch_data
     bash: |
       python3 cli_anything/cortellis/skills/conference-intel/recipes/fetch_conference.py \
-        '$ARGUMENTS' \
+        $ARGUMENTS \
         raw/conferences/$resolve.output.conference_name
     depends_on: [resolve]
     api_calls: true
@@ -42,7 +42,7 @@ nodes:
   - id: briefing
     bash: |
       python3 cli_anything/cortellis/skills/conference-intel/recipes/conference_briefing.py \
-        raw/conferences/$resolve.output.conference_name '$ARGUMENTS' \
+        raw/conferences/$resolve.output.conference_name $ARGUMENTS \
         | tee raw/conferences/$resolve.output.conference_name/briefing.md
     depends_on: [fetch_data]
     model: sonnet
@@ -52,7 +52,7 @@ nodes:
   - id: compile
     bash: |
       python3 cli_anything/cortellis/skills/conference-intel/recipes/compile_conference.py \
-        raw/conferences/$resolve.output.conference_name '$ARGUMENTS'
+        raw/conferences/$resolve.output.conference_name $ARGUMENTS
     depends_on: [briefing]
     model: sonnet
     review_gate: true

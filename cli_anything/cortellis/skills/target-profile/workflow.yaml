@@ -21,7 +21,7 @@ nodes:
   # ── Step 1: Resolve target ID ──────────────────────────────────────────────
 
   - id: resolve
-    bash: "python3 cli_anything/cortellis/skills/target-profile/recipes/resolve_target_id.py '$ARGUMENTS'"
+    bash: "python3 cli_anything/cortellis/skills/target-profile/recipes/resolve_target_id.py $ARGUMENTS"
     model: haiku
     # Output: target_id,target_name,gene_symbol,action_name
 

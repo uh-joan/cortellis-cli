@@ -25,7 +25,7 @@ nodes:
       filepath = sys.argv[1]
       name = re.sub(r'[^a-z0-9]+', '-', Path(filepath).stem.lower()).strip('-')
       print(f'ingest,{name}')
-      " '$ARGUMENTS'
+      " $ARGUMENTS
     model: haiku
     # Output: ingest,<slug>  (field 1 slugified → log dir name)
 
@@ -33,6 +33,6 @@ nodes:
 
   - id: ingest
     bash: |
-      python3 cli_anything/cortellis/skills/ingest/recipes/ingest_wrapper.py '$ARGUMENTS'
+      python3 cli_anything/cortellis/skills/ingest/recipes/ingest_wrapper.py $ARGUMENTS
     depends_on: [resolve]
     fs_exclusive: true

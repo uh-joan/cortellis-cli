@@ -274,7 +274,10 @@ def extract_text_from_file(path: str) -> str:
         return result.stdout
 
     if ext == ".pptx":
-        from pptx import Presentation
+        try:
+            from pptx import Presentation
+        except ImportError:
+            raise ImportError("python-pptx is required for PPTX files. Run: pip install python-pptx")
         prs = Presentation(path)
         chunks = []
         for slide in prs.slides:
@@ -287,7 +290,10 @@ def extract_text_from_file(path: str) -> str:
         return "\n".join(chunks)
 
     if ext in (".xlsx", ".xlsm"):
-        import openpyxl
+        try:
+            import openpyxl
+        except ImportError:
+            raise ImportError("openpyxl is required for Excel files. Run: pip install openpyxl")
         wb = openpyxl.load_workbook(path, read_only=True, data_only=True)
         chunks = []
         for ws in wb.worksheets:

@@ -22,7 +22,7 @@ nodes:
   # ── Step 0/1: Resolve + freshness (haiku — lightweight, no synthesis) ──────
 
   - id: resolve
-    bash: "python3 cli_anything/cortellis/skills/landscape/recipes/resolve_indication.py '$ARGUMENTS'"
+    bash: "python3 cli_anything/cortellis/skills/landscape/recipes/resolve_indication.py $ARGUMENTS"
     model: haiku
     output_format:
       type: object

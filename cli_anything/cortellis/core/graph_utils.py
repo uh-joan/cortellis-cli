@@ -12,10 +12,17 @@ def refresh_graph(base_dir: str) -> None:
     Called at the end of each skill's compile step so the graph stays current
     after drug-profile, pipeline, target-profile, and conference-intel runs.
     """
-    from cli_anything.cortellis.skills.landscape.recipes.graphify_wiki import (
-        build_graph_from_wiki,
-        write_graph_json,
-    )
+    try:
+        from cli_anything.cortellis.skills.landscape.recipes.graphify_wiki import (
+            _NX_AVAILABLE,
+            build_graph_from_wiki,
+            write_graph_json,
+        )
+    except ImportError:
+        return
+    if not _NX_AVAILABLE:
+        return
+
     from cli_anything.cortellis.utils.wiki import wiki_root
 
     w_dir = wiki_root(base_dir)

@@ -18,7 +18,7 @@ nodes:
   # ── Step 1: Parse drug names and produce a stable comparison slug ──────────
 
   - id: resolve
-    bash: "python3 cli_anything/cortellis/skills/drug-comparison/recipes/parse_drugs.py '$ARGUMENTS'"
+    bash: "python3 cli_anything/cortellis/skills/drug-comparison/recipes/parse_drugs.py $ARGUMENTS"
     model: haiku
     # Output: comparison,<slug>  (field 1 slugified → comparison dir name)
 
@@ -27,7 +27,7 @@ nodes:
   - id: fetch_all
     bash: |
       python3 cli_anything/cortellis/skills/drug-comparison/recipes/fetch_comparison_data.py \
-        '$ARGUMENTS' \
+        $ARGUMENTS \
         raw/comparisons/$resolve.output.comparison_name
     depends_on: [resolve]
     api_calls: true

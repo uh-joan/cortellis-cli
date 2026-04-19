@@ -18,7 +18,7 @@ nodes:
   # ── Step 1: Resolve company ID (haiku — lightweight) ─────────────────────
 
   - id: resolve
-    bash: "python3 cli_anything/cortellis/skills/pipeline/recipes/resolve_company.py '$ARGUMENTS'"
+    bash: "python3 cli_anything/cortellis/skills/pipeline/recipes/resolve_company.py $ARGUMENTS"
     model: haiku
     # Output: company_id,company_name,active_drugs[,method]
 

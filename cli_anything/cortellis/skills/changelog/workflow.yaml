@@ -21,7 +21,7 @@ nodes:
       from cli_anything.cortellis.utils.wiki import slugify
       slug = slugify(sys.argv[1])
       print(f'indication,{slug}')
-      " '$ARGUMENTS'
+      " $ARGUMENTS
     model: haiku
     # Output: indication,<slug>  (field 1 slugified → matches raw/<slug> dir)
 
@@ -32,5 +32,5 @@ nodes:
       python3 cli_anything/cortellis/skills/changelog/recipes/extract_changes.py \
         wiki/indications/$resolve.output.indication_name.md \
         raw/$resolve.output.indication_name \
-        '$ARGUMENTS'
+        $ARGUMENTS
     depends_on: [resolve]

@@ -19,7 +19,7 @@ nodes:
   # ── Step 1: Resolve drug ID ────────────────────────────────────────────────
 
   - id: resolve
-    bash: "python3 cli_anything/cortellis/skills/drug-profile/recipes/resolve_drug.py '$ARGUMENTS'"
+    bash: "python3 cli_anything/cortellis/skills/drug-profile/recipes/resolve_drug.py $ARGUMENTS"
     model: haiku
     # Output: drug_id,drug_name,phase,indication_count,inn_slug
 
