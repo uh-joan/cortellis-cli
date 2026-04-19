@@ -126,6 +126,7 @@ def find_target_slug_for_mechanism(mechanism: str, base_dir: Optional[str] = Non
     mech_norm = _norm(mechanism)
     best_slug = None
     best_len = 0
+    best_is_deep = False  # True if best match has a deep profile (source_dir set)
     mech_words = set(mech_norm.split())
 
     for fname in os.listdir(targets_dir):
@@ -142,19 +143,25 @@ def find_target_slug_for_mechanism(mechanism: str, base_dir: Optional[str] = Non
         title_norm = _norm(title)
         if not title_norm:
             continue
+        is_deep = bool(meta.get("source_dir"))  # compiled by target-profile skill
+        score = 0
         # Exact substring match (primary, score = title length)
-        if title_norm in mech_norm and len(title_norm) > best_len:
-            best_slug = slug
-            best_len = len(title_norm)
+        if title_norm in mech_norm:
+            score = len(title_norm)
+        else:
+            # Word-overlap fallback for long titles (≥4 significant words)
+            title_words = set(title_norm.split()) - {"and", "or", "of", "the", "a"}
+            if len(title_words) >= 4:
+                overlap = len(title_words & mech_words)
+                if overlap >= len(title_words) * 0.7:
+                    score = overlap * 5
+        if score == 0:
             continue
-        # Word-overlap fallback for long titles (≥4 significant words)
-        title_words = set(title_norm.split()) - {"and", "or", "of", "the", "a"}
-        if len(title_words) >= 4:
-            overlap = len(title_words & mech_words)
-            score = overlap * 5  # weight overlap matches lower than exact
-            if overlap >= len(title_words) * 0.7 and score > best_len:
-                best_slug = slug
-                best_len = score
+        # Prefer: higher score; tie-break by preferring deep profile over stub
+        if score > best_len or (score == best_len and is_deep and not best_is_deep):
+            best_slug = slug
+            best_len = score
+            best_is_deep = is_deep
 
     return best_slug
 
