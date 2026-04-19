@@ -1253,6 +1253,32 @@ body {
 .wiki-refresh-spinner { display: inline-block; animation: spin 1s linear infinite; }
 
 /* ── Changelog panel (WikiPanel) ─────────────────────────────────────── */
+.wiki-enrich-callout {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: rgba(245, 158, 11, 0.07);
+  border: 1px solid rgba(245, 158, 11, 0.22);
+  border-radius: var(--radius);
+  padding: 8px 14px;
+  margin-bottom: 20px;
+  font-size: 12.5px;
+  color: var(--tool);
+}
+.wiki-enrich-callout button {
+  margin-left: auto;
+  background: transparent;
+  border: 1px solid rgba(245, 158, 11, 0.35);
+  border-radius: 4px;
+  color: var(--tool);
+  cursor: pointer;
+  font-size: 12px;
+  padding: 3px 10px;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+.wiki-enrich-callout button:hover { background: rgba(245, 158, 11, 0.12); }
+
 .wiki-changelog { margin-top: 24px; }
 .wiki-changelog-panel {
   margin-top: 12px;

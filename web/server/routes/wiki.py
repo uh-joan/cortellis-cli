@@ -1,3 +1,4 @@
+import json
 import os
 import re
 import subprocess
@@ -173,6 +174,73 @@ def run_changelog(slug: str, workspace_path: str):
 
     threading.Thread(target=_run, daemon=True).start()
     return {"job_id": job_id, "prereq_missing": False}
+
+
+@router.get("/wiki/{slug}/manifest")
+def get_enrich_manifest(slug: str, workspace_path: str):
+    """Return enrichment manifest summary counts for an indication."""
+    raw_dir = Path(workspace_path) / "raw"
+    if not raw_dir.is_dir():
+        return {"exists": False}
+    for subdir in sorted(raw_dir.iterdir()):
+        if not subdir.is_dir():
+            continue
+        manifest_path = subdir / "enrichment_manifest.json"
+        if not manifest_path.exists():
+            continue
+        try:
+            data = json.loads(manifest_path.read_text())
+            if data.get("indication_slug") == slug:
+                missing_drugs = sum(1 for d in data.get("drugs", []) if not d.get("has_deep_profile"))
+                missing_cos = sum(1 for c in data.get("companies", []) if not c.get("has_pipeline"))
+                missing_tgts = sum(1 for t in data.get("targets", []) if not t.get("has_deep_profile"))
+                return {
+                    "exists": True,
+                    "indication": data.get("indication"),
+                    "missing_drugs": missing_drugs,
+                    "missing_companies": missing_cos,
+                    "missing_targets": missing_tgts,
+                    "total_missing": missing_drugs + missing_cos + missing_tgts,
+                    "generated_at": data.get("generated_at"),
+                }
+        except Exception:
+            continue
+    return {"exists": False}
+
+
+@router.post("/wiki/{slug}/enrich")
+def run_enrich(slug: str, workspace_path: str):
+    """Run the enrich skill for an indication."""
+    import sys
+    raw_dir = Path(workspace_path) / "raw"
+    indication_name = None
+    if raw_dir.is_dir():
+        for subdir in sorted(raw_dir.iterdir()):
+            if not subdir.is_dir():
+                continue
+            manifest_path = subdir / "enrichment_manifest.json"
+            if not manifest_path.exists():
+                continue
+            try:
+                data = json.loads(manifest_path.read_text())
+                if data.get("indication_slug") == slug:
+                    indication_name = data.get("indication")
+                    break
+            except Exception:
+                continue
+    if not indication_name:
+        return {"prereq_missing": True, "message": f"No manifest found. Run /landscape {slug} first."}
+    job_id = create_job()
+
+    def _run():
+        proc = subprocess.run(
+            ["cortellis", "run-skill", "enrich", indication_name],
+            capture_output=True, text=True, cwd=workspace_path,
+        )
+        finish_job(job_id, proc.returncode, proc.stdout + proc.stderr)
+
+    threading.Thread(target=_run, daemon=True).start()
+    return {"job_id": job_id, "prereq_missing": False, "indication": indication_name}
 
 
 @router.get("/wiki/{article_type}/{slug}")

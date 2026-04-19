@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo, useRef } from 'react'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
-import { getWikiArticle, listWiki, postChangelog, pollJob } from '../lib/api.js'
+import { getWikiArticle, listWiki, postChangelog, pollJob, getEnrichManifest, postEnrich } from '../lib/api.js'
 
 const TYPE_COLOR = { indications: '#4f8ef7', companies: '#f59e0b', drugs: '#22c55e', targets: '#a78bfa' }
 
@@ -31,11 +31,23 @@ export default function WikiPanel({ article, onBack, onNavigate, historyDepth = 
   const [changelogOutput, setChangelogOutput] = useState(null)
   const [changelogError, setChangelogError] = useState(null)
   const changelogIntervalRef = useRef(null)
+  const [enrichManifest, setEnrichManifest] = useState(null)
+  const [enrichOpen, setEnrichOpen] = useState(false)
+  const [enrichRunning, setEnrichRunning] = useState(false)
+  const [enrichOutput, setEnrichOutput] = useState(null)
+  const [enrichError, setEnrichError] = useState(null)
+  const enrichIntervalRef = useRef(null)
   const workspace = window.__WORKSPACE__ || '.'
 
   useEffect(() => {
     listWiki(workspace).then(setAllArticles).catch(() => {})
   }, [workspace])
+
+  useEffect(() => {
+    if (article.type !== 'indications') return
+    setEnrichManifest(null)
+    getEnrichManifest(article.slug, workspace).then(setEnrichManifest).catch(() => {})
+  }, [article.type, article.slug, workspace])
 
   async function handleChangelog() {
     if (changelogOpen && !changelogRunning) { setChangelogOpen(false); return }
@@ -63,6 +75,38 @@ export default function WikiPanel({ article, onBack, onNavigate, historyDepth = 
     } catch (e) {
       setChangelogError(e.message)
       setChangelogRunning(false)
+    }
+  }
+
+  async function handleEnrich() {
+    if (enrichOpen && !enrichRunning) { setEnrichOpen(false); return }
+    if (enrichRunning) return
+    setEnrichOpen(true)
+    setEnrichRunning(true)
+    setEnrichOutput(null)
+    setEnrichError(null)
+    try {
+      const result = await postEnrich(article.slug, workspace)
+      if (result.prereq_missing) {
+        setEnrichError(result.message)
+        setEnrichRunning(false)
+        return
+      }
+      enrichIntervalRef.current = setInterval(async () => {
+        const job = await pollJob(result.job_id)
+        if (job.status !== 'running') {
+          clearInterval(enrichIntervalRef.current)
+          if (job.status === 'error') setEnrichError(job.output || 'Enrich failed.')
+          else {
+            setEnrichOutput(job.output)
+            getEnrichManifest(article.slug, workspace).then(setEnrichManifest).catch(() => {})
+          }
+          setEnrichRunning(false)
+        }
+      }, 2000)
+    } catch (e) {
+      setEnrichError(e.message)
+      setEnrichRunning(false)
     }
   }
 
@@ -137,6 +181,24 @@ export default function WikiPanel({ article, onBack, onNavigate, historyDepth = 
       {data && (
         <>
           <h1 className="wiki-article-title">{article.title}</h1>
+
+          {article.type === 'indications' && enrichManifest?.exists && enrichManifest.total_missing > 0 && (
+            <div className="wiki-enrich-callout">
+              <span>{enrichRunning ? '⟳' : '⚠'}</span>
+              <span>{enrichRunning ? 'Enriching KB…' : [
+                enrichManifest.missing_drugs > 0 && `${enrichManifest.missing_drugs} drugs`,
+                enrichManifest.missing_companies > 0 && `${enrichManifest.missing_companies} companies`,
+                enrichManifest.missing_targets > 0 && `${enrichManifest.missing_targets} targets`,
+              ].filter(Boolean).join(' · ') + ' need profiling'}</span>
+              {!enrichRunning && (
+                <button onClick={() => {
+                  handleEnrich()
+                  setTimeout(() => document.querySelector('.wiki-enrich-section')?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 50)
+                }}>Enrich →</button>
+              )}
+            </div>
+          )}
+
           <div className="wiki-content">
             <ReactMarkdown remarkPlugins={[remarkGfm]} components={components} urlTransform={u => u}>
               {processedContent}
@@ -184,6 +246,41 @@ export default function WikiPanel({ article, onBack, onNavigate, historyDepth = 
                       <div style={{ color: 'var(--text-dim)', padding: '12px 0', fontSize: '13px' }}>
                         No changelog data yet. Run <code>/landscape {article.slug}</code> first to generate pipeline history.
                       </div>
+                    )
+                  })()}
+                </div>
+              )}
+            </div>
+          )}
+
+          {article.type === 'indications' && (
+            <div className="wiki-changelog wiki-enrich-section">
+              <button className="wiki-graph-btn" onClick={handleEnrich}>
+                {enrichRunning ? '⟳ Enriching…' : enrichOpen ? '▲ Hide Enrich' : '▼ Enrich KB'}
+              </button>
+              {enrichOpen && (
+                <div className="wiki-changelog-panel">
+                  {!enrichRunning && !enrichOutput && !enrichError && (
+                    <div style={{ color: 'var(--text-dim)', padding: '12px 0', fontSize: '13px' }}>
+                      {enrichManifest?.total_missing > 0
+                        ? `Runs drug-profile, pipeline, and target-profile for ${enrichManifest.total_missing} missing entities.`
+                        : 'KB is complete — all priority entities have deep profiles.'}
+                    </div>
+                  )}
+                  {enrichRunning && <div style={{ color: 'var(--text-dim)', padding: '12px 0' }}>Running drug-profile, pipeline, and target-profile skills…</div>}
+                  {enrichError && <div style={{ color: 'var(--error)', padding: '12px 0' }}>{enrichError}</div>}
+                  {enrichOutput && (() => {
+                    const clean = enrichOutput
+                      .split('\n')
+                      .filter(l => !l.match(/^[▶✓✗]\s*(Wave|\[)/) && !l.match(/\] (running|success|error|skipped)/))
+                      .join('\n')
+                      .trim()
+                    return clean ? (
+                      <div className="wiki-content">
+                        <ReactMarkdown remarkPlugins={[remarkGfm]}>{clean}</ReactMarkdown>
+                      </div>
+                    ) : (
+                      <div style={{ color: 'var(--text-dim)', padding: '12px 0', fontSize: '13px' }}>Enrich complete. Refresh to see updated article.</div>
                     )
                   })()}
                 </div>

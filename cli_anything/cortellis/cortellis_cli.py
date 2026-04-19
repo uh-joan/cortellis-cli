@@ -2008,6 +2008,34 @@ def run_skill_ingest(file_path: str, dry_run: bool) -> None:
         raise SystemExit(exit_code)
 
 
+@run_skill.command(name="enrich")
+@click.argument("indication")
+@click.option("--dry-run", is_flag=True, help="Print wave schedule without executing")
+def run_skill_enrich(indication: str, dry_run: bool) -> None:
+    """Fill deep profiles for drugs, companies, and targets after a landscape.
+
+    Example: cortellis run-skill enrich obesity
+             cortellis run-skill enrich MASH --dry-run
+    """
+    import re
+    from pathlib import Path
+    from cli_anything.cortellis.core.harness_runner import HarnessRunner, REPO_ROOT
+
+    workflow_yaml = Path(__file__).resolve().parent / "skills/enrich/workflow.yaml"
+    runner = HarnessRunner(workflow_yaml)
+
+    if dry_run:
+        runner.dry_run()
+        return
+
+    slug = re.sub(r"[^a-z0-9]+", "-", indication.lower()).strip("-")
+    output_dir = REPO_ROOT / "raw" / slug
+
+    exit_code = runner.execute(indication, output_dir)
+    if exit_code != 0:
+        raise SystemExit(exit_code)
+
+
 # repl — interactive command REPL
 # ---------------------------------------------------------------------------
 

@@ -180,3 +180,15 @@ export async function pollIngestJob(jobId) {
   if (!res.ok) throw new Error('Job not found')
   return res.json()
 }
+
+export async function getEnrichManifest(slug, workspacePath) {
+  const res = await fetch(`${BASE}/wiki/${slug}/manifest?workspace_path=${encodeURIComponent(workspacePath)}`)
+  if (!res.ok) return { exists: false }
+  return res.json()
+}
+
+export async function postEnrich(slug, workspacePath) {
+  const res = await fetch(`${BASE}/wiki/${slug}/enrich?workspace_path=${encodeURIComponent(workspacePath)}`, { method: 'POST' })
+  if (!res.ok) throw new Error('Failed to start enrich')
+  return res.json()
+}
