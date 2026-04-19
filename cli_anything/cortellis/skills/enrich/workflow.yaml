@@ -1,0 +1,61 @@
+# Enrich skill — fill deep profiles for priority entities after a landscape run.
+#
+# Reads enrichment_manifest.json produced by compile_dossier.py and runs
+# drug-profile, pipeline, and target-profile sub-skills for entities that
+# are missing deep wiki articles. Skips anything already profiled (idempotent).
+#
+# Run after: cortellis run-skill landscape <indication>
+# Usage:     cortellis run-skill enrich <indication>
+
+name: enrich
+description: |
+  Use when: user wants to fill in deep profiles for drugs, companies, and targets
+  after running a landscape. Completes the KB for a given indication.
+  Triggers: "enrich <indication>", "fill profiles for <indication>",
+  "complete KB for <indication>", "deep profiles for <indication>"
+model: haiku
+argument-hint: "<indication_name>"
+
+nodes:
+
+  # ── Step 1: Resolve indication name (reuses landscape resolver) ────────────
+
+  - id: resolve
+    bash: "python3 cli_anything/cortellis/skills/landscape/recipes/resolve_indication.py $ARGUMENTS"
+    model: haiku
+    output_format:
+      type: object
+      properties:
+        indication_id: { type: string }
+        indication_name: { type: string }
+      required: [indication_id, indication_name]
+
+  # ── Step 2: Enrich drugs (launched + phase3, no deep profile yet) ──────────
+
+  - id: enrich_drugs
+    bash: |
+      python3 cli_anything/cortellis/skills/enrich/recipes/enrich_from_manifest.py \
+        "raw/$resolve.output.indication_name/enrichment_manifest.json" \
+        --type drugs
+    depends_on: [resolve]
+    allow_fail: true
+
+  # ── Step 3: Enrich companies (tier A/B, no pipeline yet) ──────────────────
+
+  - id: enrich_companies
+    bash: |
+      python3 cli_anything/cortellis/skills/enrich/recipes/enrich_from_manifest.py \
+        "raw/$resolve.output.indication_name/enrichment_manifest.json" \
+        --type companies
+    depends_on: [enrich_drugs]
+    allow_fail: true
+
+  # ── Step 4: Enrich targets (mechanisms with ≥3 drugs, no deep profile) ─────
+
+  - id: enrich_targets
+    bash: |
+      python3 cli_anything/cortellis/skills/enrich/recipes/enrich_from_manifest.py \
+        "raw/$resolve.output.indication_name/enrichment_manifest.json" \
+        --type targets
+    depends_on: [enrich_companies]
+    allow_fail: true

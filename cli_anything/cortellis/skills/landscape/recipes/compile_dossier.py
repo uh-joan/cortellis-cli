@@ -10,6 +10,7 @@ Usage: python3 compile_dossier.py <landscape_dir> [indication_name] [--wiki-dir 
 This is Step 15 of the landscape skill pipeline.
 """
 
+import json
 import os
 import sys
 from datetime import datetime, timezone
@@ -585,6 +586,119 @@ def compile_company_articles(landscape_dir, indication_name, indication_slug, ba
 
 
 # ---------------------------------------------------------------------------
+# Enrichment manifest
+# ---------------------------------------------------------------------------
+
+def emit_enrichment_manifest(landscape_dir, indication_name, slug, base_dir):
+    """Write enrichment_manifest.json — priority entities that need deep profiles."""
+    now = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+
+    # Priority drugs: launched (top 15) + phase3 (top 15)
+    launched_rows = read_csv_safe(os.path.join(landscape_dir, "launched.csv"))
+    phase3_rows = read_csv_safe(os.path.join(landscape_dir, "phase3.csv"))
+    priority_drugs = []
+    seen_drug_slugs = set()
+    for row in launched_rows[:15] + phase3_rows[:15]:
+        dname = row.get("drug_name") or row.get("name") or row.get("drug") or ""
+        if not dname:
+            continue
+        drug_slug = slugify(normalize_drug_name(dname))
+        if drug_slug in seen_drug_slugs:
+            continue
+        seen_drug_slugs.add(drug_slug)
+        drug_path = article_path("drugs", drug_slug, base_dir)
+        existing = read_article(drug_path) if os.path.exists(drug_path) else None
+        # drug-profile articles carry 'phase' + 'originator' set by compile_drug_profile.py
+        has_deep = bool(existing and existing.get("meta") and existing["meta"].get("originator"))
+        priority_drugs.append({
+            "name": normalize_drug_name(dname),  # stripped of route/company suffixes
+            "slug": drug_slug,
+            "phase": row.get("phase") or row.get("development_phase") or "",
+            "company": row.get("company") or row.get("company_name") or "",
+            "mechanism": row.get("mechanism") or row.get("moa") or "",
+            "has_deep_profile": has_deep,
+        })
+
+    # Priority companies: CPI tier A or B
+    scores = load_strategic_scores(landscape_dir)
+    priority_companies = []
+    for r in scores:
+        if r.get("cpi_tier", "") not in ("A", "B"):
+            continue
+        if safe_float(r.get("cpi_score")) < 15:
+            continue
+        cname = r.get("company", "")
+        if not cname:
+            continue
+        cslug = find_company_slug(cname, base_dir)
+        cpath = article_path("companies", cslug, base_dir)
+        existing = read_article(cpath) if os.path.exists(cpath) else None
+        # pipeline skill sets 'pipeline' key in company article meta
+        has_pipeline = bool(existing and existing.get("meta") and existing["meta"].get("pipeline"))
+        priority_companies.append({
+            "name": cname,
+            "slug": cslug,
+            "cpi_tier": r.get("cpi_tier", ""),
+            "cpi_score": safe_float(r.get("cpi_score")),
+            "has_pipeline": has_pipeline,
+        })
+
+    # Key targets: mechanisms with >= 3 active drugs
+    mechanisms = load_mechanism_scores(landscape_dir)
+    priority_targets = []
+    seen_target_slugs = set()
+    for r in mechanisms:
+        if safe_int(r.get("active_count") or 0) < 3:
+            continue
+        mname = r.get("mechanism", "")
+        if not mname:
+            continue
+        tslug = find_target_slug_for_mechanism(mname, base_dir) or slugify(mname)
+        if tslug in seen_target_slugs:
+            continue
+        seen_target_slugs.add(tslug)
+        tpath = article_path("targets", tslug, base_dir)
+        existing = read_article(tpath) if os.path.exists(tpath) else None
+        # target-profile articles carry 'target_id' set by compile_target_profile.py
+        has_deep = bool(existing and existing.get("meta") and existing["meta"].get("target_id"))
+        # Prefer wiki article title for resolver; fall back to slug → name conversion
+        search_name = mname
+        if existing and existing.get("meta") and existing["meta"].get("title"):
+            search_name = existing["meta"]["title"]
+        elif tslug:
+            search_name = tslug.replace("-", " ")
+        priority_targets.append({
+            "mechanism": mname,
+            "slug": tslug,
+            "search_name": search_name,
+            "active_drug_count": safe_int(r.get("active_count") or 0),
+            "has_deep_profile": has_deep,
+        })
+
+    manifest = {
+        "indication": indication_name,
+        "indication_slug": slug,
+        "generated_at": now,
+        "drugs": priority_drugs,
+        "companies": priority_companies,
+        "targets": priority_targets,
+    }
+
+    out_path = os.path.join(landscape_dir, "enrichment_manifest.json")
+    with open(out_path, "w") as f:
+        json.dump(manifest, f, indent=2)
+
+    missing_drugs = sum(1 for d in priority_drugs if not d["has_deep_profile"])
+    missing_cos = sum(1 for c in priority_companies if not c["has_pipeline"])
+    missing_tgts = sum(1 for t in priority_targets if not t["has_deep_profile"])
+    print(f"  Enrichment manifest: {missing_drugs} drugs, {missing_cos} companies, {missing_tgts} targets need deep profiles")
+    if missing_drugs + missing_cos + missing_tgts > 0:
+        print(f'  → cortellis run-skill enrich "{indication_name}"')
+
+    return manifest
+
+
+# ---------------------------------------------------------------------------
 # Main
 # ---------------------------------------------------------------------------
 
@@ -685,6 +799,9 @@ def main():
     total_drugs = meta.get("total_drugs", 0)
     deal_count = meta.get("total_deals", 0)
     log_activity(w_dir, "compile", f"Landscape: {indication_name} ({total_drugs} drugs, {deal_count} deals)")
+
+    # 4. Emit enrichment manifest (lists priority entities missing deep profiles)
+    emit_enrichment_manifest(landscape_dir, indication_name, slug, base_dir)
 
     print(f"Done. Wiki articles compiled for {indication_name}.")
 

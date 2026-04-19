@@ -92,6 +92,8 @@ def targets_search(query):
     """Search targets API, return (target_id, target_name, gene_symbol) or None."""
     d = run_cmd(["cortellis", "--json", "targets", "search", "--query",
                   f"targetSynonyms:{query}", "--hits", "10"])
+    if not isinstance(d, dict):
+        return None
     try:
         results = d.get("TargetResultsOutput", {}).get("SearchResults", {}).get("TargetResult", [])
         if isinstance(results, dict):
