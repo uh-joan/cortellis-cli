@@ -39,6 +39,7 @@ nodes:
         --type drugs
     depends_on: [resolve]
     allow_fail: true
+    timeout: 7200
 
   # ── Step 3: Enrich companies (tier A/B, no pipeline yet) ──────────────────
 
@@ -49,6 +50,7 @@ nodes:
         --type companies
     depends_on: [enrich_drugs]
     allow_fail: true
+    timeout: 7200
 
   # ── Step 4: Enrich targets (mechanisms with ≥3 drugs, no deep profile) ─────
 
@@ -59,6 +61,7 @@ nodes:
         --type targets
     depends_on: [enrich_companies]
     allow_fail: true
+    timeout: 7200
 
   # ── Step 5: Recompile indication article with enriched wiki data ───────────
 

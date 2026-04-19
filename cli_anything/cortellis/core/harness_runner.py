@@ -56,6 +56,7 @@ class Node:
     allow_fail: bool = False
     review_gate: bool = False
     resume_output: Optional[str] = None  # if set, skip if this file exists
+    timeout: Optional[int] = None        # per-node override; falls back to _NODE_TIMEOUT
 
 
 @dataclass
@@ -83,6 +84,7 @@ def _load_nodes(yaml_path: Path) -> list[Node]:
             allow_fail=n.get("allow_fail", False),
             review_gate=n.get("review_gate", False),
             resume_output=n.get("resume_output"),
+            timeout=n.get("timeout"),
         ))
     return nodes
 
@@ -240,17 +242,19 @@ def _exec_node(node: Node, bash: str, output_dir: Path) -> NodeResult:
     """Run the resolved bash command and return a NodeResult."""
     t0 = time.monotonic()
     try:
+        node_timeout = node.timeout if node.timeout else _NODE_TIMEOUT
         result = subprocess.run(
             bash,
             shell=True,
             capture_output=True,
             text=True,
             cwd=str(REPO_ROOT),
-            timeout=_NODE_TIMEOUT,
+            timeout=node_timeout,
         )
     except subprocess.TimeoutExpired:
         duration = time.monotonic() - t0
-        print(f"  [{node.id}] TIMEOUT after {_NODE_TIMEOUT}s", file=sys.stderr)
+        node_timeout = node.timeout if node.timeout else _NODE_TIMEOUT
+        print(f"  [{node.id}] TIMEOUT after {node_timeout}s", file=sys.stderr)
         return NodeResult(status="failed", returncode=-1, duration=duration)
     duration = time.monotonic() - t0
     if result.returncode != 0:
