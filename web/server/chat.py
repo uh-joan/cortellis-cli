@@ -74,7 +74,8 @@ def _build_wiki_context(question: str, workspace_path: str) -> str:
             parts.append("--- END COMPILED ARTICLES ---\n")
             return "".join(parts)
     except Exception:
-        pass
+        import logging as _logging
+        _logging.getLogger(__name__).warning("Wiki context build failed", exc_info=True)
     return ""
 
 
@@ -109,7 +110,7 @@ def _route_question(question: str) -> str:
         if question.startswith("/"):
             skill_name = question.split()[0][1:].lower()
             if skill_name in CORTELLIS_SKILLS:
-                args = question[len(skill_name) + 1:].strip()
+                args = " ".join(question.split()[1:])
                 return _harness_directive(skill_name, args, venv_activate)
 
         skill_name = detect_skill_name(question)

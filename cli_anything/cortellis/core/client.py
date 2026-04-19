@@ -43,8 +43,6 @@ class CortellisClient:
             self._session.verify = True
             adapter = HTTPAdapter(max_retries=_RETRY_STRATEGY)
             self._session.mount("https://", adapter)
-            # Clear password from instance after session is configured
-            self._password = None
         return self._session
 
     def get(self, path: str, params: Optional[dict] = None) -> Any:

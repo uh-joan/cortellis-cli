@@ -27,9 +27,9 @@ app = FastAPI(title="Cortellis Web", docs_url="/api/docs", redoc_url=None, lifes
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_origins=["http://localhost:7337", "http://127.0.0.1:7337"],
+    allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+    allow_headers=["Content-Type", "Authorization"],
 )
 
 app.include_router(conversations.router, prefix="/api")

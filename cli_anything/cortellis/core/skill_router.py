@@ -158,6 +158,8 @@ _INDICATION_PATTERNS = [
     re.compile(r"\blandscape\s+for\s+(.+?)(?:\s*\?|$)", re.IGNORECASE),
     re.compile(r"\bcompetitive\s+(?:landscape|analysis|overview)\s+(?:for\s+|in\s+)?(.+?)(?:\s*\?|$)", re.IGNORECASE),
     re.compile(r"\bmarket\s+(?:overview|landscape|map)\s+(?:for\s+|in\s+)?(.+?)(?:\s*\?|$)", re.IGNORECASE),
+    # Match "the <indication> landscape" — more specific than the greedy fallback below
+    re.compile(r"\bthe\s+(.+?)\s+landscape\b", re.IGNORECASE),
     re.compile(r"^(.+?)\s+landscape\b", re.IGNORECASE),
 ]
 

@@ -101,8 +101,9 @@ def append_to_daily_log(content: str):
 
     entry = f"\n\n---\n\n### Session ({timestamp})\n\n{content}\n"
 
+    needs_header = not log_path.exists() or log_path.stat().st_size == 0
     with open(log_path, "a", encoding="utf-8") as f:
-        if not log_path.exists() or log_path.stat().st_size == 0:
+        if needs_header:
             f.write(f"# Daily Log — {date_str}\n")
         f.write(entry)
 
