@@ -59,6 +59,14 @@ Slash commands that orchestrate full analytical pipelines — works with [Claude
 | `/signals` | Strategic intelligence report across all analyzed landscapes |
 | `/insights` | Accumulated analytical insights from previous sessions |
 
+Every skill runs through the **harness** — a deterministic DAG executor (`cortellis run-skill`) that sequences steps, hard-fails on any error, and guarantees the same output whether triggered from chat, the web UI, or the CLI directly. No silent gaps, no improvised steps.
+
+```bash
+cortellis run-skill landscape obesity      # same pipeline as /landscape in chat
+cortellis run-skill pipeline "Novo Nordisk"
+cortellis run-skill drug-profile tirzepatide --dry-run  # preview execution plan
+```
+
 → **[Knowledge base commands](KNOWLEDGE_BASE.md)** — `wiki refresh`, `changelog`, `ingest`, `/signals`, `/insights`.
 
 ### 3. Knowledge Base — Persistent, Compounding Intelligence
