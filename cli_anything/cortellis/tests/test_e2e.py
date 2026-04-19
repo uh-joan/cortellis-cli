@@ -65,8 +65,8 @@ def test_drugs_get_tirzepatide(runner):
     assert result.exit_code == 0, result.output
     data = json.loads(result.output)
     assert isinstance(data, dict)
-    # Should contain some drug-level fields
-    assert any(k in data for k in ("drugId", "id", "drugName", "name", "drug")), (
+    # Should contain some drug-level fields (API may wrap in drugRecordOutput)
+    assert any(k in data for k in ("drugId", "id", "drugName", "name", "drug", "drugRecordOutput")), (
         f"Unexpected response keys: {list(data.keys())}"
     )
 

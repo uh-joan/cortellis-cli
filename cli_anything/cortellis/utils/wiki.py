@@ -482,7 +482,10 @@ def list_articles(wiki_dir: str, article_type: Optional[str] = None) -> list[dic
 
     Returns list of {'path': str, 'meta': dict} for each article found.
     """
-    types = (article_type,) if article_type else ("indications", "companies", "drugs", "targets")
+    types = (article_type,) if article_type else (
+        "indications", "companies", "drugs", "targets",
+        "conferences", "concepts", "connections", "internal",
+    )
     results = []
     for atype in types:
         type_dir = os.path.join(wiki_dir, atype)

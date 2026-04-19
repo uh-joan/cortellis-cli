@@ -1,10 +1,13 @@
+import logging
 import re
 import subprocess
 import threading
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 
 from fastapi import APIRouter, HTTPException, UploadFile, File, Form
 from pydantic import BaseModel
+
+logger = logging.getLogger(__name__)
 
 from web.server.jobs import create_job, finish_job, get_job
 
@@ -97,8 +100,11 @@ async def upload_file(
         raise HTTPException(400, "Invalid indication name")
     target_dir = Path(workspace_path) / "raw" / "internal" / indication
     target_dir.mkdir(parents=True, exist_ok=True)
+    safe_name = PurePosixPath(file.filename).name
+    if not safe_name or safe_name.startswith("."):
+        raise HTTPException(400, "Invalid filename")
     content = await file.read()
-    target_path = target_dir / file.filename
+    target_path = target_dir / safe_name
     target_path.write_bytes(content)
     return {"ok": True, "path": str(target_path.relative_to(workspace_path))}
 
@@ -110,11 +116,16 @@ class IngestRequest(BaseModel):
 
 @router.post("/internal/ingest")
 def start_ingest(body: IngestRequest):
+    resolved = Path(body.file_path).resolve()
+    allowed = (Path(body.workspace_path) / "raw" / "internal").resolve()
+    if not str(resolved).startswith(str(allowed) + "/"):
+        raise HTTPException(400, "file_path must be within raw/internal/")
+
     job_id = create_job()
 
     def _run():
         proc = subprocess.run(
-            ["cortellis", "run-skill", "ingest", body.file_path],
+            ["cortellis", "run-skill", "ingest", str(resolved)],
             capture_output=True, text=True, cwd=body.workspace_path,
         )
         finish_job(job_id, proc.returncode, proc.stdout + proc.stderr)

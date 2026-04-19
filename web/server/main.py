@@ -12,6 +12,7 @@ from web.server.routes import conversations, wiki, memory, internal
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    db.init_db()
     # Auto-import CLI session history on startup
     try:
         from web.server.history import import_cli_history
@@ -27,9 +28,9 @@ app = FastAPI(title="Cortellis Web", docs_url="/api/docs", redoc_url=None, lifes
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_origins=["http://localhost:7337", "http://127.0.0.1:7337"],
+    allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+    allow_headers=["Content-Type", "Authorization"],
 )
 
 app.include_router(conversations.router, prefix="/api")
@@ -43,8 +44,6 @@ _WORKSPACE = str(Path(__file__).resolve().parents[2])
 @app.get("/api/config")
 def get_config():
     return {"workspace_path": _WORKSPACE}
-
-db.init_db()
 
 # Serve the built React app — populated by `npm run build` inside web/ui/
 _static = Path(__file__).parent.parent / "ui" / "dist"

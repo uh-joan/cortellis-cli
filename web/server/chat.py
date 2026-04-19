@@ -5,7 +5,10 @@ import os
 import shutil
 import subprocess
 import sys
+import threading
 from pathlib import Path
+
+_MAX_CHAT_SECONDS = 600  # kill hung claude processes after 10 minutes
 
 from web.server.prompt import build_system_prompt
 from web.server import db
@@ -74,7 +77,8 @@ def _build_wiki_context(question: str, workspace_path: str) -> str:
             parts.append("--- END COMPILED ARTICLES ---\n")
             return "".join(parts)
     except Exception:
-        pass
+        import logging as _logging
+        _logging.getLogger(__name__).warning("Wiki context build failed", exc_info=True)
     return ""
 
 
@@ -109,7 +113,7 @@ def _route_question(question: str) -> str:
         if question.startswith("/"):
             skill_name = question.split()[0][1:].lower()
             if skill_name in CORTELLIS_SKILLS:
-                args = question[len(skill_name) + 1:].strip()
+                args = " ".join(question.split()[1:])
                 return _harness_directive(skill_name, args, venv_activate)
 
         skill_name = detect_skill_name(question)
@@ -181,29 +185,34 @@ def stream_chat_turn(conv_id: str, question: str, workspace_path: str):
             return None
 
     text = ""
-    for line in iter(proc.stdout.readline, b""):
-        decoded = line.decode("utf-8", errors="replace").strip()
-        if not decoded:
-            continue
-        try:
-            event = json.loads(decoded)
-        except json.JSONDecodeError:
-            continue
+    timer = threading.Timer(_MAX_CHAT_SECONDS, proc.kill)
+    timer.start()
+    try:
+        for line in iter(proc.stdout.readline, b""):
+            decoded = line.decode("utf-8", errors="replace").strip()
+            if not decoded:
+                continue
+            try:
+                event = json.loads(decoded)
+            except json.JSONDecodeError:
+                continue
 
-        etype = event.get("type", "")
+            etype = event.get("type", "")
 
-        if etype == "assistant" and "message" in event:
-            content = event["message"].get("content", [])
-            if isinstance(content, list):
-                for block in content:
-                    if block.get("type") == "tool_use" and block.get("name") == "Bash":
-                        cmd_str = block.get("input", {}).get("command", "")
-                        status = translate_command(cmd_str) or "Running query…"
-                        yield f"data: {json.dumps({'type': 'tool_call', 'status': status, 'command': cmd_str})}\n\n"
+            if etype == "assistant" and "message" in event:
+                content = event["message"].get("content", [])
+                if isinstance(content, list):
+                    for block in content:
+                        if block.get("type") == "tool_use" and block.get("name") == "Bash":
+                            cmd_str = block.get("input", {}).get("command", "")
+                            status = translate_command(cmd_str) or "Running query…"
+                            yield f"data: {json.dumps({'type': 'tool_call', 'status': status, 'command': cmd_str})}\n\n"
 
-        elif etype == "result":
-            text = event.get("result", "")
-            yield f"data: {json.dumps({'type': 'result', 'text': text})}\n\n"
+            elif etype == "result":
+                text = event.get("result", "")
+                yield f"data: {json.dumps({'type': 'result', 'text': text})}\n\n"
+    finally:
+        timer.cancel()
 
     proc.wait()
     yield f"data: {json.dumps({'type': 'done'})}\n\n"

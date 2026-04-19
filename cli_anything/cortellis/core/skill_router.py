@@ -7,7 +7,10 @@ High-precision patterns only — avoids false positives on simple factual querie
 
 import os
 import re
+from pathlib import Path
 from typing import Optional
+
+_REPO_ROOT = Path(__file__).resolve().parents[3]
 
 from cli_anything.cortellis.utils.wiki import article_path, check_freshness, slugify
 
@@ -158,6 +161,8 @@ _INDICATION_PATTERNS = [
     re.compile(r"\blandscape\s+for\s+(.+?)(?:\s*\?|$)", re.IGNORECASE),
     re.compile(r"\bcompetitive\s+(?:landscape|analysis|overview)\s+(?:for\s+|in\s+)?(.+?)(?:\s*\?|$)", re.IGNORECASE),
     re.compile(r"\bmarket\s+(?:overview|landscape|map)\s+(?:for\s+|in\s+)?(.+?)(?:\s*\?|$)", re.IGNORECASE),
+    # Match "the <indication> landscape" — more specific than the greedy fallback below
+    re.compile(r"\bthe\s+(.+?)\s+landscape\b", re.IGNORECASE),
     re.compile(r"^(.+?)\s+landscape\b", re.IGNORECASE),
 ]
 
@@ -193,7 +198,7 @@ def check_wiki_fast_path(question: str) -> Optional[str]:
     candidates = [indication] if indication else []
 
     # Also scan wiki/indications/ for known slugs that appear in the question
-    indications_dir = os.path.join(os.getcwd(), "wiki", "indications")
+    indications_dir = os.path.join(str(_REPO_ROOT), "wiki", "indications")
     if os.path.isdir(indications_dir):
         for fname in os.listdir(indications_dir):
             if fname.endswith(".md"):

@@ -20,6 +20,7 @@ def _connect():
 
 def init_db():
     conn = _connect()
+    conn.execute("PRAGMA journal_mode=WAL")
     conn.executescript("""
         CREATE TABLE IF NOT EXISTS conversations (
             id TEXT PRIMARY KEY,
