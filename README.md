@@ -16,7 +16,7 @@
 
 > **Disclaimer:** Unofficial, community-built tool. Not affiliated with Clarivate or Cortellis. Requires valid API credentials and an active subscription.
 
-The pharma analyst that never sleeps. Cortellis data, analytical skills, a self-building knowledge base, and exports ready for the boardroom — powered by AI that compounds with every session.
+The pharma analyst that never sleeps. Cortellis data, deterministic skill pipelines, a self-building knowledge base, and exports ready for the boardroom — powered by AI that compounds with every session.
 
 ## The Problem
 
@@ -32,6 +32,8 @@ cortellis setup    # credentials + API test, 30 seconds
 ```
 
 ## Three Layers
+
+A CLI for raw data access, a **harness** for deterministic multi-step analysis, and a compounding wiki that gets smarter with every session.
 
 ### 1. CLI — 13 Data Domains, 80+ Commands
 
