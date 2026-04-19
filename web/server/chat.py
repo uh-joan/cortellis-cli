@@ -78,20 +78,43 @@ def _build_wiki_context(question: str, workspace_path: str) -> str:
     return ""
 
 
+def _harness_directive(skill_name: str, args: str, venv_activate: str) -> str:
+    """Build a harness execution directive for injection into the question."""
+    from cli_anything.cortellis.utils.skill_registry import wiki_output_hint, HARNESS_SKILLS
+    if skill_name not in HARNESS_SKILLS:
+        return f"[SKILL: Use the /{skill_name} skill workflow] {args}"
+    run = f"source {venv_activate} && cortellis run-skill"
+    hint = wiki_output_hint(skill_name, args)
+    return (
+        f"[HARNESS: Run `{run} {skill_name} \"{args}\"` as a single Bash command. "
+        f"Wait for it to complete — narrate each wave as it prints. "
+        f"Then {hint} and summarize the key findings. "
+        f"End with 2-3 follow-up suggestions.] "
+        f"{args}"
+    )
+
+
 def _route_question(question: str) -> str:
     try:
-        from cli_anything.cortellis.core.skill_router import detect_skill
+        from cli_anything.cortellis.core.skill_router import detect_skill, detect_skill_name
         from cli_anything.cortellis.core.context_detector import detect_multi_entity
+        from cli_anything.cortellis.utils.skill_registry import HARNESS_SKILLS
+        from pathlib import Path as _Path
+        venv_activate = str(_Path(__file__).resolve().parents[2] / ".venv" / "bin" / "activate")
 
         CORTELLIS_SKILLS = {
             "pipeline", "landscape", "drug-profile", "drug-comparison",
-            "conference-intel", "target-profile", "signals",
+            "conference-intel", "target-profile", "changelog", "ingest",
         }
         if question.startswith("/"):
             skill_name = question.split()[0][1:].lower()
             if skill_name in CORTELLIS_SKILLS:
                 args = question[len(skill_name) + 1:].strip()
-                return f"[SKILL: Use the /{skill_name} skill workflow] {args}"
+                return _harness_directive(skill_name, args, venv_activate)
+
+        skill_name = detect_skill_name(question)
+        if skill_name and skill_name in HARNESS_SKILLS:
+            return _harness_directive(skill_name, question.strip(), venv_activate)
 
         skill_directive = detect_skill(question)
         routed = f"{skill_directive}{question}" if skill_directive else question

@@ -120,6 +120,17 @@ _SKILLS = [
 ]
 
 
+def detect_skill_name(question: str) -> str | None:
+    """Return just the skill name for harness routing, or None if no skill matches."""
+    if question.strip().startswith("/"):
+        return None
+    for skill in _SKILLS:
+        for pattern in skill["triggers"]:
+            if pattern.search(question):
+                return skill["name"]
+    return None
+
+
 def detect_skill(question: str) -> str | None:
     """Detect if a question should be routed to a skill workflow.
 

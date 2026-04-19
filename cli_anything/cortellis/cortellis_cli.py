@@ -2310,14 +2310,9 @@ def chat_cmd(debug, engine="claude", no_flush=False) -> None:
         click.echo("  Cortellis AI Chat — powered by Claude Code")
         click.echo("  Ask questions naturally. Type 'exit' or Ctrl-D to quit.\n")
 
-    # Load all skills from skills/*/SKILL.md
-    skills_dir = Path(__file__).parent / "skills"
-    skill_parts = []
-    for skill_dir in sorted(skills_dir.iterdir()):
-        skill_file = skill_dir / "SKILL.md" if skill_dir.is_dir() else None
-        if skill_file and skill_file.exists():
-            skill_parts.append(skill_file.read_text())
-    skill_content = "\n\n".join(skill_parts)
+    from cli_anything.cortellis.utils.skill_registry import build_skill_registry_prompt
+    _venv_act = str(Path(__file__).resolve().parents[2] / ".venv" / "bin" / "activate")
+    skill_content = build_skill_registry_prompt(_venv_act)
 
     # Inject wiki INDEX if available — enables cross-session knowledge
     wiki_index_path = os.path.join(os.getcwd(), "wiki", "INDEX.md")
@@ -2507,26 +2502,40 @@ All skills and their workflows are included below in the system context."""
             break
 
         from cli_anything.cortellis.core.status_translator import translate_command
-        from cli_anything.cortellis.core.skill_router import detect_skill
+        from cli_anything.cortellis.core.skill_router import detect_skill, detect_skill_name
         from cli_anything.cortellis.core.context_detector import needs_context, detect_multi_entity
+        from cli_anything.cortellis.utils.skill_registry import wiki_output_hint, HARNESS_SKILLS
 
         # Detect context need BEFORE any rewriting (uses original question)
         turn_number += 1
         use_context = needs_context(question, turn_number)
 
-        # Handle explicit /skill invocations — strip the / to prevent
-        # Claude Code from interpreting it as a slash command
-        CORTELLIS_SKILLS = {"pipeline", "landscape", "drug-profile", "drug-comparison", "conference-intel", "target-profile", "signals"}
+        def _harness_q(skill_nm, skill_args):
+            hint = wiki_output_hint(skill_nm, skill_args)
+            return (
+                f"[HARNESS: Run `source {venv_activate} && cortellis run-skill {skill_nm} \"{skill_args}\"` "
+                f"as a single Bash command. Narrate each wave as it prints. "
+                f"Then {hint} and summarize. End with 2-3 follow-up suggestions.] "
+                f"{skill_args}"
+            )
+
+        # Handle explicit /skill invocations
+        CORTELLIS_SKILLS = {"pipeline", "landscape", "drug-profile", "drug-comparison",
+                            "conference-intel", "target-profile", "changelog", "ingest"}
         if question.startswith("/"):
             skill_name = question.split()[0][1:].lower()
             if skill_name in CORTELLIS_SKILLS:
                 args = question[len(skill_name) + 1:].strip()
-                question = f"[SKILL: Use the /{skill_name} skill workflow] {args}"
-                use_context = False  # Explicit skill invocation always starts fresh
+                question = _harness_q(skill_name, args) if skill_name in HARNESS_SKILLS else f"[SKILL: Use the /{skill_name} skill workflow] {args}"
+                use_context = False
 
-        # Auto-detect skill and prepend directive for natural language queries
-        skill_directive = detect_skill(question)
-        routed_question = f"{skill_directive}{question}" if skill_directive else question
+        # Auto-detect skill and route to harness
+        detected = detect_skill_name(question) if not question.startswith("[HARNESS:") else None
+        if detected and detected in HARNESS_SKILLS:
+            routed_question = _harness_q(detected, question.strip())
+        else:
+            skill_directive = detect_skill(question)
+            routed_question = f"{skill_directive}{question}" if skill_directive else question
 
         # Parallel dispatch hint: prepend when 2+ entities detected for the same skill
         multi = detect_multi_entity(question)

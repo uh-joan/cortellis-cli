@@ -13,14 +13,9 @@ if _REPO_ROOT not in sys.path:
 def build_system_prompt(workspace_path: str) -> str:
     """Build the full system prompt including skills, wiki, signals, insights, and daily log."""
 
-    skills_dir = Path(__file__).resolve().parents[2] / "cli_anything" / "cortellis" / "skills"
-    skill_parts = []
-    if skills_dir.exists():
-        for skill_dir in sorted(skills_dir.iterdir()):
-            skill_file = skill_dir / "SKILL.md" if skill_dir.is_dir() else None
-            if skill_file and skill_file.exists():
-                skill_parts.append(skill_file.read_text())
-    skill_content = "\n\n".join(skill_parts)
+    from cli_anything.cortellis.utils.skill_registry import build_skill_registry_prompt
+    venv_activate_path = str(Path(__file__).resolve().parents[2] / ".venv" / "bin" / "activate")
+    skill_content = build_skill_registry_prompt(venv_activate_path)
 
     wiki_index_section = ""
     wiki_index_path = os.path.join(workspace_path, "wiki", "INDEX.md")
