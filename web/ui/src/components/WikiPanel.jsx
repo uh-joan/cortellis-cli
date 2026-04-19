@@ -47,6 +47,28 @@ export default function WikiPanel({ article, onBack, onNavigate, historyDepth = 
     if (article.type !== 'indications') return
     setEnrichManifest(null)
     getEnrichManifest(article.slug, workspace).then(setEnrichManifest).catch(() => {})
+
+    // Resume polling if a job was started before navigation
+    const savedJobId = localStorage.getItem(`enrich-job-${article.slug}`)
+    if (savedJobId) {
+      setEnrichOpen(true)
+      setEnrichRunning(true)
+      enrichIntervalRef.current = setInterval(async () => {
+        try {
+          const job = await pollJob(savedJobId)
+          if (job.status !== 'running') {
+            clearInterval(enrichIntervalRef.current)
+            localStorage.removeItem(`enrich-job-${article.slug}`)
+            if (job.status === 'error') setEnrichError(job.output || 'Enrich failed.')
+            else {
+              setEnrichOutput(job.output)
+              getEnrichManifest(article.slug, workspace).then(setEnrichManifest).catch(() => {})
+            }
+            setEnrichRunning(false)
+          }
+        } catch { clearInterval(enrichIntervalRef.current); setEnrichRunning(false) }
+      }, 2000)
+    }
   }, [article.type, article.slug, workspace])
 
   async function handleChangelog() {
@@ -92,17 +114,21 @@ export default function WikiPanel({ article, onBack, onNavigate, historyDepth = 
         setEnrichRunning(false)
         return
       }
+      localStorage.setItem(`enrich-job-${article.slug}`, result.job_id)
       enrichIntervalRef.current = setInterval(async () => {
-        const job = await pollJob(result.job_id)
-        if (job.status !== 'running') {
-          clearInterval(enrichIntervalRef.current)
-          if (job.status === 'error') setEnrichError(job.output || 'Enrich failed.')
-          else {
-            setEnrichOutput(job.output)
-            getEnrichManifest(article.slug, workspace).then(setEnrichManifest).catch(() => {})
+        try {
+          const job = await pollJob(result.job_id)
+          if (job.status !== 'running') {
+            clearInterval(enrichIntervalRef.current)
+            localStorage.removeItem(`enrich-job-${article.slug}`)
+            if (job.status === 'error') setEnrichError(job.output || 'Enrich failed.')
+            else {
+              setEnrichOutput(job.output)
+              getEnrichManifest(article.slug, workspace).then(setEnrichManifest).catch(() => {})
+            }
+            setEnrichRunning(false)
           }
-          setEnrichRunning(false)
-        }
+        } catch { clearInterval(enrichIntervalRef.current); setEnrichRunning(false) }
       }, 2000)
     } catch (e) {
       setEnrichError(e.message)
