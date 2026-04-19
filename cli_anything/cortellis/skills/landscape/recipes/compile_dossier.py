@@ -93,6 +93,92 @@ def detect_preset(landscape_dir):
 
 
 # ---------------------------------------------------------------------------
+# Wiki enrichment back-reader
+# ---------------------------------------------------------------------------
+
+def load_wiki_enrichments(landscape_dir, base_dir):
+    """Read back from deep wiki articles (drug-profile, pipeline, target-profile) to enrich the landscape.
+
+    Returns dict with keys 'drugs', 'companies', 'targets' — each a slug-keyed dict.
+    Gracefully returns empty dicts if no enriched articles exist yet.
+    """
+    enrichments = {"drugs": {}, "companies": {}, "targets": {}}
+
+    # Drugs: launched + phase3 — look for drug-profile articles (marked by 'originator' field)
+    launched = read_csv_safe(os.path.join(landscape_dir, "launched.csv"))
+    phase3 = read_csv_safe(os.path.join(landscape_dir, "phase3.csv"))
+    for row in launched + phase3:
+        dname = row.get("drug_name") or row.get("name") or row.get("drug") or ""
+        if not dname:
+            continue
+        slug = slugify(normalize_drug_name(dname))
+        path = article_path("drugs", slug, base_dir)
+        if not os.path.exists(path):
+            continue
+        art = read_article(path)
+        if not art or not art.get("meta") or not art["meta"].get("originator"):
+            continue
+        meta = art["meta"]
+        enrichments["drugs"][slug] = {
+            "indication_count": safe_int(meta.get("indication_count", 0)),
+            "ct_trial_count": safe_int(meta.get("ct_trial_count", 0)),
+            "fda_approvals": safe_int(meta.get("fda_approval_count", 0)),
+            "conflict_count": len(meta.get("conflicts", [])),
+        }
+
+    # Companies: top 20 — look for pipeline articles (marked by 'pipeline' field)
+    scores = load_strategic_scores(landscape_dir)
+    for r in scores[:20]:
+        cname = r.get("company", "")
+        if not cname:
+            continue
+        cslug = find_company_slug(cname, base_dir)
+        path = article_path("companies", cslug, base_dir)
+        if not os.path.exists(path):
+            continue
+        art = read_article(path)
+        if not art or not art.get("meta") or not art["meta"].get("pipeline"):
+            continue
+        enrichments["companies"][cslug] = {
+            "platform_breadth": len(art["meta"].get("indications", {})),
+        }
+
+    # Targets: top 15 mechanisms — look for target-profile articles (marked by 'target_id')
+    # Use enrichment_manifest.json for accurate mechanism→slug mapping (manifest is written after
+    # resolve_indication resolves canonical slugs, so it's more reliable than find_target_slug_for_mechanism).
+    manifest_path = os.path.join(landscape_dir, "enrichment_manifest.json")
+    mech_to_slug = {}
+    if os.path.exists(manifest_path):
+        try:
+            with open(manifest_path) as _mf:
+                _manifest = json.load(_mf)
+            for _t in _manifest.get("targets", []):
+                mech_to_slug[_t["mechanism"]] = _t["slug"]
+        except (json.JSONDecodeError, KeyError):
+            pass
+
+    mechanisms = load_mechanism_scores(landscape_dir)
+    for r in mechanisms[:15]:
+        mname = r.get("mechanism", "")
+        if not mname:
+            continue
+        tslug = mech_to_slug.get(mname) or find_target_slug_for_mechanism(mname, base_dir) or slugify(mname)
+        path = article_path("targets", tslug, base_dir)
+        if not os.path.exists(path):
+            continue
+        art = read_article(path)
+        if not art or not art.get("meta") or not art["meta"].get("source_dir"):
+            continue
+        meta = art["meta"]
+        enrichments["targets"][mname] = {   # key by mechanism name for consistent lookup
+            "gene_symbol": meta.get("gene_symbol", ""),
+            "slug": tslug,
+        }
+
+    return enrichments
+
+
+# ---------------------------------------------------------------------------
 # Indication article compilation
 # ---------------------------------------------------------------------------
 
@@ -116,6 +202,7 @@ def compile_indication_article(landscape_dir, indication_name, slug, base_dir=No
     freshness = load_freshness(landscape_dir)
     preset = detect_preset(landscape_dir)
     deal_count = count_csv_rows(landscape_dir, "deals.csv")
+    enrichments = load_wiki_enrichments(landscape_dir, base_dir)
 
     # Top company for index
     top_company = ""
@@ -243,7 +330,8 @@ def compile_indication_article(landscape_dir, indication_name, slug, base_dir=No
             cname = c.get("company", "")
             if not cname:
                 continue
-            clink = wikilink(find_company_slug(cname, base_dir), cname)
+            cslug = find_company_slug(cname, base_dir)
+            clink = wikilink(cslug, cname)
             rank = c.get("rank", "")
             position = c.get("position", "")
             cpi = safe_float(c.get("cpi_score"))
@@ -260,6 +348,9 @@ def compile_indication_article(landscape_dir, indication_name, slug, base_dir=No
             attrs.append(f"**Mechanism diversity:** {mech_div}")
             attrs.append(f"**Deal activity:** {deal_act}")
             attrs.append(f"**Trial intensity:** {trial_int}")
+            co_enr = enrichments["companies"].get(cslug, {})
+            if co_enr.get("platform_breadth", 0) > 1:
+                attrs.append(f"**Platform:** {co_enr['platform_breadth']} indications")
             body_parts.append(" · ".join(attrs) + "\n\n")
     elif scores:
         body_parts.append("## Key Companies\n\n")
@@ -267,7 +358,8 @@ def compile_indication_article(landscape_dir, indication_name, slug, base_dir=No
             cname = r.get("company", "")
             if not cname:
                 continue
-            clink = wikilink(find_company_slug(cname, base_dir), cname)
+            cslug = find_company_slug(cname, base_dir)
+            clink = wikilink(cslug, cname)
             position = r.get("position", "")
             cpi = safe_float(r.get("cpi_score"))
             pipeline = safe_int(r.get("pipeline_breadth"))
@@ -283,6 +375,9 @@ def compile_indication_article(landscape_dir, indication_name, slug, base_dir=No
             attrs.append(f"**Mechanism diversity:** {mech_div}")
             attrs.append(f"**Deal activity:** {deal_act}")
             attrs.append(f"**Trial intensity:** {trial_int}")
+            co_enr = enrichments["companies"].get(cslug, {})
+            if co_enr.get("platform_breadth", 0) > 1:
+                attrs.append(f"**Platform:** {co_enr['platform_breadth']} indications")
             body_parts.append(" · ".join(attrs) + "\n\n")
 
     # Key Drugs — top drugs from launched.csv and phase3.csv
@@ -290,16 +385,33 @@ def compile_indication_article(landscape_dir, indication_name, slug, base_dir=No
     phase3_rows = read_csv_safe(os.path.join(landscape_dir, "phase3.csv"))
     flagship_drugs = launched_rows[:10] + phase3_rows[:10]
     if flagship_drugs:
+        # Check if any drug has enrichment data (from drug-profile skill)
+        has_drug_enrichment = any(
+            slugify(normalize_drug_name(d.get("drug_name") or d.get("name") or d.get("drug") or ""))
+            in enrichments["drugs"]
+            for d in flagship_drugs
+        )
         body_parts.append("## Key Drugs\n\n")
-        body_parts.append("| Drug | Phase | Mechanism | Company |\n|---|---|---|---|\n")
+        if has_drug_enrichment:
+            body_parts.append("| Drug | Phase | Mechanism | Company | Inds | Trials | |\n|---|---|---|---|---|---|---|\n")
+        else:
+            body_parts.append("| Drug | Phase | Mechanism | Company |\n|---|---|---|---|\n")
         for drug in flagship_drugs:
             dname = drug.get("drug_name") or drug.get("name") or drug.get("drug") or "-"
             phase = drug.get("phase") or drug.get("development_phase") or "-"
             mech = drug.get("mechanism") or drug.get("moa") or drug.get("mechanism_of_action") or "-"
             comp = drug.get("company") or drug.get("company_name") or "-"
-            drug_str = wikilink(slugify(normalize_drug_name(dname)), dname) if dname != "-" else "-"
+            drug_slug = slugify(normalize_drug_name(dname)) if dname != "-" else ""
+            drug_str = wikilink(drug_slug, dname) if dname != "-" else "-"
             comp_str = wikilink(find_company_slug(comp, base_dir), comp) if comp != "-" else "-"
-            body_parts.append(f"| {drug_str} | {phase} | {mech} | {comp_str} |\n")
+            if has_drug_enrichment:
+                enr = enrichments["drugs"].get(drug_slug, {})
+                inds = str(enr["indication_count"]) if enr.get("indication_count") else ""
+                trials = str(enr["ct_trial_count"]) if enr.get("ct_trial_count") else ""
+                flag = "⚠" if enr.get("conflict_count", 0) > 0 else ""
+                body_parts.append(f"| {drug_str} | {phase} | {mech} | {comp_str} | {inds} | {trials} | {flag} |\n")
+            else:
+                body_parts.append(f"| {drug_str} | {phase} | {mech} | {comp_str} |\n")
         body_parts.append("\n")
 
     # Mechanism Analysis
@@ -307,8 +419,8 @@ def compile_indication_article(landscape_dir, indication_name, slug, base_dir=No
     matched_targets = {}  # mechanism → target_slug
     if mechanisms:
         body_parts.append(
-            "| Mechanism | Active | Launched | P3 | P2 | P1 | Discovery | Companies | Crowding |\n"
-            "|---|---|---|---|---|---|---|---|---|\n"
+            "| Mechanism | Active | Launched | P3 | P2 | P1 | Discovery | Companies | Crowding | Profile |\n"
+            "|---|---|---|---|---|---|---|---|---|---|\n"
         )
         for r in mechanisms[:15]:
             mname = r.get('mechanism', '-')
@@ -316,6 +428,7 @@ def compile_indication_article(landscape_dir, indication_name, slug, base_dir=No
             if target_slug:
                 matched_targets[mname] = target_slug
             mech_link = wikilink(target_slug or slugify(mname), mname) if mname != '-' else '-'
+            profile_flag = "✓" if mname != '-' and mname in enrichments["targets"] else ""
             body_parts.append(
                 f"| {mech_link}"
                 f" | {safe_int(r.get('active_count'))}"
@@ -326,6 +439,7 @@ def compile_indication_article(landscape_dir, indication_name, slug, base_dir=No
                 f" | {safe_int(r.get('discovery'))}"
                 f" | {safe_int(r.get('company_count'))}"
                 f" | {safe_int(r.get('crowding_index'))}"
+                f" | {profile_flag}"
                 f" |\n"
             )
         body_parts.append("\n")

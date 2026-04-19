@@ -59,3 +59,21 @@ nodes:
         --type targets
     depends_on: [enrich_companies]
     allow_fail: true
+
+  # ── Step 5: Recompile indication article with enriched wiki data ───────────
+
+  - id: recompile
+    bash: |
+      python3 cli_anything/cortellis/skills/landscape/recipes/compile_dossier.py \
+        "raw/$resolve.output.indication_name" "$resolve.output.indication_name"
+    depends_on: [enrich_targets]
+    trigger_rule: all_done
+    allow_fail: true
+
+  # ── Step 6: Rebuild wiki index, graph, and signals ─────────────────────────
+
+  - id: wiki_refresh
+    bash: cortellis wiki refresh
+    depends_on: [recompile]
+    trigger_rule: all_done
+    allow_fail: true
