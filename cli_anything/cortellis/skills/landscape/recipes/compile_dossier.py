@@ -855,13 +855,16 @@ def main():
         print(f"Error: landscape directory not found: {landscape_dir}", file=sys.stderr)
         sys.exit(1)
 
-    # Validate this is a landscape directory (has phase CSVs), not a container like raw/drugs/
-    has_landscape_data = any(
-        os.path.exists(os.path.join(landscape_dir, f"{phase}.csv"))
-        for phase in ("launched", "phase3", "phase2", "phase1", "discovery")
+    # Validate this is an indication landscape directory, not a company pipeline dir.
+    # Phase CSVs (launched.csv, phase3.csv, phase2.csv) exist in both landscape and pipeline dirs,
+    # so checking only for those is insufficient. narrate_context.json and audit_trail.json are
+    # written exclusively by the landscape skill and never by compile_pipeline.py.
+    is_landscape = (
+        os.path.exists(os.path.join(landscape_dir, "narrate_context.json"))
+        or os.path.exists(os.path.join(landscape_dir, "audit_trail.json"))
     )
-    if not has_landscape_data:
-        print(f"Skipping {landscape_dir}: no landscape CSVs found (not a landscape directory)", file=sys.stderr)
+    if not is_landscape:
+        print(f"Skipping {landscape_dir}: not an indication landscape directory (missing narrate_context.json / audit_trail.json)", file=sys.stderr)
         sys.exit(0)
 
     # Canonical indication name: ALWAYS prefer narrate_context.json (ontology-resolved),
