@@ -140,7 +140,11 @@ optional enrichment step that returned empty for this target class), update the
 optimization if it would generalize to future runs — not for one-off anomalies.
 
 ## Learned Optimizations
-<!-- Auto-updated by post-run review. Add generalizable skip rules and fast-path hints here. -->
+<!-- Auto-updated by post-run review. Confirmed across real runs: glp-1-receptor, glucagon-like-peptide-1-receptor, gastric-inhibitory-polypeptide-receptor, fibroblast-growth-factor-21, glp-1. -->
+
+- **`patents.json` empty for receptor/ligand targets** — the targets patents API returns empty for all 4 tested GPCR/ligand targets (GLP-1 receptor, GIP receptor, FGF-21, GLP-1). Likely subscription-gated or sparsely populated. Fetch but expect empty; do not surface as a gap in the report.
+- **`briefings.json` empty for most targets** — disease briefings returns empty for 4/5 tested targets. Only worth running if the target has a well-known disease briefing (e.g. specific disease targets, not receptor classes). Treat as best-effort.
+- **`literature.json` sparse for receptor targets** — returns empty for 3/4 tested targets via the targets references API. Use `opentargets.json` and `chembl_target.json` as primary evidence for target-disease and binding data instead.
 
 ## Execution Rules
 

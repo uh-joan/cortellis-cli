@@ -68,6 +68,10 @@ def scan_dir(run_dir):
         if not os.path.isfile(fpath):
             continue
 
+        # Pagination metadata files are intentionally small — not content
+        if fname.endswith(".meta.json"):
+            continue
+
         if fname.endswith(".json"):
             status, detail = classify_json(fpath)
             results.append((fname, status, detail))

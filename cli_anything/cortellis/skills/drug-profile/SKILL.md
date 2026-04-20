@@ -171,7 +171,12 @@ optimization if it would generalize to future runs of similar inputs — not for
 one-off anomalies. If unsure, skip.
 
 ## Learned Optimizations
-<!-- Auto-updated by post-run review. Add generalizable skip rules and fast-path hints here. -->
+<!-- Auto-updated by post-run review. Confirmed across real runs: metformin, semaglutide, tirzepatide, cagrilintide, amycretin. -->
+
+- **`cpic.json` sparse for most drugs** — only ~5% of drugs have CPIC pharmacogenomics data (metformin, warfarin, clopidogrel class). Skip Step 8h for biologics and peptides; only run for small molecules with known CYP/transporter interactions.
+- **`literature.json` consistently blank** — the Cortellis literature search endpoint returns empty for all 5 tested drugs despite real literature existing. Use `ct_trials.json` and `biorxiv.json` as primary publication evidence instead.
+- **`chembl.json` sparse for peptides/biologics** — returns empty for tirzepatide, amycretin, cagrilintide. Populated for small molecules (metformin) and some approved peptides (semaglutide). Worth running for small molecules; low yield for large molecules.
+- **`ema_referrals.json` + `ema_shortages.json` + `fda_shortages.json` blank for most drugs** — regulatory edge cases with very low base rate. Fetch but expect empty; do not flag as errors.
 
 ## Execution Rules
 

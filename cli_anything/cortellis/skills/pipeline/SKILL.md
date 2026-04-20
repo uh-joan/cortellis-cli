@@ -262,4 +262,7 @@ update the `## Learned Optimizations` section below with a targeted patch. Only 
 an optimization if it would generalize to future runs — not for one-off anomalies.
 
 ## Learned Optimizations
-<!-- Auto-updated by post-run review. Add generalizable skip rules and fast-path hints here. -->
+<!-- Auto-updated by post-run review. Confirmed across real runs: 14 companies including Pfizer, Amgen, Novo Nordisk, Zealand Pharma, Hanmi, Metsera, Structure Therapeutics, and others. -->
+
+- **`phase1_si.csv` + `preclinical_si.csv` consistently return empty headers (50B) across all 14 tested companies** — SI (Springer Intelligence) compound data appears inaccessible or not covered under current subscription. These steps add 2 API calls with zero return. Treat as best-effort: fetch, but do not wait or retry if empty. The CI pipeline (phase1_ci, discovery_ci) is the reliable data source.
+- **CI pipeline data dominates for established companies** — launched.csv, phase2.csv, phase3.csv are well-populated for large pharma. SI adds value only for early-stage biotechs not yet indexed in Cortellis CI.

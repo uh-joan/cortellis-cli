@@ -528,7 +528,11 @@ optimization if it would generalize to future runs of similar inputs — not for
 one-off anomalies. If unsure, skip.
 
 ## Learned Optimizations
-<!-- Auto-updated by post-run review. Add generalizable skip rules and fast-path hints here. -->
+<!-- Auto-updated by post-run review. Confirmed across real runs: obesity, MASH, diabetes, chronic-kidney-disease, cardiovascular-disease. -->
+
+- **`deal_financials.csv` + `deal_comps.md` sparse across all tested indications** — deal financial enrichment (upfront, milestones, royalties) returns minimal data (129B/63B) for obesity, MASH, diabetes, CKD, and cardiovascular disease. Most pharma deals have undisclosed financials. Fetch but do not highlight as a data gap; report absence as "financials undisclosed."
+- **`*.meta.json` files are intentionally small** — these are pagination counters (40-53B), not content. Normal output; not a signal of missing data.
+- **`press_releases_summary.csv` sparse for all tested indications** — press release enrichment returns minimal rows. Worth running but lower priority than deal and trial data.
 
 ### Cross-drill: Deep dive into top drugs (optional)
 After completing the landscape, if the user wants to drill into specific drugs:
