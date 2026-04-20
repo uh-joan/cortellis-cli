@@ -184,8 +184,19 @@ def drug_table(rows, phase_name, phase_code, approvals_by_id=None):
 
 
 
+# Drugs withdrawn from major markets — keep out of competitive analysis.
+# Sibutramine: withdrawn by FDA/EMA in 2010 for CV risk; still marketed in some
+# Asian markets by local generics, causing Cortellis to list them as "Launched".
+_WITHDRAWN_DRUG_PATTERNS = ["sibutramine"]
+
+
+def _is_globally_withdrawn(row):
+    name = (row.get("name") or "").lower()
+    return any(pat in name for pat in _WITHDRAWN_DRUG_PATTERNS)
+
+
 # Read all data
-launched = read_csv("launched.csv")
+launched = [r for r in read_csv("launched.csv") if not _is_globally_withdrawn(r)]
 phase3 = read_csv("phase3.csv")
 phase2 = read_csv("phase2.csv")
 phase1 = read_csv("phase1.csv")

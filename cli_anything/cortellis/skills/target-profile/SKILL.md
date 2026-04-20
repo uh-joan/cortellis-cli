@@ -145,6 +145,8 @@ optimization if it would generalize to future runs — not for one-off anomalies
 - **`patents.json` + `references.json` empty for receptor/ligand targets** — the targets patents and references APIs return empty for all tested GPCR/ligand targets (GLP-1 receptor, GIP receptor, FGF-21, GLP-1). Likely subscription-gated or sparsely populated. Fetch but expect empty; do not surface as a gap in the report.
 - **`briefings.json` empty for most targets** — disease briefings returns empty for 4/5 tested targets. Only worth running if the target has a well-known disease briefing (e.g. specific disease targets, not receptor classes). Treat as best-effort.
 - **`literature.json` sparse for receptor targets** — returns empty for 3/4 tested targets via the targets references API. Use `opentargets.json` and `chembl_target.json` as primary evidence for target-disease and binding data instead.
+- **`pharmacology.json` sparse (161B) for some targets** — drug-design pharmacology endpoint returns minimal data for targets without substantial SI coverage. Expected for GPCR/receptor classes; not a gap.
+- **`interactions.json` sparse (176B) for some targets** — amylin receptor and similar peptide hormone receptors have few documented protein-protein interactions. Expected; do not flag as a gap.
 
 ## Execution Rules
 

@@ -179,12 +179,15 @@ one-off anomalies. If unsure, skip.
 - **`ema_referrals.json` + `ema_shortages.json` + `fda_shortages.json` blank for most drugs** — regulatory edge cases with very low base rate. Fetch but expect empty; do not flag as errors.
 - **`literature_summary.csv` + `recent_publications.md` sparse when `literature.json` is blank** — these are derived output files; 55B/121B is expected when the literature endpoint returns no results. Not a data gap.
 - **`cpic_summary.md` sparse (90B) when `cpic.json` is sparse** — derived summary; 90B is expected when CPIC returns minimal data. Not a gap.
-- **`financials.json` + `swot.json` sparse (33B/28B) for pipeline/early-stage drugs** — empty structure returned for drugs without financial reporting or SWOT data. Expected for Phase 1/2/preclinical drugs; skip these sections in the report.
+- **`financials.json` + `swot.json` sparse (33B/28B) for pipeline/generic drugs** — empty structure returned for drugs without financial reporting or SWOT data. Expected for: Phase 1/2/preclinical drugs, generic/OTC drugs (e.g. orlistat) where Cortellis financial data covers innovator drugs only, and China-only approved drugs. Skip these sections in the report.
 - **`fda_approvals.json` + `ema_approvals.json` empty for non-launched drugs** — approval data only exists post-approval. Expected for pipeline drugs; do not flag as errors.
 - **`fda_patent_cliff.md` + `fda_safety.md` + `fda_summary.md` sparse for pipeline drugs** — minimal FDA data for non-approved drugs; 106–139B is expected header-only output.
 - **`biorxiv.json` + `ct_trials.json` + `deals.json` sparse for very early-stage drugs** — 43B/69B/142B expected for Phase 1/preclinical drugs with limited public activity (amycretin class). Not a data gap.
-- **`fda_adverse_reactions.json` empty for early-stage drugs** — FAERS data only populated for drugs with substantial post-market exposure. Expected for pipeline; skip FAERS section.
+- **All FDA/EMA enrichment files empty for non-US/EU-approved drugs** — `fda_approvals.json`, `fda_labels.json`, `fda_recalls.json`, `fda_shortages.json`, `fda_adverse_reactions.json`, `fda_summary.md`, `ema_approvals.json`, `ema_referrals.json`, `ema_shortages.json` all return empty for drugs without US/EU regulatory approval (pipeline drugs, China-only approvals like mazdutide). Expected; do not flag these as gaps.
 - **`regulatory_milestones.csv` sparse (75B) for pipeline/early-stage drugs** — header-only output for drugs with no regulatory submissions yet. Expected for Phase 1/preclinical; do not flag as a gap.
+- **`biorxiv_summary.md` sparse (73B) when `biorxiv.json` is sparse** — derived output; expected when bioRxiv search returns minimal preprints. Same pattern as `literature_summary.csv`.
+- **FDA enrichment returns empty for combination drugs stored as INN names** — `naltrexone-bupropion`, `phentermine-topiramate` and similar combo INNs fail FDA API matching because the FDA uses brand names (Contrave, Qsymia). `fda_approvals.json`, `fda_labels.json`, `fda_recalls.json` all empty. Use brand name in `enrich_fda_approval.py` call if available.
+- **`fda_summary.md` sparse (147–198B) for some launched drugs** — even approved drugs can produce minimal fda_summary when FDA records are limited (older approvals). Not a gap; supplement with `fda_approvals.json` directly.
 
 ## Execution Rules
 

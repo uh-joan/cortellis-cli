@@ -248,9 +248,11 @@ Fetches Open Targets tractability + genetic constraint for top pipeline mechanis
 
 ### Compile pipeline to wiki (Step 8 — optional)
 ```bash
-python3 $RECIPES/compile_pipeline.py $DIR "<COMPANY_NAME>" [--wiki-dir DIR]
+python3 $RECIPES/compile_pipeline.py $DIR "<COMPANY_NAME>" --wiki-dir .
 ```
-Upserts wiki/companies/<slug>.md with pipeline data. Preserves existing landscape CPI data if the article was previously compiled by compile_dossier. Updates wiki/INDEX.md.
+Upserts wiki/companies/<slug>.md with pipeline data.
+Note: `--wiki-dir .` is required — the script uses the working directory to locate
+the wiki. Always run from the project root (e.g. `cortellis-cli/`). Preserves existing landscape CPI data if the article was previously compiled by compile_dossier. Updates wiki/INDEX.md.
 
 ### Post-Run Review (run after report is delivered)
 ```bash
