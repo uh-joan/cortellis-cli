@@ -97,7 +97,8 @@ def targets_search(query):
     if not isinstance(d, dict):
         return None
     try:
-        results = d.get("TargetResultsOutput", {}).get("SearchResults", {}).get("TargetResult", [])
+        _sr = d.get("TargetResultsOutput", {}).get("SearchResults", {})
+        results = _sr.get("TargetResult", []) if isinstance(_sr, dict) else []
         if isinstance(results, dict):
             results = [results]
         if not results:
@@ -119,7 +120,8 @@ def ner_resolve_target(name):
     """Use NER to find Target entities, return canonical target name."""
     d = run_cmd(["cortellis", "--json", "ner", "match", name])
     try:
-        entities = d.get("NamedEntityRecognition", {}).get("Entities", {}).get("Entity", [])
+        _ner = d.get("NamedEntityRecognition", {}).get("Entities", {})
+        entities = _ner.get("Entity", []) if isinstance(_ner, dict) else []
         if isinstance(entities, dict):
             entities = [entities]
         for e in entities:

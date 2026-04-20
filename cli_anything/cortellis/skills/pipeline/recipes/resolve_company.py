@@ -78,7 +78,8 @@ def resolve(name):
     # Strategy 0: NER — exact entity match (fastest, most accurate)
     d = run_cli("ner", "match", name)
     try:
-        entities = d.get("NamedEntityRecognition", {}).get("Entities", {}).get("Entity", [])
+        _ner = d.get("NamedEntityRecognition", {}).get("Entities", {})
+        entities = _ner.get("Entity", []) if isinstance(_ner, dict) else []
         if isinstance(entities, dict):
             entities = [entities]
         for e in entities:

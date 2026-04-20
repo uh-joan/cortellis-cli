@@ -55,7 +55,8 @@ def resolve(name):
     )
     try:
         d = json.loads(r.stdout)
-        entities = d.get("NamedEntityRecognition", {}).get("Entities", {}).get("Entity", [])
+        _ner = d.get("NamedEntityRecognition", {}).get("Entities", {})
+        entities = _ner.get("Entity", []) if isinstance(_ner, dict) else []
         if isinstance(entities, dict):
             entities = [entities]
         # Find exact name match among Drug entities
@@ -71,7 +72,8 @@ def resolve(name):
                     )
                     try:
                         d2 = json.loads(r2.stdout)
-                        drug = d2.get("drugResultsOutput", {}).get("SearchResults", {}).get("Drug", {})
+                        _sr2 = d2.get("drugResultsOutput", {}).get("SearchResults", {})
+                        drug = _sr2.get("Drug", {}) if isinstance(_sr2, dict) else {}
                         if isinstance(drug, list):
                             drug = drug[0]
                         return ner_id, drug.get("@name", name), drug.get("@phaseHighest", ""), indication_count(drug)
@@ -87,7 +89,8 @@ def resolve(name):
     )
     try:
         d = json.loads(r.stdout)
-        drugs = d.get("drugResultsOutput", {}).get("SearchResults", {}).get("Drug", [])
+        _sr = d.get("drugResultsOutput", {}).get("SearchResults", {})
+        drugs = _sr.get("Drug", []) if isinstance(_sr, dict) else []
         if isinstance(drugs, dict):
             drugs = [drugs]
     except (json.JSONDecodeError, KeyError, TypeError, ValueError):
@@ -138,8 +141,10 @@ if __name__ == "__main__":
         sys.exit(0)
 
     drug_id, drug_name, phase, indics = resolve(name)
+    if not drug_id:
+        print(f"ERROR: could not resolve drug '{name}'", file=sys.stderr)
+        sys.exit(1)
     inn_slug = slugify(normalize_drug_name(drug_name))
     result = f"{drug_id},{drug_name},{phase},{indics},{inn_slug}"
-    if drug_id:
-        cache_set("drugs", name, result)
+    cache_set("drugs", name, result)
     print(result)

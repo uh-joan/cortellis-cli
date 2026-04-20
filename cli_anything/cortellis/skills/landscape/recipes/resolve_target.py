@@ -45,7 +45,8 @@ def ner_resolve(name):
     )
     try:
         d = json.loads(r.stdout)
-        entities = d.get("NamedEntityRecognition", {}).get("Entities", {}).get("Entity", [])
+        _ner = d.get("NamedEntityRecognition", {}).get("Entities", {})
+        entities = _ner.get("Entity", []) if isinstance(_ner, dict) else []
         if isinstance(entities, dict):
             entities = [entities]
         # First pass: prefer Action entities with name match
