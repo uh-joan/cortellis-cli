@@ -1573,24 +1573,40 @@ def setup_cmd() -> None:
     click.echo(_BANNER)
     click.echo("  Welcome to Cortellis CLI Setup!\n")
 
-    # Step 0: Sync Python dependencies from pyproject.toml
-    click.echo("  Step 0/5: Syncing Python dependencies")
+    # Step 0: Create local .venv and install dependencies
+    click.echo("  Step 0/5: Setting up local environment")
     click.echo("  " + "-" * 40)
     import subprocess as _sp0
     import sys as _sys0
     _pkg_root = str(Path(__file__).resolve().parents[2])
-    _pip = [_sys0.executable, "-m", "pip", "install", "-e", _pkg_root]
-    _r = _sp0.run(_pip, capture_output=True)
-    if _r.returncode != 0:
-        if b"externally-managed-environment" in _r.stderr:
-            _r = _sp0.run(_pip + ["--break-system-packages"], capture_output=True)
+    _venv_dir = Path.cwd() / ".venv"
+    _venv_pip = _venv_dir / "bin" / "pip"
+    _venv_python = _venv_dir / "bin" / "python3"
+
+    if not _venv_dir.exists():
+        click.echo("  Creating virtual environment (.venv)...")
+        _r = _sp0.run([_sys0.executable, "-m", "venv", str(_venv_dir)], capture_output=True)
+        if _r.returncode != 0:
+            click.echo(f"  Error creating venv: {_r.stderr.decode()[:200]}")
+            click.echo("  Falling back to global Python environment.")
+            _venv_pip = None
         else:
-            _r = _sp0.run(_pip + ["--user"], capture_output=True)
-    if _r.returncode == 0:
-        click.echo("  All dependencies up to date.")
+            click.echo("  Virtual environment created.")
     else:
-        click.echo("  Warning: could not sync dependencies. Run manually:")
-        click.echo(f"    pip install -e {_pkg_root}")
+        click.echo("  Virtual environment already exists.")
+
+    _pip_exe = str(_venv_pip) if (_venv_pip and _venv_pip.exists()) else _sys0.executable + " -m pip"
+    if _venv_pip and _venv_pip.exists():
+        click.echo("  Installing dependencies into .venv...")
+        _r = _sp0.run([str(_venv_pip), "install", "-e", _pkg_root, "-q"], capture_output=True)
+    else:
+        _r = _sp0.run([_sys0.executable, "-m", "pip", "install", "-e", _pkg_root, "-q"], capture_output=True)
+
+    if _r.returncode == 0:
+        click.echo("  Dependencies installed.")
+    else:
+        click.echo("  Warning: could not install dependencies. Run manually:")
+        click.echo(f"    .venv/bin/pip install -e {_pkg_root}")
     click.echo()
 
     # Step 1: Credentials

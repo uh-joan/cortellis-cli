@@ -18,11 +18,13 @@ def _auto_venv() -> None:
     local_bin = os.path.join(cwd, ".venv", "bin", "cortellis")
     is_project = os.path.isdir(os.path.join(cwd, "cli_anything", "cortellis"))
 
+    is_setup = "setup" in sys.argv[1:]
+
     if os.path.isfile(local_bin):
         # Guard against infinite re-exec loop
         if os.path.abspath(sys.executable) != os.path.abspath(local_bin):
             os.execv(local_bin, [local_bin] + sys.argv[1:])
-    elif is_project:
+    elif is_project and not is_setup:
         print(
             "No local environment found.\n"
             "Run `cortellis setup` to create the virtual environment and get started.",
