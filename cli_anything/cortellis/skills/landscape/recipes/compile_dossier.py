@@ -773,8 +773,8 @@ def emit_enrichment_manifest(landscape_dir, indication_name, slug, base_dir):
         seen_target_slugs.add(tslug)
         tpath = article_path("targets", tslug, base_dir)
         existing = read_article(tpath) if os.path.exists(tpath) else None
-        # target-profile articles carry 'target_id' set by compile_target_profile.py
-        has_deep = bool(existing and existing.get("meta") and existing["meta"].get("target_id"))
+        # target-profile articles carry 'source_dir' set by compile_target_profile.py
+        has_deep = bool(existing and existing.get("meta") and existing["meta"].get("source_dir"))
         # Prefer wiki article title for resolver; fall back to slug → name conversion
         search_name = mname
         if existing and existing.get("meta") and existing["meta"].get("title"):
