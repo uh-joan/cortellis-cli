@@ -4,8 +4,10 @@
 Scans the skill's run directory, classifies each JSON/markdown file as
 populated or empty, and prints a structured manifest for Claude to review.
 
-Claude reads this output and decides whether to patch the skill's SKILL.md
-with generalizable optimizations (e.g. "CPIC always empty for biologics").
+Self-gating: before printing the full manifest, checks the skill's
+## Learned Optimizations section. If every empty/sparse finding is already
+documented there, prints a brief "consistent" message and exits silently.
+Only fires the full review when something new is found.
 
 Usage:
   python3 post_run_reviewer.py <skill_name> <run_dir> [input_label]
@@ -17,12 +19,15 @@ Examples:
 """
 import json
 import os
+import re
 import sys
 
 # JSON files considered "empty" if their content parses to one of these
 _EMPTY_VALUES = ({}, [], "", None)
 # Byte threshold: files under this are almost certainly empty/error responses
 _SPARSE_THRESHOLD = 200
+
+_SKILLS_DIR = os.path.dirname(__file__)
 
 
 def classify_json(path):
@@ -81,6 +86,40 @@ def scan_dir(run_dir):
             results.append((fname, status, size))
 
     return results
+
+
+def _load_learned_optimizations(skill_name):
+    """Read the ## Learned Optimizations section from the skill's SKILL.md."""
+    skill_md = os.path.join(_SKILLS_DIR, skill_name, "SKILL.md")
+    try:
+        with open(skill_md) as f:
+            content = f.read()
+        # Extract everything between ## Learned Optimizations and the next ##
+        match = re.search(
+            r"## Learned Optimizations\s*\n(.*?)(?=\n## |\Z)",
+            content,
+            re.DOTALL,
+        )
+        if match:
+            return match.group(1)
+    except (FileNotFoundError, OSError):
+        pass
+    return ""
+
+
+def _all_findings_known(files, learned_text):
+    """Return True if every empty/sparse file is already mentioned in learned_text."""
+    if not learned_text.strip():
+        return False  # No optimizations yet — always run full review
+
+    problem_files = [f for f, s, _ in files if s in ("empty", "sparse")]
+    if not problem_files:
+        return True  # Nothing concerning found
+
+    for fname in problem_files:
+        if fname not in learned_text:
+            return False  # New finding — fire full review
+    return True
 
 
 def format_manifest(skill_name, run_dir, input_label, files):
@@ -156,26 +195,21 @@ def _expected_but_missing(skill_name, found_files):
             "ct_trials.json", "literature.json",
         },
         "landscape": {
-            # Optional enrichment steps
             "trials_summary.csv", "regulatory_milestones.csv",
             "press_releases_summary.csv", "historical_timeline.md",
             "scenario_analysis.md", "loe_analysis.md",
             "approval_regions.json",
         },
         "pipeline": {
-            # SI data (may be empty for some companies)
             "phase1_si.csv", "preclinical_si.csv",
-            # External enrichment
             "opentargets_pipeline.md", "biorxiv_pipeline.md",
         },
         "target-profile": {
-            # External enrichment — may be absent for niche targets
             "cpic.json", "chembl_target.json", "uniprot.json",
             "opentargets.json", "alphafold.json",
             "briefings.json", "publications.json",
         },
         "drug-comparison": {
-            # Financials are empty for pipeline drugs
             "financials_1.json", "financials_2.json",
         },
     }
@@ -196,6 +230,15 @@ if __name__ == "__main__":
     files = scan_dir(run_dir)
     if not files:
         print(f"No files found in {run_dir} — skipping review.", file=sys.stderr)
+        sys.exit(0)
+
+    # Self-gating: check if all findings are already in Learned Optimizations
+    learned = _load_learned_optimizations(skill_name)
+    if _all_findings_known(files, learned):
+        problem_files = [f for f, s, _ in files if s in ("empty", "sparse")]
+        print(f"✓ Post-run review: {skill_name} / {input_label} — "
+              f"all {len(problem_files)} finding(s) consistent with known optimizations. "
+              f"No patch needed.")
         sys.exit(0)
 
     print(format_manifest(skill_name, run_dir, input_label, files))

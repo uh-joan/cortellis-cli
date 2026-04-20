@@ -1,0 +1,46 @@
+{
+  "indications": {
+    "obesity": "238,Obesity",
+    "MASH": "2637,Metabolic dysfunction-associated steatohepatitis",
+    "NASH": "2637,Metabolic dysfunction-associated steatohepatitis",
+    "diabetes": "2596,Diabetes mellitus",
+    "type 2 diabetes": "2596,Diabetes mellitus",
+    "T2D": "2596,Diabetes mellitus",
+    "chronic kidney disease": "3089,Chronic kidney disease",
+    "CKD": "3089,Chronic kidney disease",
+    "cardiovascular disease": "2568,Cardiovascular disease"
+  },
+  "drugs": {
+    "semaglutide": "59271,semaglutide (subcutaneous, diabetes/obesity/NASH), Novo Nordisk,Launched,10,semaglutide",
+    "tirzepatide": "101964,tirzepatide,Launched,14,tirzepatide",
+    "retatrutide": "114813,retatrutide,Phase 3 Clinical,14,retatrutide",
+    "metformin": "4307,metformin,Launched,21,metformin",
+    "liraglutide": "7053,liraglutide,Launched,8,liraglutide",
+    "dulaglutide": "39079,dulaglutide,Launched,5,dulaglutide",
+    "exenatide": "11564,exenatide,Launched,4,exenatide"
+  },
+  "companies": {
+    "Novo Nordisk": "18614,Novo Nordisk A/S,95,ner",
+    "Pfizer": "18767,Pfizer Inc,359,ner",
+    "Eli Lilly": "18638,Eli Lilly and Company,200,ner",
+    "AstraZeneca": "18604,AstraZeneca PLC,301,ner",
+    "Roche": "18698,F. Hoffmann-La Roche AG,293,ner"
+  },
+  "targets": {
+    "GLP-1 receptor": "Glucagon-like peptide 1 receptor agonist",
+    "GLP-1": "Glucagon-like peptide 1 receptor agonist",
+    "PD-L1": "Programmed cell death ligand 1 inhibitor",
+    "PD-1": "Programmed cell death protein 1 inhibitor",
+    "EGFR": "Epidermal growth factor receptor inhibitor",
+    "CDK4/6": "Cyclin dependent kinase 4 and 6 inhibitor"
+  },
+  "technologies": {
+    "ADC": "1164,Antibody drug conjugate",
+    "mRNA": "1165,mRNA",
+    "gene therapy": "1166,Gene therapy",
+    "CAR-T": "1167,Chimeric antigen receptor T-cell therapy"
+  },
+  "targets_full": {
+    "GLP-1": "61549990027403,Glucagon-like peptide 1 receptor,GLP-1,Glucagon-like peptide 1 receptor agonist"
+  }
+}

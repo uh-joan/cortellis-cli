@@ -177,6 +177,14 @@ one-off anomalies. If unsure, skip.
 - **`literature.json` consistently blank** — the Cortellis literature search endpoint returns empty for all 5 tested drugs despite real literature existing. Use `ct_trials.json` and `biorxiv.json` as primary publication evidence instead.
 - **`chembl.json` sparse for peptides/biologics** — returns empty for tirzepatide, amycretin, cagrilintide. Populated for small molecules (metformin) and some approved peptides (semaglutide). Worth running for small molecules; low yield for large molecules.
 - **`ema_referrals.json` + `ema_shortages.json` + `fda_shortages.json` blank for most drugs** — regulatory edge cases with very low base rate. Fetch but expect empty; do not flag as errors.
+- **`literature_summary.csv` + `recent_publications.md` sparse when `literature.json` is blank** — these are derived output files; 55B/121B is expected when the literature endpoint returns no results. Not a data gap.
+- **`cpic_summary.md` sparse (90B) when `cpic.json` is sparse** — derived summary; 90B is expected when CPIC returns minimal data. Not a gap.
+- **`financials.json` + `swot.json` sparse (33B/28B) for pipeline/early-stage drugs** — empty structure returned for drugs without financial reporting or SWOT data. Expected for Phase 1/2/preclinical drugs; skip these sections in the report.
+- **`fda_approvals.json` + `ema_approvals.json` empty for non-launched drugs** — approval data only exists post-approval. Expected for pipeline drugs; do not flag as errors.
+- **`fda_patent_cliff.md` + `fda_safety.md` + `fda_summary.md` sparse for pipeline drugs** — minimal FDA data for non-approved drugs; 106–139B is expected header-only output.
+- **`biorxiv.json` + `ct_trials.json` + `deals.json` sparse for very early-stage drugs** — 43B/69B/142B expected for Phase 1/preclinical drugs with limited public activity (amycretin class). Not a data gap.
+- **`fda_adverse_reactions.json` empty for early-stage drugs** — FAERS data only populated for drugs with substantial post-market exposure. Expected for pipeline; skip FAERS section.
+- **`regulatory_milestones.csv` sparse (75B) for pipeline/early-stage drugs** — header-only output for drugs with no regulatory submissions yet. Expected for Phase 1/preclinical; do not flag as a gap.
 
 ## Execution Rules
 

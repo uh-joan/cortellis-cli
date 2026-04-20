@@ -532,7 +532,9 @@ one-off anomalies. If unsure, skip.
 
 - **`deal_financials.csv` + `deal_comps.md` sparse across all tested indications** — deal financial enrichment (upfront, milestones, royalties) returns minimal data (129B/63B) for obesity, MASH, diabetes, CKD, and cardiovascular disease. Most pharma deals have undisclosed financials. Fetch but do not highlight as a data gap; report absence as "financials undisclosed."
 - **`*.meta.json` files are intentionally small** — these are pagination counters (40-53B), not content. Normal output; not a signal of missing data.
-- **`press_releases_summary.csv` sparse for all tested indications** — press release enrichment returns minimal rows. Worth running but lower priority than deal and trial data.
+- **`press_releases_summary.csv` + `recent_press_releases.md` sparse for all tested indications** — press release enrichment returns minimal rows across obesity, MASH, diabetes, CKD, cardiovascular. Worth running but lower priority than deal and trial data.
+- **`trials_summary.csv` sparse** — 112B summary header; the detailed data lives in `trials_by_sponsor.csv`. Not a data gap.
+- **`regulatory_milestones.csv` sparse (75B) for most indications** — 4/5 tested indications (MASH, diabetes, CKD, cardiovascular) return header-only. Only high-regulatory-activity indications (obesity) have meaningful milestone data. Sparse output is expected; do not flag as a gap.
 
 ### Cross-drill: Deep dive into top drugs (optional)
 After completing the landscape, if the user wants to drill into specific drugs:
