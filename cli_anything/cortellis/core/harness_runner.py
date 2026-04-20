@@ -27,7 +27,7 @@ from typing import Optional
 
 import yaml
 
-REPO_ROOT = Path(__file__).resolve().parents[3]
+REPO_ROOT = Path.cwd()
 
 # Max simultaneous Cortellis API calls — 3 is safe; 6 causes 429s under pagination load
 _API_SEM = threading.Semaphore(3)
