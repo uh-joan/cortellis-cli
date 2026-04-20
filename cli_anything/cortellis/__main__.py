@@ -1,6 +1,37 @@
 import logging
+import os
 import sys
 import json as _json
+
+
+def _auto_venv() -> None:
+    """Re-exec with the project-local cortellis if one exists.
+
+    When the global cortellis binary runs inside a cloned project directory
+    that has a .venv, transparently switch to the local binary so the correct
+    dependencies and wiki path are used — no manual activation required.
+
+    If this looks like a cortellis project but has no .venv yet, print a
+    helpful first-run message and exit.
+    """
+    cwd = os.getcwd()
+    local_bin = os.path.join(cwd, ".venv", "bin", "cortellis")
+    is_project = os.path.isdir(os.path.join(cwd, "cli_anything", "cortellis"))
+
+    if os.path.isfile(local_bin):
+        # Guard against infinite re-exec loop
+        if os.path.abspath(sys.executable) != os.path.abspath(local_bin):
+            os.execv(local_bin, [local_bin] + sys.argv[1:])
+    elif is_project:
+        print(
+            "No local environment found.\n"
+            "Run `cortellis setup` to create the virtual environment and get started.",
+            file=sys.stderr,
+        )
+        sys.exit(1)
+
+
+_auto_venv()
 
 import click
 import requests
