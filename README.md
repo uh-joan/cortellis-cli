@@ -61,7 +61,7 @@ Slash commands that orchestrate full analytical pipelines — works with [Claude
 | `/signals` | Strategic intelligence report across all analyzed landscapes |
 | `/insights` | Accumulated analytical insights from previous sessions |
 
-**Skills are self-evolving.** Entity IDs are cached after first resolution — subsequent runs skip the API lookup entirely. After each run, a post-run reviewer checks which optional enrichment steps returned empty and records the pattern in the skill's `## Learned Optimizations` — so future runs automatically skip what's known to be empty for that drug class or indication. A fresh clone ships with a pre-seeded cache of common entities; it compounds from there.
+**Skills are self-evolving.** The more you use them, the faster and smarter they get. Entity lookups are cached so repeated runs skip API calls entirely. After each run, a reviewer checks what worked and what was empty, and encodes the patterns directly into the skill — so next time it skips what's known to be irrelevant for that drug class or indication. Ships pre-seeded with common patterns from real runs; compounds from there.
 
 Every skill runs through the **harness** — a deterministic DAG executor (`cortellis run-skill`) that sequences steps, hard-fails on any error, and guarantees the same output whether triggered from chat, the web UI, or the CLI directly. No silent gaps, no improvised steps.
 
