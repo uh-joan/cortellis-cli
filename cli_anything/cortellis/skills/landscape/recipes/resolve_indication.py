@@ -168,7 +168,7 @@ def _try_expand(name):
         "dlbcl": "diffuse large B-cell lymphoma",
         "gvhd": "graft versus host disease",
         "nash": "MASH",
-        "nafld": "metabolic dysfunction-associated steatotic liver disease",
+        "nafld": "MASH",
     }
     key = name.lower().strip()
     return ABBREVIATIONS.get(key, name)

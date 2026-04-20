@@ -176,8 +176,9 @@ _INDICATION_SLUG_OVERRIDES: dict[str, str] = {
     "type 2 diabetes mellitus": "non-insulin-dependent-diabetes",
     "non-alcoholic steatohepatitis": "metabolic-dysfunction-associated-steatohepatitis",
     "nash": "metabolic-dysfunction-associated-steatohepatitis",
-    "nafld": "metabolic-dysfunction-associated-steatotic-liver-disease-masld-nafld",
-    "metabolic dysfunction-associated steatotic liver disease": "metabolic-dysfunction-associated-steatotic-liver-disease-masld-nafld",
+    "nafld": "metabolic-dysfunction-associated-steatohepatitis",
+    "metabolic dysfunction-associated steatotic liver disease": "metabolic-dysfunction-associated-steatohepatitis",
+    "masld": "metabolic-dysfunction-associated-steatohepatitis",
 }
 
 _PAREN_RE = re.compile(r"\s*\([^)]*\)")
