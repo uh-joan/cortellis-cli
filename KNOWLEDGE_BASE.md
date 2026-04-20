@@ -73,6 +73,40 @@ cortellis run-skill changelog obesity --dry-run     # preview execution plan
 
 ---
 
+## `cortellis run-skill enrich <indication>` — Fill deep profiles for priority entities
+
+After running `/landscape`, the indication article is compiled but individual drug, company, and target profiles may still be stubs. `enrich` fills those gaps automatically — running `drug-profile`, `pipeline`, and `target-profile` for all priority entities missing a deep wiki article, then recompiling the indication and rebuilding the wiki index.
+
+```bash
+cortellis run-skill enrich obesity
+cortellis run-skill enrich MASH
+cortellis run-skill enrich "cardiovascular disease"
+
+cortellis run-skill enrich obesity --dry-run     # preview what would run
+```
+
+**Prerequisite:** `/landscape <indication>` must have been run first — `enrich` reads the `enrichment_manifest.json` it produces.
+
+**What gets profiled:**
+| Entity type | Criteria |
+|---|---|
+| Drugs | Launched + Phase 3, normalized name, no existing deep profile |
+| Companies | CPI tier A or B with score ≥ 15, no existing pipeline article |
+| Targets | Mechanisms with ≥ 3 active drugs, wiki-resolvable, no existing target profile |
+
+**Idempotent:** Re-running skips entities already profiled. Safe to run after partial failures.
+
+**Workflow:**
+```
+enrich_drugs → enrich_companies → enrich_targets → recompile → wiki_refresh
+```
+
+**Web UI:** Each indication article shows a KB coverage callout (e.g. `KB coverage: 30% · 13/43 entities profiled`) with an **Enrich →** button. Hover over the entities count for a per-type breakdown. Turns green + disabled when coverage reaches 100%.
+
+**Also available as slash command:** `/enrich <indication>`
+
+---
+
 ## `cortellis run-skill ingest <file>` — Add internal documents to the wiki
 
 Ingests any internal document as a wiki node with wikilinks to known entities (drugs, companies, targets, indications). Makes internal docs surface in `/signals` alongside Cortellis data.
