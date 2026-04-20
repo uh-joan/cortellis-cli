@@ -11,6 +11,7 @@ Reads a workflow YAML DAG and executes recipe nodes with:
 - Review gate before compile node
 """
 
+import os
 import re
 import shlex
 import subprocess
@@ -248,7 +249,7 @@ def _exec_node(node: Node, bash: str, output_dir: Path) -> NodeResult:
             shell=True,
             capture_output=True,
             text=True,
-            cwd=str(REPO_ROOT),
+            cwd=os.getcwd(),
             timeout=node_timeout,
         )
     except subprocess.TimeoutExpired:
