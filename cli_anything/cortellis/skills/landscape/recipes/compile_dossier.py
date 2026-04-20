@@ -767,7 +767,9 @@ def emit_enrichment_manifest(landscape_dir, indication_name, slug, base_dir):
         mname = r.get("mechanism", "")
         if not mname:
             continue
-        tslug = find_target_slug_for_mechanism(mname, base_dir) or slugify(mname)
+        tslug = find_target_slug_for_mechanism(mname, base_dir)
+        if not tslug:
+            continue  # no wiki match → unresolvable mechanism class, skip
         if tslug in seen_target_slugs:
             continue
         seen_target_slugs.add(tslug)
