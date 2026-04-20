@@ -21,8 +21,8 @@ def _auto_venv() -> None:
     is_setup = "setup" in sys.argv[1:]
 
     if os.path.isfile(local_bin):
-        # Guard against infinite re-exec loop
-        if os.path.abspath(sys.executable) != os.path.abspath(local_bin):
+        # Guard against infinite re-exec loop: check the running script, not the interpreter
+        if os.path.abspath(sys.argv[0]) != os.path.abspath(local_bin):
             os.execv(local_bin, [local_bin] + sys.argv[1:])
     elif is_project and not is_setup:
         print(
