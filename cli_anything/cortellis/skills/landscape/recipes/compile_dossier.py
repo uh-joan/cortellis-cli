@@ -721,12 +721,14 @@ def emit_enrichment_manifest(landscape_dir, indication_name, slug, base_dir):
             continue
         seen_drug_slugs.add(drug_slug)
         drug_path = article_path("drugs", drug_slug, base_dir)
-        # Skip drugs where fetch succeeded but compile failed — Cortellis data too sparse
+        # Skip drugs where the profile was attempted but failed:
+        # - raw dir + record.json exists but no wiki article → compile failed (sparse data)
+        # - raw dir exists but is empty → resolver/fetch failed (drug not in Cortellis)
         raw_drug_dir = os.path.join(base_dir, "raw", "drugs", drug_slug)
-        if (not os.path.exists(drug_path)
-                and os.path.isdir(raw_drug_dir)
-                and os.path.exists(os.path.join(raw_drug_dir, "record.json"))):
-            continue
+        if not os.path.exists(drug_path) and os.path.isdir(raw_drug_dir):
+            dir_files = os.listdir(raw_drug_dir)
+            if not dir_files or os.path.exists(os.path.join(raw_drug_dir, "record.json")):
+                continue
         existing = read_article(drug_path) if os.path.exists(drug_path) else None
         # drug-profile articles carry 'originator' set by compile_drug_profile.py
         has_deep = bool(existing and existing.get("meta") and existing["meta"].get("originator"))
