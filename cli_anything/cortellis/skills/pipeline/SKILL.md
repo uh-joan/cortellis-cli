@@ -251,3 +251,15 @@ Fetches Open Targets tractability + genetic constraint for top pipeline mechanis
 python3 $RECIPES/compile_pipeline.py $DIR "<COMPANY_NAME>" [--wiki-dir DIR]
 ```
 Upserts wiki/companies/<slug>.md with pipeline data. Preserves existing landscape CPI data if the article was previously compiled by compile_dossier. Updates wiki/INDEX.md.
+
+### Post-Run Review (optional, run after report is delivered)
+```bash
+python3 $RECIPES/../post_run_reviewer.py pipeline $DIR "<COMPANY_NAME>"
+```
+Read the manifest output above. If you see a clear pattern worth encoding (e.g. an
+optional enrichment step that consistently returns empty for certain company types),
+update the `## Learned Optimizations` section below with a targeted patch. Only add
+an optimization if it would generalize to future runs — not for one-off anomalies.
+
+## Learned Optimizations
+<!-- Auto-updated by post-run review. Add generalizable skip rules and fast-path hints here. -->

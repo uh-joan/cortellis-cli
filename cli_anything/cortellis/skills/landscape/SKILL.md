@@ -517,6 +517,19 @@ python3 $RECIPES/compile_dossier.py $DIR "<INDICATION_NAME>"
 # Enables future sessions to answer from compiled knowledge (Step 0 fast-path)
 ```
 
+### Post-Run Review (optional, run after report is delivered)
+```bash
+python3 $RECIPES/../post_run_reviewer.py landscape $DIR "<INDICATION_NAME>"
+```
+Read the manifest output above. If you see a clear pattern worth encoding (e.g. an
+optional enrichment step that returned empty for this indication class), update the
+`## Learned Optimizations` section below with a targeted patch. Only add an
+optimization if it would generalize to future runs of similar inputs — not for
+one-off anomalies. If unsure, skip.
+
+## Learned Optimizations
+<!-- Auto-updated by post-run review. Add generalizable skip rules and fast-path hints here. -->
+
 ### Cross-drill: Deep dive into top drugs (optional)
 After completing the landscape, if the user wants to drill into specific drugs:
 1. Read the compiled wiki article or the Key Drugs section to identify top drugs

@@ -152,11 +152,17 @@ def _expected_but_missing(skill_name, found_files):
             "ct_trials.json", "literature.json",
         },
         "landscape": {
-            "mechanisms.json", "trials.json", "regulatory.json",
-            "literature.json", "press_releases.json", "timeline.json",
+            # Optional enrichment steps
+            "trials_summary.csv", "regulatory_milestones.csv",
+            "press_releases_summary.csv", "historical_timeline.md",
+            "scenario_analysis.md", "loe_analysis.md",
+            "approval_regions.json",
         },
         "pipeline": {
-            "si_phase1.json", "si_preclinical.json", "open_targets.json",
+            # SI data (may be empty for some companies)
+            "phase1_si.csv", "preclinical_si.csv",
+            # External enrichment
+            "opentargets_pipeline.md", "biorxiv_pipeline.md",
         },
         "target-profile": {
             "cpic.json", "chembl_binding.json", "uniprot.json",
