@@ -71,7 +71,7 @@ May be empty for non-launched drugs — generator skips chart silently if no dat
 python3 $RECIPES/drug_comparison_generator.py $DIR
 ```
 
-### Post-Run Review (optional, run after report is delivered)
+### Post-Run Review (run after report is delivered)
 ```bash
 python3 $RECIPES/../post_run_reviewer.py drug-comparison $DIR "<DRUG_NAMES>"
 ```

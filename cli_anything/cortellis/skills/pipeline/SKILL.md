@@ -252,7 +252,7 @@ python3 $RECIPES/compile_pipeline.py $DIR "<COMPANY_NAME>" [--wiki-dir DIR]
 ```
 Upserts wiki/companies/<slug>.md with pipeline data. Preserves existing landscape CPI data if the article was previously compiled by compile_dossier. Updates wiki/INDEX.md.
 
-### Post-Run Review (optional, run after report is delivered)
+### Post-Run Review (run after report is delivered)
 ```bash
 python3 $RECIPES/../post_run_reviewer.py pipeline $DIR "<COMPANY_NAME>"
 ```

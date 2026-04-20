@@ -130,7 +130,7 @@ python3 $RECIPES/compile_target.py $DIR "$TARGET_NAME"
 ```
 Always run this after Step 9. Writes `wiki/targets/<slug>.md` and updates `wiki/INDEX.md`.
 
-### Post-Run Review (optional, run after report is delivered)
+### Post-Run Review (run after report is delivered)
 ```bash
 python3 $RECIPES/../post_run_reviewer.py target-profile $DIR "$TARGET_NAME"
 ```

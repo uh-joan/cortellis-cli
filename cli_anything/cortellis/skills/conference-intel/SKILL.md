@@ -41,7 +41,7 @@ python3 $RECIPES/compile_conference.py $DIR "<CONFERENCE_NAME>"
 ```
 Writes `wiki/conferences/<slug>.md` and updates `INDEX.md`.
 
-### Post-Run Review (optional, run after report is delivered)
+### Post-Run Review (run after report is delivered)
 ```bash
 python3 $RECIPES/../post_run_reviewer.py conference-intel $DIR "<CONFERENCE_NAME>"
 ```

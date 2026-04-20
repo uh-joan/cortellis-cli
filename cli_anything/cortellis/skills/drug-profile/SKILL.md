@@ -160,7 +160,7 @@ uv run --with pyyaml python3 $RECIPES/compile_drug.py $DIR "$DRUG_NAME_RESOLVED"
 ```
 Reads all JSON files from `$DIR` and writes `wiki/drugs/<slug>.md` plus updates `wiki/INDEX.md`.
 
-### Post-Run Review (optional, run after report is delivered)
+### Post-Run Review (run after report is delivered)
 ```bash
 python3 $RECIPES/../post_run_reviewer.py drug-profile $DIR "$DRUG_NAME_RESOLVED"
 ```

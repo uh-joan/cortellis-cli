@@ -517,7 +517,7 @@ python3 $RECIPES/compile_dossier.py $DIR "<INDICATION_NAME>"
 # Enables future sessions to answer from compiled knowledge (Step 0 fast-path)
 ```
 
-### Post-Run Review (optional, run after report is delivered)
+### Post-Run Review (run after report is delivered)
 ```bash
 python3 $RECIPES/../post_run_reviewer.py landscape $DIR "<INDICATION_NAME>"
 ```
