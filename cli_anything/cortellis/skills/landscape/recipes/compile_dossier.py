@@ -87,9 +87,23 @@ def load_drugdesign_preclinical(landscape_dir):
 
 
 def load_drugdesign_mechanism_counts(landscape_dir):
-    """Load research compound counts per mechanism from drug-design SI database.
-    Returns dict: normalised mechanism name → compound count.
+    """Load bench compound counts keyed by drugs-endpoint mechanism name (lower-case).
+
+    Prefers the ID-based crosswalk (drugdesign_mechanism_crosswalk.json) built by
+    fetch_drugdesign_mechanism_counts.py, which maps mechanism names via the shared
+    Cortellis mechanism ID — exact, no string comparison.
+
+    Falls back to the raw name-based CSV lookup when the crosswalk is absent
+    (e.g. first run before crosswalk was generated).
     """
+    xwalk_path = os.path.join(landscape_dir, "drugdesign_mechanism_crosswalk.json")
+    if os.path.exists(xwalk_path):
+        try:
+            with open(xwalk_path, encoding="utf-8") as f:
+                return json.load(f)  # already {mech_name_lower: count}
+        except (json.JSONDecodeError, OSError):
+            pass
+    # Fallback: raw name-based lookup
     rows = read_csv_safe(os.path.join(landscape_dir, "drugdesign_mechanism_counts.csv"))
     return {r["mechanism_name"].lower(): safe_int(r.get("compound_count", 0)) for r in rows if r.get("mechanism_name")}
 
