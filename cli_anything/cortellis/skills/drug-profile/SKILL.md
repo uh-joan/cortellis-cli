@@ -160,6 +160,19 @@ uv run --with pyyaml python3 $RECIPES/compile_drug.py $DIR "$DRUG_NAME_RESOLVED"
 ```
 Reads all JSON files from `$DIR` and writes `wiki/drugs/<slug>.md` plus updates `wiki/INDEX.md`.
 
+### Post-Run Review (optional, run after report is delivered)
+```bash
+python3 $RECIPES/../post_run_reviewer.py drug-profile $DIR "$DRUG_NAME_RESOLVED"
+```
+Read the manifest output above. If you see a clear pattern worth encoding (e.g. an
+optional section that returned empty for this drug class), update the
+`## Learned Optimizations` section below with a targeted patch. Only add an
+optimization if it would generalize to future runs of similar inputs — not for
+one-off anomalies. If unsure, skip.
+
+## Learned Optimizations
+<!-- Auto-updated by post-run review. Add generalizable skip rules and fast-path hints here. -->
+
 ## Execution Rules
 
 - Once the final report has been delivered to the user, **do not respond to background task completion notifications**. Discard them silently — they are late arrivals for steps already processed.
