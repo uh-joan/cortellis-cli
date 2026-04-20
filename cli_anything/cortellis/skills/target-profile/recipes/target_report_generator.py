@@ -120,7 +120,10 @@ if condition_drugs:
     target_data = condition_drugs.get("TargetRecordsOutput", {}).get("Targets", {}).get("Target", {})
     if isinstance(target_data, list):
         target_data = target_data[0] if target_data else {}
-    conditions = target_data.get("ConditionDrugAssociations", {}).get("Condition", [])
+    cda = target_data.get("ConditionDrugAssociations", {})
+    if not isinstance(cda, dict):
+        cda = {}
+    conditions = cda.get("Condition", [])
     if isinstance(conditions, dict):
         conditions = [conditions]
     if conditions:
@@ -158,7 +161,10 @@ if condition_genes:
     target_data = condition_genes.get("TargetRecordsOutput", {}).get("Targets", {}).get("Target", {})
     if isinstance(target_data, list):
         target_data = target_data[0] if target_data else {}
-    gene_assocs = target_data.get("ConditionGeneAssociations", {}).get("Condition", [])
+    cga = target_data.get("ConditionGeneAssociations", {})
+    if not isinstance(cga, dict):
+        cga = {}
+    gene_assocs = cga.get("Condition", [])
     if isinstance(gene_assocs, dict):
         gene_assocs = [gene_assocs]
     if gene_assocs:
@@ -227,7 +233,10 @@ if interactions:
     target_data = interactions.get("TargetRecordsOutput", {}).get("Targets", {}).get("Target", {})
     if isinstance(target_data, list):
         target_data = target_data[0] if target_data else {}
-    inter_list = target_data.get("Interactions", {}).get("Interaction", [])
+    inter_raw = target_data.get("Interactions", {})
+    if not isinstance(inter_raw, dict):
+        inter_raw = {}
+    inter_list = inter_raw.get("Interaction", [])
     if isinstance(inter_list, dict):
         inter_list = [inter_list]
     if inter_list:
