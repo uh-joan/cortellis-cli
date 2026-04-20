@@ -130,6 +130,18 @@ python3 $RECIPES/compile_target.py $DIR "$TARGET_NAME"
 ```
 Always run this after Step 9. Writes `wiki/targets/<slug>.md` and updates `wiki/INDEX.md`.
 
+### Post-Run Review (optional, run after report is delivered)
+```bash
+python3 $RECIPES/../post_run_reviewer.py target-profile $DIR "$TARGET_NAME"
+```
+Read the manifest output above. If you see a clear pattern worth encoding (e.g. an
+optional enrichment step that returned empty for this target class), update the
+`## Learned Optimizations` section below with a targeted patch. Only add an
+optimization if it would generalize to future runs — not for one-off anomalies.
+
+## Learned Optimizations
+<!-- Auto-updated by post-run review. Add generalizable skip rules and fast-path hints here. -->
+
 ## Execution Rules
 
 - Once the final report has been delivered to the user, **do not respond to background task completion notifications**. Discard them silently — they are late arrivals for steps already processed.

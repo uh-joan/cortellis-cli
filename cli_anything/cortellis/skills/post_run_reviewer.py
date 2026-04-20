@@ -165,8 +165,14 @@ def _expected_but_missing(skill_name, found_files):
             "opentargets_pipeline.md", "biorxiv_pipeline.md",
         },
         "target-profile": {
-            "cpic.json", "chembl_binding.json", "uniprot.json",
-            "open_targets.json", "briefings.json", "publications.json",
+            # External enrichment — may be absent for niche targets
+            "cpic.json", "chembl_target.json", "uniprot.json",
+            "opentargets.json", "alphafold.json",
+            "briefings.json", "publications.json",
+        },
+        "drug-comparison": {
+            # Financials are empty for pipeline drugs
+            "financials_1.json", "financials_2.json",
         },
     }
     expected = OPTIONAL.get(skill_name, set())

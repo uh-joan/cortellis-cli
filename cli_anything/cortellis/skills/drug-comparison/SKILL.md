@@ -71,6 +71,17 @@ May be empty for non-launched drugs — generator skips chart silently if no dat
 python3 $RECIPES/drug_comparison_generator.py $DIR
 ```
 
+### Post-Run Review (optional, run after report is delivered)
+```bash
+python3 $RECIPES/../post_run_reviewer.py drug-comparison $DIR "<DRUG_NAMES>"
+```
+Read the manifest output above. If you see a clear pattern worth encoding (e.g.
+financials always empty for pipeline drugs in a given phase), update the
+`## Learned Optimizations` section below with a targeted patch.
+
+## Learned Optimizations
+<!-- Auto-updated by post-run review. Add generalizable skip rules and fast-path hints here. -->
+
 ## Execution Rules
 
 - Once the final report has been delivered to the user, **do not respond to background task completion notifications**. Discard them silently — they are late arrivals for steps already processed.
