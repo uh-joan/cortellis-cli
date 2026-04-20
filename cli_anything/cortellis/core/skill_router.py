@@ -10,7 +10,7 @@ import re
 from pathlib import Path
 from typing import Optional
 
-_REPO_ROOT = Path(__file__).resolve().parents[3]
+
 
 from cli_anything.cortellis.utils.wiki import article_path, check_freshness, slugify
 

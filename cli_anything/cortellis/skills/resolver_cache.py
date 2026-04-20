@@ -15,8 +15,8 @@ import os
 import tempfile
 
 _SKILLS_DIR = os.path.dirname(__file__)
-_SEED_FILE = os.path.join(_SKILLS_DIR, ".resolver_cache.json")
-_LOCAL_FILE = os.path.join(_SKILLS_DIR, ".resolver_cache.local.json")
+_SEED_FILE = os.path.join(_SKILLS_DIR, ".resolver_cache.json")   # in package — read-only seed
+_LOCAL_FILE = os.path.join(os.getcwd(), ".resolver_cache.local.json")  # in project cwd — per-project
 
 
 def _load_file(path: str) -> dict:

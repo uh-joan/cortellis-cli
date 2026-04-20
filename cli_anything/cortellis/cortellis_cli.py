@@ -2355,7 +2355,9 @@ def chat_cmd(debug, engine="claude", no_flush=False) -> None:
         click.echo("  Ask questions naturally. Type 'exit' or Ctrl-D to quit.\n")
 
     from cli_anything.cortellis.utils.skill_registry import build_skill_registry_prompt
-    _venv_act = str(Path(__file__).resolve().parents[2] / ".venv" / "bin" / "activate")
+    _cwd_venv = Path.cwd() / ".venv" / "bin" / "activate"
+    _pkg_venv = Path(__file__).resolve().parents[2] / ".venv" / "bin" / "activate"
+    _venv_act = str(_cwd_venv if _cwd_venv.exists() else _pkg_venv)
     skill_content = build_skill_registry_prompt(_venv_act)
 
     # Inject wiki INDEX if available — enables cross-session knowledge
@@ -2428,7 +2430,9 @@ def chat_cmd(debug, engine="claude", no_flush=False) -> None:
                 break
 
     # Build the system prompt
-    venv_activate = str(Path(__file__).resolve().parents[2] / ".venv" / "bin" / "activate")
+    _cwd_venv2 = Path.cwd() / ".venv" / "bin" / "activate"
+    _pkg_venv2 = Path(__file__).resolve().parents[2] / ".venv" / "bin" / "activate"
+    venv_activate = str(_cwd_venv2 if _cwd_venv2.exists() else _pkg_venv2)
     # Prefix that activates venv + runs cortellis in one shot
     run = f"source {venv_activate} && cortellis --json"
 
