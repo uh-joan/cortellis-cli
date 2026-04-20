@@ -10,7 +10,7 @@ import re
 from pathlib import Path
 from typing import Optional
 
-_REPO_ROOT = Path(__file__).resolve().parents[3]
+
 
 from cli_anything.cortellis.utils.wiki import article_path, check_freshness, slugify
 
@@ -198,7 +198,7 @@ def check_wiki_fast_path(question: str) -> Optional[str]:
     candidates = [indication] if indication else []
 
     # Also scan wiki/indications/ for known slugs that appear in the question
-    indications_dir = os.path.join(str(_REPO_ROOT), "wiki", "indications")
+    indications_dir = os.path.join(os.getcwd(), "wiki", "indications")
     if os.path.isdir(indications_dir):
         for fname in os.listdir(indications_dir):
             if fname.endswith(".md"):

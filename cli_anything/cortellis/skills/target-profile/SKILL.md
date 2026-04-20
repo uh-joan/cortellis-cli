@@ -130,6 +130,24 @@ python3 $RECIPES/compile_target.py $DIR "$TARGET_NAME"
 ```
 Always run this after Step 9. Writes `wiki/targets/<slug>.md` and updates `wiki/INDEX.md`.
 
+### Post-Run Review (run after report is delivered)
+```bash
+python3 $RECIPES/../post_run_reviewer.py target-profile $DIR "$TARGET_NAME"
+```
+Read the manifest output above. If you see a clear pattern worth encoding (e.g. an
+optional enrichment step that returned empty for this target class), update the
+`## Learned Optimizations` section below with a targeted patch. Only add an
+optimization if it would generalize to future runs — not for one-off anomalies.
+
+## Learned Optimizations
+<!-- Auto-updated by post-run review. Confirmed across real runs: glp-1-receptor, glucagon-like-peptide-1-receptor, gastric-inhibitory-polypeptide-receptor, fibroblast-growth-factor-21, glp-1. -->
+
+- **`patents.json` + `references.json` empty for receptor/ligand targets** — the targets patents and references APIs return empty for all tested GPCR/ligand targets (GLP-1 receptor, GIP receptor, FGF-21, GLP-1). Likely subscription-gated or sparsely populated. Fetch but expect empty; do not surface as a gap in the report.
+- **`briefings.json` empty for most targets** — disease briefings returns empty for 4/5 tested targets. Only worth running if the target has a well-known disease briefing (e.g. specific disease targets, not receptor classes). Treat as best-effort.
+- **`literature.json` sparse for receptor targets** — returns empty for 3/4 tested targets via the targets references API. Use `opentargets.json` and `chembl_target.json` as primary evidence for target-disease and binding data instead.
+- **`pharmacology.json` sparse (161B) for some targets** — drug-design pharmacology endpoint returns minimal data for targets without substantial SI coverage. Expected for GPCR/receptor classes; not a gap.
+- **`interactions.json` sparse (176B) for some targets** — amylin receptor and similar peptide hormone receptors have few documented protein-protein interactions. Expected; do not flag as a gap.
+
 ## Execution Rules
 
 - Once the final report has been delivered to the user, **do not respond to background task completion notifications**. Discard them silently — they are late arrivals for steps already processed.

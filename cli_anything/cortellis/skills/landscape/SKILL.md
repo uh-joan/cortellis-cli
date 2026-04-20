@@ -517,6 +517,25 @@ python3 $RECIPES/compile_dossier.py $DIR "<INDICATION_NAME>"
 # Enables future sessions to answer from compiled knowledge (Step 0 fast-path)
 ```
 
+### Post-Run Review (run after report is delivered)
+```bash
+python3 $RECIPES/../post_run_reviewer.py landscape $DIR "<INDICATION_NAME>"
+```
+Read the manifest output above. If you see a clear pattern worth encoding (e.g. an
+optional enrichment step that returned empty for this indication class), update the
+`## Learned Optimizations` section below with a targeted patch. Only add an
+optimization if it would generalize to future runs of similar inputs — not for
+one-off anomalies. If unsure, skip.
+
+## Learned Optimizations
+<!-- Auto-updated by post-run review. Confirmed across real runs: obesity, MASH, diabetes, chronic-kidney-disease, cardiovascular-disease. -->
+
+- **`deal_financials.csv` + `deal_comps.md` always empty — `deals-intelligence` API returns 404** — the `deals-intelligence` endpoint is a separate premium Cortellis entitlement not included in the base subscription. `enrich_deal_financials.py` will always produce empty output. Skip this step unless the subscription is upgraded; do not surface as a data gap in the report.
+- **`*.meta.json` files are intentionally small** — these are pagination counters (40-53B), not content. Normal output; not a signal of missing data.
+- **`press_releases_summary.csv` + `recent_press_releases.md` sparse for all tested indications** — press release enrichment returns minimal rows across obesity, MASH, diabetes, CKD, cardiovascular. Worth running but lower priority than deal and trial data.
+- **`trials_summary.csv` sparse** — 112B summary header; the detailed data lives in `trials_by_sponsor.csv`. Not a data gap.
+- **`regulatory_milestones.csv` sparse (75B) for most indications** — 4/5 tested indications (MASH, diabetes, CKD, cardiovascular) return header-only. Only high-regulatory-activity indications (obesity) have meaningful milestone data. Sparse output is expected; do not flag as a gap.
+
 ### Cross-drill: Deep dive into top drugs (optional)
 After completing the landscape, if the user wants to drill into specific drugs:
 1. Read the compiled wiki article or the Key Drugs section to identify top drugs

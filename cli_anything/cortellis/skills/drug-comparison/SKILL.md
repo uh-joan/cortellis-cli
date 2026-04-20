@@ -71,6 +71,20 @@ May be empty for non-launched drugs — generator skips chart silently if no dat
 python3 $RECIPES/drug_comparison_generator.py $DIR
 ```
 
+### Post-Run Review (run after report is delivered)
+```bash
+python3 $RECIPES/../post_run_reviewer.py drug-comparison $DIR "<DRUG_NAMES>"
+```
+Read the manifest output above. If you see a clear pattern worth encoding (e.g.
+financials always empty for pipeline drugs in a given phase), update the
+`## Learned Optimizations` section below with a targeted patch.
+
+## Learned Optimizations
+<!-- Auto-updated by post-run review. Confirmed across real runs: 3 comparison runs (20260410-222307, 20260410-224029, 20260412-192508). -->
+
+- **All files fully populated for launched drug comparisons** — when comparing launched drugs (e.g. semaglutide vs tirzepatide), all 8 files (drug_N.json, deals_N.json, trials_N.json, financials_N.json) return substantial data. No skip rules needed for this input class.
+- **`financials_N.json` will be sparse or empty for pipeline drugs** — expect 33B (empty structure) when comparing Phase 1/2 drugs. Skip the financials chart section in the report for pipeline comparisons.
+
 ## Execution Rules
 
 - Once the final report has been delivered to the user, **do not respond to background task completion notifications**. Discard them silently — they are late arrivals for steps already processed.

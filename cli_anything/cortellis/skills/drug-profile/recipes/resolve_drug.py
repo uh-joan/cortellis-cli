@@ -20,6 +20,8 @@ import sys
 import os
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "..", "..", "..", ".."))
 from cli_anything.cortellis.utils.wiki import normalize_drug_name, slugify
+sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", ".."))
+from resolver_cache import cache_get, cache_set
 
 PHASE_ORDER = {
     "Launched": 10, "Registered": 9, "Pre-registration": 8,
@@ -53,7 +55,8 @@ def resolve(name):
     )
     try:
         d = json.loads(r.stdout)
-        entities = d.get("NamedEntityRecognition", {}).get("Entities", {}).get("Entity", [])
+        _ner = d.get("NamedEntityRecognition", {}).get("Entities", {})
+        entities = _ner.get("Entity", []) if isinstance(_ner, dict) else []
         if isinstance(entities, dict):
             entities = [entities]
         # Find exact name match among Drug entities
@@ -69,7 +72,8 @@ def resolve(name):
                     )
                     try:
                         d2 = json.loads(r2.stdout)
-                        drug = d2.get("drugResultsOutput", {}).get("SearchResults", {}).get("Drug", {})
+                        _sr2 = d2.get("drugResultsOutput", {}).get("SearchResults", {})
+                        drug = _sr2.get("Drug", {}) if isinstance(_sr2, dict) else {}
                         if isinstance(drug, list):
                             drug = drug[0]
                         return ner_id, drug.get("@name", name), drug.get("@phaseHighest", ""), indication_count(drug)
@@ -85,7 +89,8 @@ def resolve(name):
     )
     try:
         d = json.loads(r.stdout)
-        drugs = d.get("drugResultsOutput", {}).get("SearchResults", {}).get("Drug", [])
+        _sr = d.get("drugResultsOutput", {}).get("SearchResults", {})
+        drugs = _sr.get("Drug", []) if isinstance(_sr, dict) else []
         if isinstance(drugs, dict):
             drugs = [drugs]
     except (json.JSONDecodeError, KeyError, TypeError, ValueError):
@@ -130,6 +135,16 @@ if __name__ == "__main__":
         print("Usage: python3 resolve_drug.py <drug_name>", file=sys.stderr)
         sys.exit(1)
 
+    cached = cache_get("drugs", name)
+    if cached:
+        print(cached)
+        sys.exit(0)
+
     drug_id, drug_name, phase, indics = resolve(name)
+    if not drug_id:
+        print(f"ERROR: could not resolve drug '{name}'", file=sys.stderr)
+        sys.exit(1)
     inn_slug = slugify(normalize_drug_name(drug_name))
-    print(f"{drug_id},{drug_name},{phase},{indics},{inn_slug}")
+    result = f"{drug_id},{drug_name},{phase},{indics},{inn_slug}"
+    cache_set("drugs", name, result)
+    print(result)

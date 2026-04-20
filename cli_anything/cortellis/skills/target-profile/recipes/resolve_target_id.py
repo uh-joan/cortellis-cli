@@ -19,6 +19,8 @@ import os
 import re
 import subprocess
 import sys
+sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", ".."))
+from resolver_cache import cache_get, cache_set
 
 
 def normalize(s):
@@ -95,7 +97,8 @@ def targets_search(query):
     if not isinstance(d, dict):
         return None
     try:
-        results = d.get("TargetResultsOutput", {}).get("SearchResults", {}).get("TargetResult", [])
+        _sr = d.get("TargetResultsOutput", {}).get("SearchResults", {})
+        results = _sr.get("TargetResult", []) if isinstance(_sr, dict) else []
         if isinstance(results, dict):
             results = [results]
         if not results:
@@ -117,7 +120,8 @@ def ner_resolve_target(name):
     """Use NER to find Target entities, return canonical target name."""
     d = run_cmd(["cortellis", "--json", "ner", "match", name])
     try:
-        entities = d.get("NamedEntityRecognition", {}).get("Entities", {}).get("Entity", [])
+        _ner = d.get("NamedEntityRecognition", {}).get("Entities", {})
+        entities = _ner.get("Entity", []) if isinstance(_ner, dict) else []
         if isinstance(entities, dict):
             entities = [entities]
         for e in entities:
@@ -175,9 +179,16 @@ if __name__ == "__main__":
         print("Usage: python3 resolve_target_id.py <target_name>", file=sys.stderr)
         sys.exit(1)
 
+    cached = cache_get("targets_full", name)
+    if cached:
+        print(cached)
+        sys.exit(0)
+
     result = resolve(name)
     if result:
-        print(",".join(str(x) for x in result))
+        output = ",".join(str(x) for x in result)
+        cache_set("targets_full", name, output)
+        print(output)
     else:
         print(f"ERROR: could not resolve target '{name}'", file=sys.stderr)
         sys.exit(1)

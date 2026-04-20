@@ -14,8 +14,11 @@ Usage:
 Output: company_id,company_name,active_drugs,method
 """
 import json
+import os
 import subprocess
 import sys
+sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", ".."))
+from resolver_cache import cache_get, cache_set
 
 
 def run_cli(*args):
@@ -75,7 +78,8 @@ def resolve(name):
     # Strategy 0: NER — exact entity match (fastest, most accurate)
     d = run_cli("ner", "match", name)
     try:
-        entities = d.get("NamedEntityRecognition", {}).get("Entities", {}).get("Entity", [])
+        _ner = d.get("NamedEntityRecognition", {}).get("Entities", {})
+        entities = _ner.get("Entity", []) if isinstance(_ner, dict) else []
         if isinstance(entities, dict):
             entities = [entities]
         for e in entities:
@@ -146,6 +150,14 @@ if __name__ == "__main__":
         print("Usage: python3 resolve_company.py <company_name>", file=sys.stderr)
         sys.exit(1)
 
+    cached = cache_get("companies", name)
+    if cached:
+        print(cached)
+        sys.exit(0)
+
     pid, active, method = resolve(name)
     cname = get_name(pid) if pid else ""
-    print(f"{pid},{cname},{active},{method}")
+    result = f"{pid},{cname},{active},{method}"
+    if pid:
+        cache_set("companies", name, result)
+    print(result)

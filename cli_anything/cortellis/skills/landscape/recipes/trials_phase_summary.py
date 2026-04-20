@@ -96,14 +96,28 @@ if __name__ == "__main__":
             header = next(reader, None)
             companies = [row[0] for row in reader if row and row[0].strip()][:10]
 
+        def _sponsor_query_name(name: str) -> str:
+            """Strip legal suffixes that break Cortellis trials --sponsor matching."""
+            for suffix in [
+                " and Company", " & Company", " Inc.", " Inc",
+                " Ltd.", " Ltd", " LLC", " Corp.", " Corp",
+                " Co.", " Co", " AG", " plc", " SA", " A/S",
+                " GmbH", " NV", " BV",
+            ]:
+                if name.endswith(suffix):
+                    name = name[: -len(suffix)].strip()
+                    break
+            return name
+
         sponsor_rows = []
         for company in companies:
-            print(f"  Fetching trials for sponsor: {company}", file=sys.stderr)
+            query_name = _sponsor_query_name(company)
+            print(f"  Fetching trials for sponsor: {query_name} (from: {company})", file=sys.stderr)
             # Phase 2
             cmd_p2 = [
                 "cortellis", "--json", "trials", "search",
                 "--indication", str(indication_id),
-                "--sponsor", company,
+                "--sponsor", query_name,
                 "--recruitment-status", "Recruiting",
                 "--phase", "C2",
                 "--hits", "0",
@@ -120,7 +134,7 @@ if __name__ == "__main__":
             cmd_p3 = [
                 "cortellis", "--json", "trials", "search",
                 "--indication", str(indication_id),
-                "--sponsor", company,
+                "--sponsor", query_name,
                 "--recruitment-status", "Recruiting",
                 "--phase", "C3",
                 "--hits", "0",

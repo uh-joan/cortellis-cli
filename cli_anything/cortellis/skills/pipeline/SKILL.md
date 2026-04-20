@@ -248,6 +248,23 @@ Fetches Open Targets tractability + genetic constraint for top pipeline mechanis
 
 ### Compile pipeline to wiki (Step 8 — optional)
 ```bash
-python3 $RECIPES/compile_pipeline.py $DIR "<COMPANY_NAME>" [--wiki-dir DIR]
+python3 $RECIPES/compile_pipeline.py $DIR "<COMPANY_NAME>" --wiki-dir .
 ```
-Upserts wiki/companies/<slug>.md with pipeline data. Preserves existing landscape CPI data if the article was previously compiled by compile_dossier. Updates wiki/INDEX.md.
+Upserts wiki/companies/<slug>.md with pipeline data.
+Note: `--wiki-dir .` is required — the script uses the working directory to locate
+the wiki. Always run from the project root (e.g. `cortellis-cli/`). Preserves existing landscape CPI data if the article was previously compiled by compile_dossier. Updates wiki/INDEX.md.
+
+### Post-Run Review (run after report is delivered)
+```bash
+python3 $RECIPES/../post_run_reviewer.py pipeline $DIR "<COMPANY_NAME>"
+```
+Read the manifest output above. If you see a clear pattern worth encoding (e.g. an
+optional enrichment step that consistently returns empty for certain company types),
+update the `## Learned Optimizations` section below with a targeted patch. Only add
+an optimization if it would generalize to future runs — not for one-off anomalies.
+
+## Learned Optimizations
+<!-- Auto-updated by post-run review. Confirmed across real runs: 14 companies including Pfizer, Amgen, Novo Nordisk, Zealand Pharma, Hanmi, Metsera, Structure Therapeutics, and others. -->
+
+- **`phase1_si.csv` + `preclinical_si.csv` consistently return empty headers (50B) across all 14 tested companies** — SI (Springer Intelligence) compound data appears inaccessible or not covered under current subscription. These steps add 2 API calls with zero return. Treat as best-effort: fetch, but do not wait or retry if empty. The CI pipeline (phase1_ci, discovery_ci) is the reliable data source.
+- **CI pipeline data dominates for established companies** — launched.csv, phase2.csv, phase3.csv are well-populated for large pharma. SI adds value only for early-stage biotechs not yet indexed in Cortellis CI.

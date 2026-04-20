@@ -17,9 +17,12 @@ Output: id,technology_name
   (canonical name for use with --technology in drugs search)
 """
 import json
+import os
 import re
 import subprocess
 import sys
+sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", ".."))
+from resolver_cache import cache_get, cache_set
 
 
 def normalize(s):
@@ -43,7 +46,8 @@ def ner_resolve(name):
     )
     try:
         d = json.loads(r.stdout)
-        entities = d.get("NamedEntityRecognition", {}).get("Entities", {}).get("Entity", [])
+        _ner = d.get("NamedEntityRecognition", {}).get("Entities", {})
+        entities = _ner.get("Entity", []) if isinstance(_ner, dict) else []
         if isinstance(entities, dict):
             entities = [entities]
         # First pass: prefer Technology entities with name match
@@ -157,9 +161,16 @@ if __name__ == "__main__":
         print("Usage: python3 resolve_technology.py <technology_name>", file=sys.stderr)
         sys.exit(1)
 
+    cached = cache_get("technologies", name)
+    if cached:
+        print(cached)
+        sys.exit(0)
+
     tid, tname = resolve(name)
     if tname:
-        print(f"{tid},{tname}")
+        result = f"{tid},{tname}"
+        cache_set("technologies", name, result)
+        print(result)
     else:
         print(f"ERROR: could not resolve technology '{name}'", file=sys.stderr)
         sys.exit(1)

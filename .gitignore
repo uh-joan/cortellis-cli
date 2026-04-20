@@ -36,3 +36,4 @@ BRAINSTORM-*.md
 
 # Local docs (analysis, notes, strategy — not shipped)
 docs/
+.resolver_cache.local.json

@@ -104,7 +104,10 @@ def extract_disease_associations(condition_drugs):
     Returns list of {disease, drug_count, active_count, highest_phase}.
     """
     target = _unwrap_target(condition_drugs)
-    conditions = target.get("ConditionDrugAssociations", {}).get("Condition", [])
+    _cda = target.get("ConditionDrugAssociations", {})
+    if not isinstance(_cda, dict):
+        _cda = {}
+    conditions = _cda.get("Condition", [])
     if isinstance(conditions, dict):
         conditions = [conditions]
     if not isinstance(conditions, list):
@@ -152,7 +155,10 @@ def extract_gene_associations(condition_genes):
     Returns list of {disease, sources}.
     """
     target = _unwrap_target(condition_genes)
-    gene_assocs = target.get("ConditionGeneAssociations", {}).get("Condition", [])
+    _cga = target.get("ConditionGeneAssociations", {})
+    if not isinstance(_cga, dict):
+        _cga = {}
+    gene_assocs = _cga.get("Condition", [])
     if isinstance(gene_assocs, dict):
         gene_assocs = [gene_assocs]
     if not isinstance(gene_assocs, list):
@@ -232,7 +238,10 @@ def extract_interactions(interactions):
     Returns list of {partner, direction, effect, mechanism}.
     """
     target = _unwrap_target(interactions)
-    inter_list = target.get("Interactions", {}).get("Interaction", [])
+    _inter = target.get("Interactions", {})
+    if not isinstance(_inter, dict):
+        _inter = {}
+    inter_list = _inter.get("Interaction", [])
     if isinstance(inter_list, dict):
         inter_list = [inter_list]
     if not isinstance(inter_list, list):
@@ -309,7 +318,10 @@ def extract_patents(patents):
         return []
 
     # Actual shape: {"patentRecordsOutput": {"Patent": [...]}}
-    pat_list = patents.get("patentRecordsOutput", {}).get("Patent", [])
+    _pro = patents.get("patentRecordsOutput", {})
+    if not isinstance(_pro, dict):
+        _pro = {}
+    pat_list = _pro.get("Patent", [])
     if not pat_list:
         # Legacy fallback via target unwrap
         target = _unwrap_target(patents)
