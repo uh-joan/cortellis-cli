@@ -41,6 +41,19 @@ python3 $RECIPES/compile_conference.py $DIR "<CONFERENCE_NAME>"
 ```
 Writes `wiki/conferences/<slug>.md` and updates `INDEX.md`.
 
+### Post-Run Review (optional, run after report is delivered)
+```bash
+python3 $RECIPES/../post_run_reviewer.py conference-intel $DIR "<CONFERENCE_NAME>"
+```
+Read the manifest output above. If you see a clear pattern worth encoding
+(e.g. cross-referencing fails without compiled wiki), update the
+`## Learned Optimizations` section below with a targeted patch.
+
+## Learned Optimizations
+<!-- Auto-updated by post-run review. Add generalizable skip rules and fast-path hints here. -->
+
+- **Cross-referencing (Step 3) only adds value when wiki articles exist** — if no landscape or drug-profile runs have been compiled yet, `conference_briefing.py` will find no matches. In fresh environments, skip cross-reference or note "no compiled knowledge available."
+
 ## Execution Rules
 
 - Once the final report has been delivered to the user, **do not respond to background task completion notifications**. Discard them silently — they are late arrivals for steps already processed.
