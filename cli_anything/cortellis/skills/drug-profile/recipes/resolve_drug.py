@@ -20,6 +20,8 @@ import sys
 import os
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "..", "..", "..", ".."))
 from cli_anything.cortellis.utils.wiki import normalize_drug_name, slugify
+sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", ".."))
+from resolver_cache import cache_get, cache_set
 
 PHASE_ORDER = {
     "Launched": 10, "Registered": 9, "Pre-registration": 8,
@@ -130,6 +132,14 @@ if __name__ == "__main__":
         print("Usage: python3 resolve_drug.py <drug_name>", file=sys.stderr)
         sys.exit(1)
 
+    cached = cache_get("drugs", name)
+    if cached:
+        print(cached)
+        sys.exit(0)
+
     drug_id, drug_name, phase, indics = resolve(name)
     inn_slug = slugify(normalize_drug_name(drug_name))
-    print(f"{drug_id},{drug_name},{phase},{indics},{inn_slug}")
+    result = f"{drug_id},{drug_name},{phase},{indics},{inn_slug}"
+    if drug_id:
+        cache_set("drugs", name, result)
+    print(result)

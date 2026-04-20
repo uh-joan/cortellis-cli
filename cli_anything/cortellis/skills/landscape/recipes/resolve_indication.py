@@ -17,9 +17,12 @@ Usage:
 Output: indication_id,indication_name
 """
 import json
+import os
 import re
 import subprocess
 import sys
+sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", ".."))
+from resolver_cache import cache_get, cache_set
 
 
 def normalize(s):
@@ -180,8 +183,15 @@ if __name__ == "__main__":
         print("Usage: python3 resolve_indication.py <indication_name>", file=sys.stderr)
         sys.exit(1)
 
+    cached = cache_get("indications", name)
+    if cached:
+        print(cached)
+        sys.exit(0)
+
     ind_id, ind_name = resolve(name)
     if not ind_id:
         print(f"ERROR: could not resolve indication '{name}'", file=sys.stderr)
         sys.exit(1)
-    print(f"{ind_id},{ind_name}")
+    result = f"{ind_id},{ind_name}"
+    cache_set("indications", name, result)
+    print(result)
