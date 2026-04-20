@@ -112,6 +112,28 @@ nodes:
     when: "$freshness.output.status != 'fresh'"
     api_calls: true
 
+  # ── Step 2b: drug-design enrichment (parallel with phase fetches) ──────────
+
+  - id: fetch_drugdesign_preclinical
+    bash: |
+      python3 cli_anything/cortellis/skills/landscape/recipes/fetch_drugdesign_preclinical.py \
+        "$resolve.output.indication_name" \
+        raw/$resolve.output.indication_name
+    depends_on: [freshness]
+    when: "$freshness.output.status != 'fresh'"
+    allow_fail: true
+    api_calls: true
+
+  - id: fetch_drugdesign_mechanism_counts
+    bash: |
+      python3 cli_anything/cortellis/skills/landscape/recipes/fetch_drugdesign_mechanism_counts.py \
+        "$resolve.output.indication_name" \
+        raw/$resolve.output.indication_name
+    depends_on: [freshness]
+    when: "$freshness.output.status != 'fresh'"
+    allow_fail: true
+    api_calls: true
+
   # ── Step 3–4: Enrichment (sequential — each depends on all fetches) ────────
 
   - id: enrich_mechanisms

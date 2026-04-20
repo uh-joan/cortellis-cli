@@ -81,6 +81,19 @@ def load_freshness(landscape_dir):
     return read_json_safe(os.path.join(landscape_dir, "freshness.json"))
 
 
+def load_drugdesign_preclinical(landscape_dir):
+    """Load net-new preclinical programs from drug-design SI database."""
+    return read_csv_safe(os.path.join(landscape_dir, "drugdesign_preclinical.csv"))
+
+
+def load_drugdesign_mechanism_counts(landscape_dir):
+    """Load research compound counts per mechanism from drug-design SI database.
+    Returns dict: normalised mechanism name → compound count.
+    """
+    rows = read_csv_safe(os.path.join(landscape_dir, "drugdesign_mechanism_counts.csv"))
+    return {r["mechanism_name"].lower(): safe_int(r.get("compound_count", 0)) for r in rows if r.get("mechanism_name")}
+
+
 def detect_preset(landscape_dir):
     """Detect which preset was used from audit_trail.json."""
     trail = read_json_safe(os.path.join(landscape_dir, "audit_trail.json"))
@@ -203,6 +216,8 @@ def compile_indication_article(landscape_dir, indication_name, slug, base_dir=No
     preset = detect_preset(landscape_dir)
     deal_count = count_csv_rows(landscape_dir, "deals.csv")
     enrichments = load_wiki_enrichments(landscape_dir, base_dir)
+    dd_preclinical = load_drugdesign_preclinical(landscape_dir)
+    dd_mech_counts = load_drugdesign_mechanism_counts(landscape_dir)
 
     # Top company for index
     top_company = ""
@@ -288,7 +303,25 @@ def compile_indication_article(landscape_dir, indication_name, slug, base_dir=No
     for phase_key in PHASE_FILES:
         label = phase_labels.get(phase_key, phase_key)
         body_parts.append(f"| {label} | {phases[phase_key]} |\n")
-    body_parts.append(f"| **Total** | **{phases['total']}** |\n\n")
+    body_parts.append(f"| **Total** | **{phases['total']}** |\n")
+    if dd_preclinical:
+        body_parts.append(
+            f"| Early stage (drug-design, net-new) | {len(dd_preclinical)} |\n"
+        )
+    body_parts.append("\n")
+    if dd_preclinical:
+        body_parts.append(
+            f"*{len(dd_preclinical)} additional preclinical program(s) tracked in the "
+            f"drug-design SI database with active development intent but not yet in the "
+            f"Cortellis drugs endpoint:*\n\n"
+        )
+        body_parts.append("| Program | Org | Mechanism | Added |\n|---|---|---|---|\n")
+        for p in dd_preclinical[:20]:
+            body_parts.append(
+                f"| {p.get('name', '-')} | {p.get('org', '-')} "
+                f"| {p.get('mechanism', '-') or '-'} | {p.get('added_date', '-')} |\n"
+            )
+        body_parts.append("\n")
 
     # Competitive Landscape — CPI Rankings
     body_parts.append("## Competitive Landscape\n\n")
@@ -418,10 +451,15 @@ def compile_indication_article(landscape_dir, indication_name, slug, base_dir=No
     body_parts.append("## Mechanism Analysis\n\n")
     matched_targets = {}  # mechanism → target_slug
     if mechanisms:
-        body_parts.append(
+        has_bench = bool(dd_mech_counts)
+        header = (
+            "| Mechanism | Active | Launched | P3 | P2 | P1 | Discovery | Companies | Crowding | Bench | Profile |\n"
+            "|---|---|---|---|---|---|---|---|---|---|---|\n"
+        ) if has_bench else (
             "| Mechanism | Active | Launched | P3 | P2 | P1 | Discovery | Companies | Crowding | Profile |\n"
             "|---|---|---|---|---|---|---|---|---|---|\n"
         )
+        body_parts.append(header)
         for r in mechanisms[:15]:
             mname = r.get('mechanism', '-')
             target_slug = find_target_slug_for_mechanism(mname, base_dir) if mname != '-' else None
@@ -429,18 +467,45 @@ def compile_indication_article(landscape_dir, indication_name, slug, base_dir=No
                 matched_targets[mname] = target_slug
             mech_link = wikilink(target_slug or slugify(mname), mname) if mname != '-' else '-'
             profile_flag = "✓" if mname != '-' and mname in enrichments["targets"] else ""
+            # bench count: look up by normalised mechanism name
+            bench = ""
+            if has_bench and mname != '-':
+                bench_count = dd_mech_counts.get(mname.lower(), 0)
+                bench = str(bench_count) if bench_count else ""
+            if has_bench:
+                body_parts.append(
+                    f"| {mech_link}"
+                    f" | {safe_int(r.get('active_count'))}"
+                    f" | {safe_int(r.get('launched'))}"
+                    f" | {safe_int(r.get('phase3'))}"
+                    f" | {safe_int(r.get('phase2'))}"
+                    f" | {safe_int(r.get('phase1'))}"
+                    f" | {safe_int(r.get('discovery'))}"
+                    f" | {safe_int(r.get('company_count'))}"
+                    f" | {safe_int(r.get('crowding_index'))}"
+                    f" | {bench}"
+                    f" | {profile_flag}"
+                    f" |\n"
+                )
+            else:
+                body_parts.append(
+                    f"| {mech_link}"
+                    f" | {safe_int(r.get('active_count'))}"
+                    f" | {safe_int(r.get('launched'))}"
+                    f" | {safe_int(r.get('phase3'))}"
+                    f" | {safe_int(r.get('phase2'))}"
+                    f" | {safe_int(r.get('phase1'))}"
+                    f" | {safe_int(r.get('discovery'))}"
+                    f" | {safe_int(r.get('company_count'))}"
+                    f" | {safe_int(r.get('crowding_index'))}"
+                    f" | {profile_flag}"
+                    f" |\n"
+                )
+        if has_bench:
             body_parts.append(
-                f"| {mech_link}"
-                f" | {safe_int(r.get('active_count'))}"
-                f" | {safe_int(r.get('launched'))}"
-                f" | {safe_int(r.get('phase3'))}"
-                f" | {safe_int(r.get('phase2'))}"
-                f" | {safe_int(r.get('phase1'))}"
-                f" | {safe_int(r.get('discovery'))}"
-                f" | {safe_int(r.get('company_count'))}"
-                f" | {safe_int(r.get('crowding_index'))}"
-                f" | {profile_flag}"
-                f" |\n"
+                "\n*Bench = research compounds tested in this indication in drug-design SI database "
+                "(literature + patents). High bench count with low clinical count = preclinical-validated "
+                "mechanism without IND translation.*\n"
             )
         body_parts.append("\n")
 
