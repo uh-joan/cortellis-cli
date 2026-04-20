@@ -721,8 +721,14 @@ def emit_enrichment_manifest(landscape_dir, indication_name, slug, base_dir):
             continue
         seen_drug_slugs.add(drug_slug)
         drug_path = article_path("drugs", drug_slug, base_dir)
+        # Skip drugs where fetch succeeded but compile failed — Cortellis data too sparse
+        raw_drug_dir = os.path.join(base_dir, "raw", "drugs", drug_slug)
+        if (not os.path.exists(drug_path)
+                and os.path.isdir(raw_drug_dir)
+                and os.path.exists(os.path.join(raw_drug_dir, "record.json"))):
+            continue
         existing = read_article(drug_path) if os.path.exists(drug_path) else None
-        # drug-profile articles carry 'phase' + 'originator' set by compile_drug_profile.py
+        # drug-profile articles carry 'originator' set by compile_drug_profile.py
         has_deep = bool(existing and existing.get("meta") and existing["meta"].get("originator"))
         priority_drugs.append({
             "name": normalize_drug_name(dname),  # stripped of route/company suffixes
@@ -791,10 +797,21 @@ def emit_enrichment_manifest(landscape_dir, indication_name, slug, base_dir):
             "has_deep_profile": has_deep,
         })
 
+    total = len(priority_drugs) + len(priority_companies) + len(priority_targets)
+    covered = (
+        sum(1 for d in priority_drugs if d["has_deep_profile"])
+        + sum(1 for c in priority_companies if c["has_pipeline"])
+        + sum(1 for t in priority_targets if t["has_deep_profile"])
+    )
+    coverage_pct = round(covered / total * 100) if total > 0 else 100
+
     manifest = {
         "indication": indication_name,
         "indication_slug": slug,
         "generated_at": now,
+        "coverage_pct": coverage_pct,
+        "total_entities": total,
+        "covered_entities": covered,
         "drugs": priority_drugs,
         "companies": priority_companies,
         "targets": priority_targets,

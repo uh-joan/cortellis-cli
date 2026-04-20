@@ -1278,6 +1278,18 @@ body {
   flex-shrink: 0;
 }
 .wiki-enrich-callout button:hover { background: rgba(245, 158, 11, 0.12); }
+.wiki-enrich-callout.complete {
+  background: rgba(34, 197, 94, 0.07);
+  border-color: rgba(34, 197, 94, 0.25);
+  color: var(--success);
+}
+.wiki-enrich-callout.complete button {
+  border-color: rgba(34, 197, 94, 0.3);
+  color: var(--success);
+  opacity: 0.6;
+  cursor: default;
+}
+.wiki-enrich-callout.complete button:hover { background: transparent; }
 
 .wiki-changelog { margin-top: 24px; }
 .wiki-changelog-panel {

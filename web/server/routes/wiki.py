@@ -201,6 +201,9 @@ def get_enrich_manifest(slug: str, workspace_path: str):
                     "missing_companies": missing_cos,
                     "missing_targets": missing_tgts,
                     "total_missing": missing_drugs + missing_cos + missing_tgts,
+                    "coverage_pct": data.get("coverage_pct", 100),
+                    "total_entities": data.get("total_entities", 0),
+                    "covered_entities": data.get("covered_entities", 0),
                     "generated_at": data.get("generated_at"),
                 }
         except Exception:

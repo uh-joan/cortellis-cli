@@ -208,20 +208,27 @@ export default function WikiPanel({ article, onBack, onNavigate, historyDepth = 
         <>
           <h1 className="wiki-article-title">{article.title}</h1>
 
-          {article.type === 'indications' && enrichManifest?.exists && enrichManifest.total_missing > 0 && (
-            <div className="wiki-enrich-callout">
-              <span>{enrichRunning ? '⟳' : '⚠'}</span>
-              <span>{enrichRunning ? 'Enriching KB…' : [
-                enrichManifest.missing_drugs > 0 && `${enrichManifest.missing_drugs} drugs`,
-                enrichManifest.missing_companies > 0 && `${enrichManifest.missing_companies} companies`,
-                enrichManifest.missing_targets > 0 && `${enrichManifest.missing_targets} targets`,
-              ].filter(Boolean).join(' · ') + ' need profiling'}</span>
-              {!enrichRunning && (
-                <button onClick={() => {
+          {article.type === 'indications' && enrichManifest?.exists && (
+            <div className={`wiki-enrich-callout ${enrichManifest.coverage_pct === 100 ? 'complete' : ''}`}>
+              <span>{enrichRunning ? '⟳' : enrichManifest.coverage_pct === 100 ? '✓' : '◑'}</span>
+              <span>
+                {enrichRunning
+                  ? 'Enriching KB…'
+                  : enrichManifest.coverage_pct === 100
+                    ? 'KB complete'
+                    : `KB coverage: ${enrichManifest.coverage_pct}% · ${enrichManifest.covered_entities}/${enrichManifest.total_entities} entities profiled`}
+              </span>
+              <button
+                className={enrichManifest.coverage_pct === 100 ? 'disabled' : ''}
+                disabled={enrichManifest.coverage_pct === 100 || enrichRunning}
+                onClick={() => {
+                  if (enrichManifest.coverage_pct === 100) return
                   handleEnrich()
                   setTimeout(() => document.querySelector('.wiki-enrich-section')?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 50)
-                }}>Enrich →</button>
-              )}
+                }}
+              >
+                {enrichManifest.coverage_pct === 100 ? '✓ Done' : 'Enrich →'}
+              </button>
             </div>
           )}
 
