@@ -191,16 +191,25 @@ def get_enrich_manifest(slug: str, workspace_path: str):
         try:
             data = json.loads(manifest_path.read_text())
             if data.get("indication_slug") == slug:
-                missing_drugs = sum(1 for d in data.get("drugs", []) if not d.get("has_deep_profile"))
-                missing_cos = sum(1 for c in data.get("companies", []) if not c.get("has_pipeline"))
-                missing_tgts = sum(1 for t in data.get("targets", []) if not t.get("has_deep_profile"))
+                drugs = data.get("drugs", [])
+                cos = data.get("companies", [])
+                tgts = data.get("targets", [])
+                total_drugs = len(drugs)
+                total_cos = len(cos)
+                total_tgts = len(tgts)
+                covered_drugs = sum(1 for d in drugs if d.get("has_deep_profile"))
+                covered_cos = sum(1 for c in cos if c.get("has_pipeline"))
+                covered_tgts = sum(1 for t in tgts if t.get("has_deep_profile"))
                 return {
                     "exists": True,
                     "indication": data.get("indication"),
-                    "missing_drugs": missing_drugs,
-                    "missing_companies": missing_cos,
-                    "missing_targets": missing_tgts,
-                    "total_missing": missing_drugs + missing_cos + missing_tgts,
+                    "total_drugs": total_drugs,
+                    "total_companies": total_cos,
+                    "total_targets": total_tgts,
+                    "covered_drugs": covered_drugs,
+                    "covered_companies": covered_cos,
+                    "covered_targets": covered_tgts,
+                    "total_missing": (total_drugs - covered_drugs) + (total_cos - covered_cos) + (total_tgts - covered_tgts),
                     "coverage_pct": data.get("coverage_pct", 100),
                     "total_entities": data.get("total_entities", 0),
                     "covered_entities": data.get("covered_entities", 0),

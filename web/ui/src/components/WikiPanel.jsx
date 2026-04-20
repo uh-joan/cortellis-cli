@@ -216,7 +216,19 @@ export default function WikiPanel({ article, onBack, onNavigate, historyDepth = 
                   ? 'Enriching KB…'
                   : enrichManifest.coverage_pct === 100
                     ? 'KB complete'
-                    : `KB coverage: ${enrichManifest.coverage_pct}% · ${enrichManifest.covered_entities}/${enrichManifest.total_entities} entities profiled`}
+                    : <>
+                        {`KB coverage: ${enrichManifest.coverage_pct}% · `}
+                        <span
+                          className="wiki-enrich-entities"
+                          data-tooltip={[
+                            enrichManifest.total_drugs > 0 && `Drugs: ${enrichManifest.covered_drugs}/${enrichManifest.total_drugs}`,
+                            enrichManifest.total_companies > 0 && `Companies: ${enrichManifest.covered_companies}/${enrichManifest.total_companies}`,
+                            enrichManifest.total_targets > 0 && `Targets: ${enrichManifest.covered_targets}/${enrichManifest.total_targets}`,
+                          ].filter(Boolean).join(' · ')}
+                        >
+                          {enrichManifest.covered_entities}/{enrichManifest.total_entities} entities profiled
+                        </span>
+                      </>}
               </span>
               <button
                 className={enrichManifest.coverage_pct === 100 ? 'disabled' : ''}

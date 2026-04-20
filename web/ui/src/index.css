@@ -1290,6 +1290,30 @@ body {
   cursor: default;
 }
 .wiki-enrich-callout.complete button:hover { background: transparent; }
+.wiki-enrich-entities {
+  cursor: default;
+  text-decoration: underline dotted rgba(245, 158, 11, 0.5);
+  position: relative;
+}
+.wiki-enrich-entities::after {
+  content: attr(data-tooltip);
+  position: absolute;
+  bottom: calc(100% + 6px);
+  left: 50%;
+  transform: translateX(-50%);
+  background: var(--bg-panel);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  color: var(--text);
+  font-size: 12px;
+  white-space: nowrap;
+  padding: 5px 10px;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.15s;
+  z-index: 10;
+}
+.wiki-enrich-entities:hover::after { opacity: 1; }
 
 .wiki-changelog { margin-top: 24px; }
 .wiki-changelog-panel {
