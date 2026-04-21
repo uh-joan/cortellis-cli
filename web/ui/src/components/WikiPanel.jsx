@@ -185,6 +185,9 @@ export default function WikiPanel({ article, onBack, onNavigate, historyDepth = 
   }
 
   const components = {
+    table: ({ node, ...props }) => (
+      <div className="table-scroll"><table {...props} /></div>
+    ),
     a({ href, children }) {
       // Obsidian [[wikilinks]] converted to wiki://slug
       if (href?.startsWith('wiki://')) {
@@ -217,6 +220,7 @@ export default function WikiPanel({ article, onBack, onNavigate, historyDepth = 
 
   return (
     <div className="wiki-viewer">
+      <div className="wiki-viewer-inner">
       <button className="wiki-back" onClick={onBack}>← {historyDepth > 0 ? 'Back' : 'Wiki'}</button>
 
       {loading && <div style={{ color: 'var(--text-dim)' }}>Loading…</div>}
@@ -357,6 +361,7 @@ export default function WikiPanel({ article, onBack, onNavigate, historyDepth = 
           )}
         </>
       )}
+      </div>
     </div>
   )
 }

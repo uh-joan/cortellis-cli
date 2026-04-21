@@ -1,6 +1,12 @@
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 
+const mdComponents = {
+  table: ({ node, ...props }) => (
+    <div className="table-scroll"><table {...props} /></div>
+  ),
+}
+
 export default function MessageList({ messages }) {
   if (messages.length === 0) return null
 
@@ -27,7 +33,7 @@ function Message({ msg }) {
         <span className="message-time">{time}</span>
       </div>
       <div className="message-body">
-        <ReactMarkdown remarkPlugins={[remarkGfm]}>
+        <ReactMarkdown remarkPlugins={[remarkGfm]} components={mdComponents}>
           {msg.content}
         </ReactMarkdown>
       </div>
