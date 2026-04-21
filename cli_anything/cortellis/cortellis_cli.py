@@ -2117,7 +2117,7 @@ def run_skill_pipeline(company: str, force_refresh: bool, review: bool, dry_run:
         return
 
     slug = re.sub(r"[^a-z0-9]+", "-", company.lower()).strip("-")
-    output_dir = REPO_ROOT / "raw" / slug
+    output_dir = REPO_ROOT / "raw" / "pipeline" / slug
 
     exit_code = runner.execute(
         company,
@@ -3268,6 +3268,8 @@ All skills and their workflows are included below in the system context."""
             # - tool_use_start events → update spinner with friendly command status
             # - turn_end / agent_end → marks completion
             pi_text_parts = []
+            pi_had_turn_end = False
+            _pi_exec_seen = ""
             for line in iter(proc.stdout.readline, b""):
                 decoded = line.decode("utf-8", errors="replace").strip()
                 if not decoded:
@@ -3279,13 +3281,58 @@ All skills and their workflows are included below in the system context."""
 
                 etype = event.get("type", "")
 
-                if etype == "message_update":
-                    ame = event.get("assistantMessageEvent", {})
-                    ame_type = ame.get("type", "")
-                    if ame_type == "text_delta":
-                        pi_text_parts.append(ame.get("delta", ""))
-                    elif ame_type in ("tool_use_start", "tool_call_start"):
-                        tool_name = ame.get("name") or ame.get("toolName", "tool")
+                if etype == "tool_execution_start":
+                    # Reset per-tool text tracking for the new execution
+                    _pi_exec_seen = ""
+
+                elif etype == "tool_execution_update":
+                    # Parse harness progress lines from partial subprocess output
+                    content = event.get("partialResult", {}).get("content", [])
+                    full_text = "".join(c.get("text", "") for c in content if isinstance(c, dict))
+                    new_text = full_text[len(_pi_exec_seen):]
+                    _pi_exec_seen = full_text
+                    for _line in new_text.splitlines():
+                        _line = _line.strip()
+                        if not _line or len(_line) < 5:
+                            continue
+                        # Harness wave labels: "▶ Wave N: node1 node2 ..."
+                        _wm = re.match(r"[▶►]?\s*Wave\s+\d+[:\s]+(.+)", _line)
+                        if _wm:
+                            _nodes = _wm.group(1).strip().split()
+                            _first = _nodes[0] if _nodes else ""
+                            _wave_labels = {
+                                "resolve": "Resolving company...",
+                                "fetch_launched": "Fetching launched drugs...",
+                                "fetch_phase3": "Fetching Phase 3 drugs...",
+                                "fetch_phase2": "Fetching Phase 2 drugs...",
+                                "fetch_phase1_ci": "Fetching Phase 1 drugs...",
+                                "fetch_discovery_ci": "Fetching discovery drugs...",
+                                "fetch_si_phase1": "Fetching SI Phase 1 drugs...",
+                                "fetch_si_preclinical": "Fetching preclinical drugs...",
+                                "catch_missing": "Checking for missed drugs...",
+                                "report": "Generating pipeline report...",
+                                "compile": "Compiling to knowledge base...",
+                                "narrate": "Generating strategic narrative...",
+                                "strategic_scoring": "Computing competitive scores...",
+                            }
+                            _wlabel = _wave_labels.get(_first, f"Processing: {_first}")
+                            if not debug:
+                                if spinner_state[1]:
+                                    elapsed = int(time.time() - t_start)
+                                    sys.stdout.write(f"\r  {spinner_state[0]}  ({elapsed}s)\n")
+                                    sys.stdout.flush()
+                                    spinner_state[1] = False
+                                spinner_state[0] = _wlabel
+                            continue
+                        # Lines like "Compiling X to wiki...", "Done.", "Written:"
+                        if any(_kw in _line for _kw in ("Compiling ", "Written:", "Done.", "Completed")):
+                            if not debug:
+                                spinner_state[0] = _line[:60]
+
+                if etype == "tool_execution_start":
+                    # Pi fires this top-level event right when a tool runs
+                    cmd_str = event.get("args", {}).get("command", "")
+                    if cmd_str:
                         if debug:
                             if first_output:
                                 stop_spinner.set()
@@ -3293,52 +3340,39 @@ All skills and their workflows are included below in the system context."""
                                 if spinner_state[1]:
                                     sys.stdout.write("\n")
                                 first_output = False
-                            sys.stdout.write(f"  > {tool_name}\n")
+                            short = cmd_str.split("cortellis", 1)[1].strip() if "cortellis" in cmd_str else cmd_str[:80]
+                            sys.stdout.write(f"  > {short}\n")
                             sys.stdout.flush()
                         else:
-                            spinner_state[0] = f"Pi → {tool_name}"
-                    else:
-                        # Check partial.content array for tool_use blocks (bash commands)
-                        partial = ame.get("partial", {})
-                        for block in partial.get("content", []):
-                            if block.get("type") == "tool_use":
-                                bname = block.get("name", "")
-                                binp = block.get("input", {})
-                                if bname in ("bash", "Bash") and "command" in binp:
-                                    new_status = translate_command(binp["command"])
-                                    if new_status and not debug:
-                                        if spinner_state[1]:
-                                            elapsed = int(time.time() - t_start)
-                                            _ln = f"  {spinner_state[0]}  ({elapsed}s)"
-                                            sys.stdout.write(f"\r{_ln:<80s}\n")
-                                            sys.stdout.flush()
-                                            spinner_state[1] = False
-                                        spinner_state[0] = new_status
-                                    elif debug:
-                                        if first_output:
-                                            stop_spinner.set()
-                                            spinner_thread.join()
-                                            if spinner_state[1]:
-                                                sys.stdout.write("\n")
-                                            first_output = False
-                                        cmd_str = binp["command"]
-                                        if "cortellis" in cmd_str:
-                                            short = cmd_str.split("cortellis", 1)[1].strip()
-                                            sys.stdout.write(f"  > cortellis {short}\n")
-                                        else:
-                                            sys.stdout.write(f"  > {cmd_str[:80]}\n")
-                                        sys.stdout.flush()
+                            new_status = translate_command(cmd_str)
+                            if new_status:
+                                if spinner_state[1]:
+                                    elapsed = int(time.time() - t_start)
+                                    _ln = f"  {spinner_state[0]}  ({elapsed}s)"
+                                    sys.stdout.write(f"\r{_ln:<80s}\n")
+                                    sys.stdout.flush()
+                                    spinner_state[1] = False
+                                spinner_state[0] = new_status
+
+                elif etype == "message_update":
+                    ame = event.get("assistantMessageEvent", {})
+                    ame_type = ame.get("type", "")
+                    if ame_type == "text_delta":
+                        pi_text_parts.append(ame.get("delta", ""))
 
                 elif etype == "turn_end":
-                    stop_spinner.set()
-                    spinner_thread.join()
                     elapsed = int(time.time() - t_start)
                     if spinner_state[1]:
                         sys.stdout.write(f"\r  Answered in {elapsed}s" + " " * 40 + "\n\n")
-                    elif first_output:
+                    else:
                         sys.stdout.write(f"  Answered in {elapsed}s\n\n")
                     sys.stdout.flush()
                     first_output = False
+                    pi_had_turn_end = True
+                    # Keep spinner alive for next turn; reset label and clock
+                    spinner_state[0] = "Querying Cortellis"
+                    spinner_state[1] = False
+                    t_start = time.time()
 
                 elif etype == "agent_end":
                     # Fallback: extract text from last assistant message if streaming missed it
@@ -3350,15 +3384,19 @@ All skills and their workflows are included below in the system context."""
                                         pi_text_parts.append(block.get("text", ""))
                                 break
 
-            if first_output or not stop_spinner.is_set():
+            if not stop_spinner.is_set():
                 stop_spinner.set()
                 spinner_thread.join()
-                elapsed = int(time.time() - t_start)
-                if spinner_state[1]:
-                    sys.stdout.write(f"\r  Answered in {elapsed}s" + " " * 40 + "\n\n")
-                else:
-                    sys.stdout.write(f"  Answered in {elapsed}s\n\n")
-                sys.stdout.flush()
+                if not pi_had_turn_end:
+                    elapsed = int(time.time() - t_start)
+                    if spinner_state[1]:
+                        sys.stdout.write(f"\r  Answered in {elapsed}s" + " " * 40 + "\n\n")
+                    else:
+                        sys.stdout.write(f"  Answered in {elapsed}s\n\n")
+                    sys.stdout.flush()
+                elif spinner_state[1]:
+                    sys.stdout.write("\r" + " " * 80 + "\r")
+                    sys.stdout.flush()
 
             text = "".join(pi_text_parts).strip()
             if not text:

@@ -142,6 +142,23 @@ def translate_command(cmd: str) -> "str | None":
 
     sub = cortellis_m.group(1).strip()
 
+    # run-skill
+    _run_skill_m = re.match(r"run-skill\s+(\S+)\s*(.*)", sub, re.IGNORECASE)
+    if _run_skill_m:
+        _skill = _run_skill_m.group(1).lower()
+        _arg = re.sub(r'^["\']|["\']$', '', _run_skill_m.group(2).strip())
+        _skill_labels = {
+            "pipeline": "Analyzing company pipeline",
+            "landscape": "Analyzing indication landscape",
+            "drug-profile": "Profiling drug",
+            "target-profile": "Profiling target",
+            "enrich": "Enriching knowledge base",
+            "drug-comparison": "Comparing drugs",
+            "conference-intel": "Scanning conference intel",
+        }
+        _label = _skill_labels.get(_skill, f"Running {_skill} skill")
+        return f"{_label}: {_arg}" if _arg else _label
+
     # ontology search
     if re.match(r"ontology\s+search\b", sub, re.IGNORECASE):
         term_m = (

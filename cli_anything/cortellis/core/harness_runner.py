@@ -350,6 +350,10 @@ class HarnessRunner:
                                     pass
                                 output_dir = canonical_dir
                             output_dir.mkdir(parents=True, exist_ok=True)
+                            # Re-pin sources log to the canonical dir so API calls
+                            # don't crash trying to write to the now-deleted initial dir
+                            sources_log = output_dir / ".sources_log.jsonl"
+                            os.environ["CORTELLIS_SOURCES_LOG"] = str(sources_log)
                 wave_label = " ".join(n.id for n in wave)
                 print(f"\n▶ Wave {wave_idx}: {wave_label}", file=sys.stderr, flush=True)
 

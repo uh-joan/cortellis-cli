@@ -306,6 +306,12 @@ def main():
     refresh_graph(base_dir)
 
     print(f"Done. Wiki article compiled for {company_name}.")
+    try:
+        from datetime import datetime as _dt, timezone as _tz
+        with open(os.path.join(pipeline_dir, ".wiki_compiled_at"), "w") as _mf:
+            _mf.write(_dt.now(_tz.utc).strftime("%Y-%m-%dT%H:%M:%SZ"))
+    except Exception:
+        pass
 
 
 if __name__ == "__main__":
