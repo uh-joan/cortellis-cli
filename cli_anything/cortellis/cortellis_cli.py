@@ -1731,7 +1731,6 @@ def setup_cmd() -> None:
         if result.returncode != 0:
             click.echo("  Install failed. Run manually: pip install fastapi 'uvicorn[standard]'")
             return
-            return
     from pathlib import Path as _Path
     ui_dir = _Path(__file__).resolve().parents[2] / "web" / "ui"
     if not shutil.which("npm"):
@@ -1747,6 +1746,20 @@ def setup_cmd() -> None:
             click.echo("  Web UI built successfully. Run: cortellis web")
         else:
             click.echo("  Build failed. Try manually: cd web/ui && npm run build")
+    click.echo()
+
+    # Step 5: Claude Code integration check
+    click.echo("  Step 5/5: Claude Code integration")
+    click.echo("  " + "-" * 40)
+    omc_bin = shutil.which("omc")
+    if omc_bin:
+        click.echo(f"  oh-my-claudecode detected ({omc_bin}).")
+        click.echo("  .claude/ config (CLAUDE.md, commands, skills) is already in the repo.")
+    else:
+        click.echo("  .claude/ config detected (CLAUDE.md, commands, skills).")
+        click.echo("  For full AI orchestration with Claude Code, install oh-my-claudecode:")
+        click.echo("    omc install")
+        click.echo("  (Skip if you're not using Claude Code.)")
     click.echo()
 
     # Summary
@@ -2908,8 +2921,10 @@ All skills and their workflows are included below in the system context."""
         history_block = ""
         if conversation_history:
             _hlines = ["\n\n## Recent Conversation\n\n"]
-            for _t in conversation_history[-5:]:
-                _a = _t["a"][:400] + ("..." if len(_t["a"]) > 400 else "")
+            _hist_limit = 3 if engine == "codex" else 5
+            _ans_limit = 800 if engine == "codex" else 400
+            for _t in conversation_history[-_hist_limit:]:
+                _a = _t["a"][:_ans_limit] + ("..." if len(_t["a"]) > _ans_limit else "")
                 _hlines.append(f"**User:** {_t['q']}\n\n**Assistant:** {_a}\n\n---\n\n")
             history_block = "".join(_hlines)
         effective_prompt = system_prompt + wiki_context + history_block
@@ -2984,10 +2999,26 @@ All skills and their workflows are included below in the system context."""
         first_output = True
 
         if engine == "codex":
-            # Drain stdout (codex exec streams tool-call activity there) but
-            # the clean final answer is in _codex_out written by --output-last-message.
-            for _ in iter(proc.stdout.readline, b""):
-                pass
+            # Parse codex stdout to surface tool-call activity in the spinner label.
+            # Codex streams lines like "Running: bash ..." or JSON events there;
+            # the clean final answer comes from --output-last-message.
+            for _line in iter(proc.stdout.readline, b""):
+                _decoded = _line.decode("utf-8", errors="replace").strip()
+                if not _decoded:
+                    continue
+                # Try to extract a human-readable status from common codex output patterns
+                _lower = _decoded.lower()
+                if "bash" in _lower or "running" in _lower or "exec" in _lower:
+                    try:
+                        from cli_anything.cortellis.core.status_translator import translate_command
+                        _status = translate_command(_decoded)
+                        if _status:
+                            spinner_state[0] = _status
+                    except Exception:
+                        pass
+                elif len(_decoded) < 80 and not _decoded.startswith("{"):
+                    # Short non-JSON lines are likely status messages
+                    spinner_state[0] = _decoded[:60]
             stop_spinner.set()
             spinner_thread.join()
             elapsed = int(time.time() - t_start)
@@ -3029,8 +3060,8 @@ All skills and their workflows are included below in the system context."""
                             _lf.write(f"# Daily Log — {_now.strftime('%Y-%m-%d')}\n")
                     with open(_log_path, "a", encoding="utf-8") as _lf:
                         _lf.write(_entry)
-                except Exception:
-                    pass
+                except Exception as _e:
+                    sys.stderr.write(f"  Warning: could not write session log: {_e}\n")
         else:
             # Parse stream-json to show tool calls + final answer
             for line in iter(proc.stdout.readline, b""):

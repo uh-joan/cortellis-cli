@@ -39,6 +39,7 @@ class CortellisClient:
         if self._session is None:
             self._session = requests.Session()
             self._session.auth = HTTPDigestAuth(self._username, self._password)
+            self._password = None
             self._session.headers.update({"Accept": "application/json"})
             self._session.verify = True
             adapter = HTTPAdapter(max_retries=_RETRY_STRATEGY)

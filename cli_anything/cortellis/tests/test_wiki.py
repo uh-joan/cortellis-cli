@@ -481,9 +481,10 @@ class TestCompileDossierIntegration:
             ],
         )
 
-        # freshness.json
+        # freshness.json — landscape_dir key required by compile_dossier to identify
+        # this as an indication landscape dir (vs a company pipeline dir)
         with open(os.path.join(landscape_dir, "freshness.json"), "w") as f:
-            json.dump({"staleness_level": "ok", "computed_at_utc": "2026-04-07T00:00:00Z"}, f)
+            json.dump({"landscape_dir": landscape_dir, "staleness_level": "ok", "computed_at_utc": "2026-04-07T00:00:00Z"}, f)
 
         # deals.csv — empty (just needs to exist)
         open(os.path.join(landscape_dir, "deals.csv"), "w").close()
@@ -673,7 +674,7 @@ class TestDiffLandscapeIntegration:
             ],
         )
         with open(str(raw_dir / "freshness.json"), "w") as f:
-            json.dump({"staleness_level": "ok", "computed_at_utc": "2026-04-07T00:00:00Z"}, f)
+            json.dump({"landscape_dir": str(raw_dir), "staleness_level": "ok", "computed_at_utc": "2026-04-07T00:00:00Z"}, f)
 
         open(str(raw_dir / "deals.csv"), "w").close()
 

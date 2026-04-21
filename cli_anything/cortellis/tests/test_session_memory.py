@@ -41,6 +41,11 @@ def make_landscape_dir(dir_path):
         writer = csv.DictWriter(f, fieldnames=["name", "id", "phase", "indication", "mechanism", "company", "source"])
         writer.writeheader()
         writer.writerow({"name": "TestDrug", "id": "1", "phase": "Launched", "indication": "Test", "mechanism": "Mech", "company": "Acme", "source": "src"})
+    # compile_dossier checks for landscape_dir key in freshness.json to distinguish
+    # indication landscape dirs from company pipeline dirs
+    import json as _json
+    with open(os.path.join(dir_path, "freshness.json"), "w") as _f:
+        _json.dump({"landscape_dir": dir_path, "staleness_level": "ok"}, _f)
 
 
 def make_marker(raw_dir, compiled_at_iso: str):

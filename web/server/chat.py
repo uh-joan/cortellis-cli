@@ -142,7 +142,14 @@ def stream_chat_turn(conv_id: str, question: str, workspace_path: str):
     """Generator that yields SSE-formatted strings for a single chat turn."""
     ai_bin = shutil.which("claude")
     if not ai_bin:
-        yield f"data: {json.dumps({'type': 'error', 'text': 'claude CLI not found. Install Claude Code first.'})}\n\n"
+        codex_available = bool(shutil.which("codex"))
+        msg = (
+            "Web UI requires Claude Code CLI. "
+            "For Codex, use the terminal: cortellis --engine codex"
+            if codex_available else
+            "claude CLI not found. Install Claude Code: https://claude.ai/code"
+        )
+        yield f"data: {json.dumps({'type': 'error', 'text': msg})}\n\n"
         return
 
     system_prompt = build_system_prompt(workspace_path)

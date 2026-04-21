@@ -102,6 +102,18 @@ When fixing or developing the web UI (`web/ui/`), use the **web browser tool** t
 
 Do not rely solely on type checking or build success — always confirm in the browser.
 
+## Surgical Changes
+
+Touch only what the task requires. For `cortellis_cli.py`, `harness_runner.py`, and `workflow.yaml` files specifically: do not improve adjacent code, update unrelated logic, or change style as side effects. Every changed line should trace directly to the request.
+
+## Ambiguity Gate (Skills)
+
+Before running `landscape`, `pipeline`, `drug-profile`, or `target-profile`:
+- If the drug/indication/company name could match multiple entities, present options first.
+- If the task scope is unclear (one drug vs. full competitive landscape), ask.
+
+API calls and wiki writes are not free to undo. Clarify before launching a multi-step workflow.
+
 ## Setup
 
 Say "setup omc" or run `/oh-my-claudecode:omc-setup`.
