@@ -1,7 +1,9 @@
 """HTTP client for the Cortellis REST API using Digest authentication."""
 
+import json as _json
 import logging
 import os
+from datetime import datetime, timezone
 from typing import Any, Optional
 from urllib.parse import urljoin
 
@@ -13,6 +15,22 @@ from urllib3.util.retry import Retry
 logger = logging.getLogger(__name__)
 
 BASE_URL = "https://api.cortellis.com/api-ws/ws/rs/"
+
+
+def _log_api_call(path: str, params: Optional[dict], method: str) -> None:
+    """Append one line to the CORTELLIS_SOURCES_LOG file when set by the harness."""
+    log_file = os.environ.get("CORTELLIS_SOURCES_LOG")
+    if not log_file:
+        return
+    entry = _json.dumps({
+        "endpoint": path,
+        "params": params or {},
+        "method": method,
+        "timestamp": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
+    })
+    # O_APPEND writes are atomic for lines under PIPE_BUF (4096 bytes)
+    with open(log_file, "a", encoding="utf-8") as f:
+        f.write(entry + "\n")
 
 # Default timeout: (connect_seconds, read_seconds)
 DEFAULT_TIMEOUT = (10, 30)
@@ -61,6 +79,7 @@ class CortellisClient:
         """
         url = urljoin(BASE_URL, path)
         logger.debug("GET %s params=%s", url, params)
+        _log_api_call(path, params, "GET")
         response = self.session.get(url, params=params, timeout=DEFAULT_TIMEOUT)
         response.raise_for_status()
         return response.json()
@@ -81,6 +100,7 @@ class CortellisClient:
         """
         url = urljoin(BASE_URL, path)
         logger.debug("POST %s", url)
+        _log_api_call(path, params, "POST")
         response = self.session.post(url, json=json, params=params, timeout=DEFAULT_TIMEOUT)
         response.raise_for_status()
         return response.json()
