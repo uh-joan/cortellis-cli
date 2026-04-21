@@ -11,6 +11,7 @@ Reads a workflow YAML DAG and executes recipe nodes with:
 - Review gate before compile node
 """
 
+import json
 import os
 import re
 import shlex
@@ -312,6 +313,11 @@ class HarnessRunner:
         output_dir.mkdir(parents=True, exist_ok=True)
         state: dict[str, NodeResult] = {}
 
+        # Set up API call logging — subprocesses inherit this env var and append to the file
+        sources_log = output_dir / ".sources_log.jsonl"
+        sources_log.unlink(missing_ok=True)
+        os.environ["CORTELLIS_SOURCES_LOG"] = str(sources_log)
+
         # force_refresh: pre-seed freshness as 'stale' so all fetch nodes run
         # (bypasses the when: freshness != 'fresh' guards without touching the YAML)
         if force_refresh:
@@ -324,92 +330,136 @@ class HarnessRunner:
             t = re.sub(r'\bpython3\b', python_bin, t)
             return _resolve_vars(t, state, for_shell=True)
 
-        for wave_idx, wave in enumerate(self.waves):
-            # After resolve completes, pin output_dir to the canonical slug
-            # (resolve outputs "id,name" or "id,name,active_drugs,..." — field 1 is name)
-            if wave_idx > 0 and "resolve" in state:
-                r = state["resolve"]
-                if r.status == "success":
-                    parts = r.output.strip().split(",")
-                    if len(parts) >= 2:
-                        output_dir = output_dir.parent / _slug_name(parts[1])
-                        output_dir.mkdir(parents=True, exist_ok=True)
-            wave_label = " ".join(n.id for n in wave)
-            print(f"\n▶ Wave {wave_idx}: {wave_label}", file=sys.stderr, flush=True)
+        exit_code = 0
+        try:
+            for wave_idx, wave in enumerate(self.waves):
+                # After resolve completes, pin output_dir to the canonical slug
+                # (resolve outputs "id,name" or "id,name,active_drugs,..." — field 1 is name)
+                if wave_idx > 0 and "resolve" in state:
+                    r = state["resolve"]
+                    if r.status == "success":
+                        parts = r.output.strip().split(",")
+                        if len(parts) >= 2:
+                            output_dir = output_dir.parent / _slug_name(parts[1])
+                            output_dir.mkdir(parents=True, exist_ok=True)
+                wave_label = " ".join(n.id for n in wave)
+                print(f"\n▶ Wave {wave_idx}: {wave_label}", file=sys.stderr, flush=True)
 
-            # Determine which nodes in this wave actually run
-            to_run: list[Node] = []
-            for node in wave:
-                # Pre-seeded state (e.g. freshness overridden by force_refresh)
-                if node.id in state:
-                    self._log_result(node, state[node.id])
-                    continue
+                # Determine which nodes in this wave actually run
+                to_run: list[Node] = []
+                for node in wave:
+                    # Pre-seeded state (e.g. freshness overridden by force_refresh)
+                    if node.id in state:
+                        self._log_result(node, state[node.id])
+                        continue
 
-                if _should_skip(node, state):
-                    print(f"  [{node.id}] SKIPPED (when/trigger)", file=sys.stderr)
-                    state[node.id] = NodeResult(status="skipped")
-                    continue
-
-                # Resume: skip if output file already present and not force_refresh
-                if node.resume_output and not force_refresh:
-                    out_file = output_dir / node.resume_output
-                    if out_file.exists():
-                        print(f"  [{node.id}] SKIPPED (resume — {out_file.name} exists)", file=sys.stderr)
+                    if _should_skip(node, state):
+                        print(f"  [{node.id}] SKIPPED (when/trigger)", file=sys.stderr)
                         state[node.id] = NodeResult(status="skipped")
                         continue
 
-                # Review gate before compile
-                if node.review_gate and review:
-                    report_path = output_dir / "report.md"
-                    if not _prompt_approval(report_path):
-                        print(f"  [{node.id}] Review rejected — aborting.", file=sys.stderr)
-                        return 2
+                    # Resume: skip if output file already present and not force_refresh
+                    if node.resume_output and not force_refresh:
+                        out_file = output_dir / node.resume_output
+                        if out_file.exists():
+                            print(f"  [{node.id}] SKIPPED (resume — {out_file.name} exists)", file=sys.stderr)
+                            state[node.id] = NodeResult(status="skipped")
+                            continue
 
-                to_run.append(node)
+                    # Review gate before compile
+                    if node.review_gate and review:
+                        report_path = output_dir / "report.md"
+                        if not _prompt_approval(report_path):
+                            print(f"  [{node.id}] Review rejected — aborting.", file=sys.stderr)
+                            exit_code = 2
+                            return exit_code
 
-            if not to_run:
-                continue
+                    to_run.append(node)
 
-            # Dispatch wave — parallel for independent nodes
-            if len(to_run) == 1:
-                node = to_run[0]
-                bash = resolve(node.bash)
-                print(f"  [{node.id}] running...", file=sys.stderr)
-                result = _run_node(node, bash, output_dir)
-                state[node.id] = result
-                self._log_result(node, result)
-                if result.status == "success" and result.output.strip() and node.id in ("read_wiki", "report"):
-                    print(result.output, flush=True)
-            else:
-                futures = {}
-                with ThreadPoolExecutor(max_workers=min(6, len(to_run))) as pool:
-                    for node in to_run:
-                        bash = resolve(node.bash)
-                        print(f"  [{node.id}] dispatching...", file=sys.stderr)
-                        fut = pool.submit(_run_node, node, bash, output_dir)
-                        futures[fut] = node
+                if not to_run:
+                    continue
 
-                    for fut in as_completed(futures):
-                        node = futures[fut]
-                        try:
-                            result = fut.result()
-                        except Exception as exc:
-                            result = NodeResult(status="failed", output=str(exc))
-                        state[node.id] = result
-                        self._log_result(node, result)
-                        # Print terminal-output nodes directly to stdout
-                        if result.status == "success" and result.output.strip() and node.id in ("read_wiki", "report"):
-                            print(result.output, flush=True)
+                # Dispatch wave — parallel for independent nodes
+                if len(to_run) == 1:
+                    node = to_run[0]
+                    bash = resolve(node.bash)
+                    print(f"  [{node.id}] running...", file=sys.stderr)
+                    result = _run_node(node, bash, output_dir)
+                    state[node.id] = result
+                    self._log_result(node, result)
+                    if result.status == "success" and result.output.strip() and node.id in ("read_wiki", "report"):
+                        print(result.output, flush=True)
+                else:
+                    futures = {}
+                    with ThreadPoolExecutor(max_workers=min(6, len(to_run))) as pool:
+                        for node in to_run:
+                            bash = resolve(node.bash)
+                            print(f"  [{node.id}] dispatching...", file=sys.stderr)
+                            fut = pool.submit(_run_node, node, bash, output_dir)
+                            futures[fut] = node
 
-            # Check for hard failures (non-allow_fail nodes)
-            for node in to_run:
-                r = state.get(node.id)
-                if r and r.status == "failed" and not node.allow_fail:
-                    print(f"\n  HARNESS FAILED at node [{node.id}]", file=sys.stderr)
-                    return 1
+                        for fut in as_completed(futures):
+                            node = futures[fut]
+                            try:
+                                result = fut.result()
+                            except Exception as exc:
+                                result = NodeResult(status="failed", output=str(exc))
+                            state[node.id] = result
+                            self._log_result(node, result)
+                            # Print terminal-output nodes directly to stdout
+                            if result.status == "success" and result.output.strip() and node.id in ("read_wiki", "report"):
+                                print(result.output, flush=True)
 
-        return 0
+                # Check for hard failures (non-allow_fail nodes)
+                for node in to_run:
+                    r = state.get(node.id)
+                    if r and r.status == "failed" and not node.allow_fail:
+                        print(f"\n  HARNESS FAILED at node [{node.id}]", file=sys.stderr)
+                        exit_code = 1
+                        return exit_code
+        finally:
+            os.environ.pop("CORTELLIS_SOURCES_LOG", None)
+            self._collect_sources(sources_log, output_dir)
+
+        return exit_code
 
     def _log_result(self, node: Node, result: NodeResult) -> None:
         icon = {"success": "✓", "skipped": "–", "failed": "✗"}.get(result.status, "?")
         print(f"  {icon} [{node.id}] {result.status} ({result.duration:.1f}s)", file=sys.stderr)
+
+    def _collect_sources(self, sources_log: Path, output_dir: Path) -> None:
+        """Read the JSONL call log and write sources.json into the run directory."""
+        if not sources_log.exists():
+            return
+        calls = []
+        try:
+            with open(sources_log, encoding="utf-8") as f:
+                for line in f:
+                    line = line.strip()
+                    if line:
+                        try:
+                            calls.append(json.loads(line))
+                        except json.JSONDecodeError:
+                            pass
+        except OSError:
+            return
+        finally:
+            sources_log.unlink(missing_ok=True)
+
+        if not calls:
+            return
+
+        import time as _time
+        from datetime import datetime, timezone
+        now = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+        out = {
+            "generated_at": now,
+            "run_dir": str(output_dir),
+            "call_count": len(calls),
+            "api_calls": calls,
+        }
+        try:
+            with open(output_dir / "sources.json", "w", encoding="utf-8") as f:
+                json.dump(out, f, indent=2)
+        except OSError:
+            pass

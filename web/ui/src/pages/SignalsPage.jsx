@@ -46,6 +46,7 @@ export default function SignalsPage({ workspace }) {
 
   return (
     <div className="signals-page">
+      <div className="signals-page-inner">
       <div className="signals-header">
         <div className="signals-header-left">
           <h1 className="signals-title">Signals</h1>
@@ -74,9 +75,10 @@ export default function SignalsPage({ workspace }) {
 
       {report && (
         <div className={`signals-body wiki-content ${running ? 'signals-body--stale' : ''}`}>
-          <ReactMarkdown remarkPlugins={[remarkGfm]}>{report}</ReactMarkdown>
+          <ReactMarkdown remarkPlugins={[remarkGfm]} components={{ table: ({ node, ...props }) => <div className="table-scroll"><table {...props} /></div> }}>{report}</ReactMarkdown>
         </div>
       )}
+      </div>
     </div>
   )
 }

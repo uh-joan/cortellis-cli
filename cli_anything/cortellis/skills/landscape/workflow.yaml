@@ -207,6 +207,31 @@ nodes:
         raw/$resolve.output.indication_name/companies.csv
     depends_on: [company_landscape]
 
+  # ── Step 4b: Coverage gap analysis + targeted refetch ─────────────────────
+
+  - id: analyze_coverage_gaps
+    bash: |
+      python3 cli_anything/cortellis/skills/landscape/recipes/analyze_coverage_gaps.py \
+        raw/$resolve.output.indication_name \
+        "$resolve.output.indication_name"
+    depends_on: [group_biosimilars, catch_missing]
+    trigger_rule: all_done
+    when: "$freshness.output.status != 'fresh'"
+    allow_fail: true
+    resume_output: coverage_gaps.json
+
+  - id: targeted_refetch
+    bash: |
+      python3 cli_anything/cortellis/skills/landscape/recipes/targeted_refetch.py \
+        raw/$resolve.output.indication_name \
+        $resolve.output.indication_id \
+        "$resolve.output.indication_name"
+    depends_on: [analyze_coverage_gaps]
+    trigger_rule: all_done
+    when: "$freshness.output.status != 'fresh'"
+    allow_fail: true
+    api_calls: true
+
   # ── Steps 9–12: Synthesis (opus — all depend on enrichment + companies) ────
 
   - id: report
@@ -217,7 +242,7 @@ nodes:
         "$resolve.output.indication_id" \
         "$ARGUMENTS" \
         | tee raw/$resolve.output.indication_name/report.md
-    depends_on: [normalize_companies, catch_missing, deal_analytics, trials_summary]
+    depends_on: [normalize_companies, targeted_refetch, deal_analytics, trials_summary]
     trigger_rule: all_done
     model: opus
 

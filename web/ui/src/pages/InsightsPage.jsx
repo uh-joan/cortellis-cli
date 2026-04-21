@@ -46,20 +46,17 @@ export default function InsightsPage({ workspace }) {
   if (selected) {
     return (
       <div className="insights-detail">
-        <div className="insights-detail-header">
+        <div className="insights-detail-inner">
           <button className="wiki-back" onClick={() => setSelected(null)}>← All Insights</button>
-          <div className="insights-detail-meta">
-            <span
-              className="insights-indication-badge"
-              style={{ background: indicationColor(selected.meta?.indication) + '22', color: indicationColor(selected.meta?.indication) }}
-            >
-              {selected.meta?.indication}
-            </span>
-            <span className="insights-ts">{selected.meta?.timestamp?.slice(0, 10)}</span>
+          <h1 className="wiki-article-title">{selected.meta?.title || selected.meta?.indication}</h1>
+          {selected.meta?.timestamp && (
+            <div style={{ fontSize: '0.75rem', color: 'var(--text-dim)', marginBottom: '0.75rem' }}>
+              Compiled {new Date(selected.meta.timestamp).toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' })}
+            </div>
+          )}
+          <div className="wiki-content">
+            <ReactMarkdown remarkPlugins={[remarkGfm]} components={{ table: ({ node, ...props }) => <div className="table-scroll"><table {...props} /></div> }}>{selected.body}</ReactMarkdown>
           </div>
-        </div>
-        <div className="insights-detail-body wiki-content">
-          <ReactMarkdown remarkPlugins={[remarkGfm]}>{selected.body}</ReactMarkdown>
         </div>
       </div>
     )

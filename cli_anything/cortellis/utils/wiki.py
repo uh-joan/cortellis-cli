@@ -12,6 +12,7 @@ Articles live in wiki/ at the project/working directory root:
 """
 
 import json
+import math
 import os
 import re
 from datetime import datetime, timezone
@@ -510,6 +511,121 @@ def list_articles(wiki_dir: str, article_type: Optional[str] = None) -> list[dic
 
 
 # ---------------------------------------------------------------------------
+# Progressive-disclosure search
+# ---------------------------------------------------------------------------
+
+def _extract_summary(body: str, n_sentences: int = 3) -> str:
+    """Return the first n_sentences of body text, stripping markdown headers."""
+    lines = []
+    for line in body.splitlines():
+        stripped = line.strip()
+        if not stripped or stripped.startswith("#"):
+            continue
+        lines.append(stripped)
+        if len(lines) >= n_sentences:
+            break
+    return " ".join(lines)
+
+
+def _extract_outline(body: str) -> str:
+    """Return H2 section headers each followed by the first non-empty sentence."""
+    sections = []
+    lines = body.splitlines()
+    i = 0
+    while i < len(lines):
+        line = lines[i].strip()
+        if line.startswith("## "):
+            header = line
+            # find first non-empty, non-header line after the heading
+            first_line = ""
+            j = i + 1
+            while j < len(lines):
+                candidate = lines[j].strip()
+                if candidate and not candidate.startswith("#") and not candidate.startswith("|"):
+                    first_line = candidate[:160]
+                    break
+                j += 1
+            sections.append(f"{header}\n{first_line}" if first_line else header)
+        i += 1
+    return "\n\n".join(sections)
+
+
+def search_wiki(
+    query: str,
+    wiki_dir: str,
+    article_type: Optional[str] = None,
+    depth: str = "summary",
+    max_results: int = 10,
+) -> list[dict]:
+    """Full-text search across wiki articles with progressive disclosure.
+
+    depth:
+      'summary'  — frontmatter fields + first 3 sentences (default, ~200 tokens/result)
+      'outline'  — frontmatter fields + H2 headers + first sentence per section
+      'full'     — complete article body
+
+    Returns list of dicts: {title, type, slug, score, depth, compiled_at,
+                             relevance_score, coverage_depth, excerpt}
+    sorted by match_count descending.
+    """
+    terms = [t.lower() for t in query.split() if len(t) > 1]
+    if not terms:
+        return []
+
+    articles = list_articles(wiki_dir, article_type)
+    results = []
+
+    for art in articles:
+        meta = art.get("meta") or {}
+        body = ""
+        path = art.get("path", "")
+        if path and os.path.exists(path):
+            with open(path, encoding="utf-8") as f:
+                raw = f.read()
+            # Strip frontmatter
+            m = re.match(r"^---\s*\n.*?\n---\s*\n", raw, re.DOTALL)
+            body = raw[m.end():] if m else raw
+
+        searchable = " ".join([
+            meta.get("title", ""),
+            " ".join(meta.get("tags", []) or []),
+            " ".join(meta.get("aliases", []) or []),
+            body,
+        ]).lower()
+
+        match_count = sum(searchable.count(t) for t in terms)
+        if match_count == 0:
+            continue
+
+        if depth == "full":
+            excerpt = body
+        elif depth == "outline":
+            excerpt = _extract_outline(body)
+        else:
+            excerpt = _extract_summary(body)
+
+        rel_score, cov_depth = compute_relevance_score(meta)
+        # log-normalise match count so verbose internal docs (900+ matches)
+        # don't drown out concise compiled articles (60 matches, score=0.68).
+        # rank = log(1 + matches) × (1 + relevance_score)
+        rank = math.log1p(match_count) * (1 + rel_score)
+        results.append({
+            "title": meta.get("title", os.path.basename(path)),
+            "type": meta.get("type", article_type or "?"),
+            "slug": meta.get("slug", ""),
+            "match_count": match_count,
+            "rank": rank,
+            "compiled_at": (meta.get("compiled_at", "") or "")[:10],
+            "relevance_score": rel_score,
+            "coverage_depth": cov_depth,
+            "excerpt": excerpt,
+        })
+
+    results.sort(key=lambda r: r["rank"], reverse=True)
+    return results[:max_results]
+
+
+# ---------------------------------------------------------------------------
 # Snapshot diffing
 # ---------------------------------------------------------------------------
 
@@ -635,6 +751,57 @@ def check_freshness(
 # ---------------------------------------------------------------------------
 # Wikilink helpers
 # ---------------------------------------------------------------------------
+
+def compute_relevance_score(meta: dict) -> tuple[float, str]:
+    """Compute relevance score (0.0–1.0) and coverage depth for a wiki article.
+
+    Scoring rubric (indication articles):
+      - Source count  25%  — distinct enrichment sources present at compile time
+      - Drug count    20%  — total_drugs normalized to 20+ drugs = full score
+      - Phase breadth 20%  — how many of 5 phases have ≥1 drug
+      - Recency       20%  — age decay: 0 days = 1.0, 90 days = 0.0
+      - Synthesis     15%  — has CPI rankings + ≥5 sources
+
+    Returns (score, depth) where depth is 'shallow' | 'standard' | 'deep'.
+    """
+    score = 0.0
+
+    source_count = meta.get("source_count", 0) or 0
+    score += 0.25 * min(source_count / 8.0, 1.0)
+
+    total_drugs = meta.get("total_drugs", 0) or 0
+    score += 0.20 * min(total_drugs / 20.0, 1.0)
+
+    phase_counts = meta.get("phase_counts") or {}
+    phases_covered = sum(
+        1 for k in ("launched", "phase3", "phase2", "phase1", "discovery")
+        if (phase_counts.get(k) or 0) > 0
+    )
+    score += 0.20 * (phases_covered / 5.0)
+
+    compiled_at = meta.get("compiled_at", "")
+    if compiled_at:
+        try:
+            compiled_dt = datetime.fromisoformat(compiled_at.replace("Z", "+00:00"))
+            age_days = (datetime.now(timezone.utc) - compiled_dt).days
+            score += 0.20 * max(0.0, 1.0 - age_days / 90.0)
+        except (ValueError, TypeError):
+            pass
+
+    has_cpi = bool(meta.get("company_rankings"))
+    has_rich_sources = source_count >= 5
+    score += 0.15 * ((0.5 if has_cpi else 0.0) + (0.5 if has_rich_sources else 0.0))
+
+    score = round(min(score, 1.0), 2)
+    if score >= 0.7:
+        depth = "deep"
+    elif score >= 0.4:
+        depth = "standard"
+    else:
+        depth = "shallow"
+
+    return score, depth
+
 
 def wikilink(slug: str, display: Optional[str] = None) -> str:
     r"""Generate an Obsidian-style wikilink.

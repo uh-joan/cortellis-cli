@@ -39,6 +39,7 @@ from cli_anything.cortellis.utils.wiki import (
     update_index,
     wikilink,
     log_activity,
+    compute_relevance_score,
 )
 
 
@@ -106,6 +107,24 @@ def load_drugdesign_mechanism_counts(landscape_dir):
     # Fallback: raw name-based lookup
     rows = read_csv_safe(os.path.join(landscape_dir, "drugdesign_mechanism_counts.csv"))
     return {r["mechanism_name"].lower(): safe_int(r.get("compound_count", 0)) for r in rows if r.get("mechanism_name")}
+
+
+_ENRICHMENT_SOURCE_FILES = [
+    "deals_analytics.md", "deal_comps.md", "loe_analysis.md",
+    "scenario_analysis.md", "approval_regions.md", "regulatory_timeline.md",
+    "recent_publications.md", "recent_press_releases.md", "historical_timeline.md",
+    "strategic_briefing.md", "drugdesign_preclinical.csv", "narrate_context.json",
+]
+
+
+def count_enrichment_sources(landscape_dir):
+    """Count distinct enrichment files present — base 2 (core CSVs) + optional files."""
+    base = 2  # strategic_scores.csv + mechanism_scores.csv always expected
+    extras = sum(
+        1 for f in _ENRICHMENT_SOURCE_FILES
+        if os.path.exists(os.path.join(landscape_dir, f))
+    )
+    return base + extras
 
 
 def detect_preset(landscape_dir):
@@ -232,6 +251,7 @@ def compile_indication_article(landscape_dir, indication_name, slug, base_dir=No
     enrichments = load_wiki_enrichments(landscape_dir, base_dir)
     dd_preclinical = load_drugdesign_preclinical(landscape_dir)
     dd_mech_counts = load_drugdesign_mechanism_counts(landscape_dir)
+    source_count = count_enrichment_sources(landscape_dir)
 
     # Top company for index
     top_company = ""
@@ -289,7 +309,12 @@ def compile_indication_article(landscape_dir, indication_name, slug, base_dir=No
             {"company": r["company"], "cpi_score": safe_float(r.get("cpi_score")), "tier": r.get("cpi_tier", "")}
             for r in scores[:20]
         ],
+        "source_count": source_count,
     }
+
+    relevance_score, coverage_depth = compute_relevance_score(meta)
+    meta["relevance_score"] = relevance_score
+    meta["coverage_depth"] = coverage_depth
 
     # Build body
     body_parts = []
