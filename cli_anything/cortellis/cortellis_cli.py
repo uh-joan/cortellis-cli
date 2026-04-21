@@ -78,6 +78,13 @@ def cli(ctx: click.Context, json_mode: bool, debug: bool, engine: str, no_flush:
     ctx.obj["client"] = CortellisClient()
 
     if ctx.invoked_subcommand is None:
+        # --json with no subcommand is a malformed call (--json is for data commands).
+        # Bail immediately instead of blocking in interactive chat — this prevents
+        # subprocess callers (e.g. Pi) from hanging when they forget the subcommand.
+        if json_mode:
+            import sys as _sys
+            click.echo('{"error": "no subcommand given — use cortellis --json <command> [args]"}')
+            _sys.exit(1)
         # No subcommand — launch AI chat mode
         ctx.invoke(chat_cmd, debug=debug, engine=engine, no_flush=no_flush)
 
@@ -2983,9 +2990,14 @@ All skills and their workflows are included below in the system context."""
 
         def _harness_q(skill_nm, skill_args):
             hint = wiki_output_hint(skill_nm, skill_args)
+            wave_instruction = (
+                "Show the wave status as each wave completes."
+                if debug else
+                "When done, show only a brief one-line status (e.g. 'Completed successfully' or 'Failed at wave N: compile')."
+            )
             return (
                 f"[HARNESS: Run `source {venv_activate} && cortellis run-skill {skill_nm} \"{skill_args}\"` "
-                f"as a single Bash command. Narrate each wave as it prints. "
+                f"as a single Bash command. {wave_instruction} "
                 f"Then {hint} and summarize. End with 2-3 follow-up suggestions.] "
                 f"{skill_args}"
             )
@@ -3139,7 +3151,8 @@ All skills and their workflows are included below in the system context."""
             # Pi has no --append-system-prompt; prepend context to the prompt message.
             # --no-context-files prevents Pi from auto-loading AGENTS.md/CLAUDE.md since
             # we inject all context programmatically via the system prompt.
-            cmd = [ai_bin, "--no-context-files", "-p", full_message]
+            # --mode json streams JSONL events so we can show live progress via spinner
+            cmd = [ai_bin, "--mode", "json", "--no-context-files", "-p", full_message]
             if use_context and not first_turn:
                 cmd.append("-c")
         else:
@@ -3250,20 +3263,104 @@ All skills and their workflows are included below in the system context."""
                 except Exception as _e:
                     sys.stderr.write(f"  Warning: could not write session log: {_e}\n")
         elif engine == "pi":
-            # Pi -p mode: stdout is the plain-text response.
-            pi_lines = []
-            for _line in iter(proc.stdout.readline, b""):
-                _decoded = _line.decode("utf-8", errors="replace")
-                pi_lines.append(_decoded)
-            stop_spinner.set()
-            spinner_thread.join()
-            elapsed = int(time.time() - t_start)
-            if spinner_state[1]:
-                sys.stdout.write(f"\r  Answered in {elapsed}s" + " " * 40 + "\n\n")
-            else:
-                sys.stdout.write(f"  Answered in {elapsed}s\n\n")
-            sys.stdout.flush()
-            text = "".join(pi_lines).strip()
+            # Pi --mode json streams JSONL events. Parse them in real-time:
+            # - text_delta events → accumulate final response text
+            # - tool_use_start events → update spinner with friendly command status
+            # - turn_end / agent_end → marks completion
+            pi_text_parts = []
+            for line in iter(proc.stdout.readline, b""):
+                decoded = line.decode("utf-8", errors="replace").strip()
+                if not decoded:
+                    continue
+                try:
+                    event = _json.loads(decoded)
+                except _json.JSONDecodeError:
+                    continue
+
+                etype = event.get("type", "")
+
+                if etype == "message_update":
+                    ame = event.get("assistantMessageEvent", {})
+                    ame_type = ame.get("type", "")
+                    if ame_type == "text_delta":
+                        pi_text_parts.append(ame.get("delta", ""))
+                    elif ame_type in ("tool_use_start", "tool_call_start"):
+                        tool_name = ame.get("name") or ame.get("toolName", "tool")
+                        if debug:
+                            if first_output:
+                                stop_spinner.set()
+                                spinner_thread.join()
+                                if spinner_state[1]:
+                                    sys.stdout.write("\n")
+                                first_output = False
+                            sys.stdout.write(f"  > {tool_name}\n")
+                            sys.stdout.flush()
+                        else:
+                            spinner_state[0] = f"Pi → {tool_name}"
+                    else:
+                        # Check partial.content array for tool_use blocks (bash commands)
+                        partial = ame.get("partial", {})
+                        for block in partial.get("content", []):
+                            if block.get("type") == "tool_use":
+                                bname = block.get("name", "")
+                                binp = block.get("input", {})
+                                if bname in ("bash", "Bash") and "command" in binp:
+                                    new_status = translate_command(binp["command"])
+                                    if new_status and not debug:
+                                        if spinner_state[1]:
+                                            elapsed = int(time.time() - t_start)
+                                            _ln = f"  {spinner_state[0]}  ({elapsed}s)"
+                                            sys.stdout.write(f"\r{_ln:<80s}\n")
+                                            sys.stdout.flush()
+                                            spinner_state[1] = False
+                                        spinner_state[0] = new_status
+                                    elif debug:
+                                        if first_output:
+                                            stop_spinner.set()
+                                            spinner_thread.join()
+                                            if spinner_state[1]:
+                                                sys.stdout.write("\n")
+                                            first_output = False
+                                        cmd_str = binp["command"]
+                                        if "cortellis" in cmd_str:
+                                            short = cmd_str.split("cortellis", 1)[1].strip()
+                                            sys.stdout.write(f"  > cortellis {short}\n")
+                                        else:
+                                            sys.stdout.write(f"  > {cmd_str[:80]}\n")
+                                        sys.stdout.flush()
+
+                elif etype == "turn_end":
+                    stop_spinner.set()
+                    spinner_thread.join()
+                    elapsed = int(time.time() - t_start)
+                    if spinner_state[1]:
+                        sys.stdout.write(f"\r  Answered in {elapsed}s" + " " * 40 + "\n\n")
+                    elif first_output:
+                        sys.stdout.write(f"  Answered in {elapsed}s\n\n")
+                    sys.stdout.flush()
+                    first_output = False
+
+                elif etype == "agent_end":
+                    # Fallback: extract text from last assistant message if streaming missed it
+                    if not pi_text_parts:
+                        for msg in reversed(event.get("messages", [])):
+                            if msg.get("role") == "assistant":
+                                for block in msg.get("content", []):
+                                    if block.get("type") == "text":
+                                        pi_text_parts.append(block.get("text", ""))
+                                break
+
+            if first_output or not stop_spinner.is_set():
+                stop_spinner.set()
+                spinner_thread.join()
+                elapsed = int(time.time() - t_start)
+                if spinner_state[1]:
+                    sys.stdout.write(f"\r  Answered in {elapsed}s" + " " * 40 + "\n\n")
+                else:
+                    sys.stdout.write(f"  Answered in {elapsed}s\n\n")
+                sys.stdout.flush()
+
+            text = "".join(pi_text_parts).strip()
             if not text:
                 text = "[No response from Pi]"
             sys.stdout.write(text)

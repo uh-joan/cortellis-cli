@@ -209,7 +209,8 @@ def extract_deals_summary(deals_json):
         return {}
     deal_data = deals_json.get("dealResultsOutput", deals_json)
     total = deal_data.get("@totalResults", "0")
-    deal_list = deal_data.get("SearchResults", {}).get("Deal", [])
+    _sr = deal_data.get("SearchResults") or {}
+    deal_list = _sr.get("Deal", []) if isinstance(_sr, dict) else []
     if isinstance(deal_list, dict):
         deal_list = [deal_list]
     types = {}

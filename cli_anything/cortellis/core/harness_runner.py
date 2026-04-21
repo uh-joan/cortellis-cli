@@ -340,7 +340,15 @@ class HarnessRunner:
                     if r.status == "success":
                         parts = r.output.strip().split(",")
                         if len(parts) >= 2:
-                            output_dir = output_dir.parent / _slug_name(parts[1])
+                            canonical_dir = output_dir.parent / _slug_name(parts[1])
+                            if canonical_dir != output_dir:
+                                # Clean up the initial input-name dir if it's still empty
+                                try:
+                                    if output_dir.exists() and not any(output_dir.iterdir()):
+                                        output_dir.rmdir()
+                                except OSError:
+                                    pass
+                                output_dir = canonical_dir
                             output_dir.mkdir(parents=True, exist_ok=True)
                 wave_label = " ".join(n.id for n in wave)
                 print(f"\n▶ Wave {wave_idx}: {wave_label}", file=sys.stderr, flush=True)

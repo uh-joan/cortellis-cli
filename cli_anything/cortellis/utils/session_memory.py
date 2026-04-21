@@ -47,6 +47,9 @@ def get_raw_dirs(base_dir: str = None) -> list[str]:
                 result.append(dir_path)
 
     # Top-level raw/* (existing behaviour — but skip the special subdirectory names)
+    # Also skip dirs that lack landscape markers — company pipeline dirs (e.g. raw/amgen-inc/)
+    # have CSVs too but are not indication landscapes. compile_dossier would just skip them
+    # with a warning; filter them out here to avoid the noise.
     _special = {"pipeline", "drugs", "targets"}
     for name in sorted(os.listdir(raw_root)):
         dir_path = os.path.join(raw_root, name)
@@ -59,9 +62,28 @@ def get_raw_dirs(base_dir: str = None) -> list[str]:
         has_csv = any(
             f.endswith(".csv") for f in os.listdir(dir_path)
         )
-        if has_csv:
-            seen.add(dir_path)
-            result.append(dir_path)
+        if not has_csv:
+            continue
+        # Only include dirs that look like indication landscape dirs.
+        # Company pipeline dirs share the same CSV layout but lack these markers.
+        _files = set(os.listdir(dir_path))
+        _freshness_has_marker = False
+        if "freshness.json" in _files:
+            try:
+                import json as _json
+                with open(os.path.join(dir_path, "freshness.json")) as _f:
+                    _freshness_has_marker = "landscape_dir" in _json.load(_f)
+            except Exception:
+                pass
+        is_landscape = (
+            _freshness_has_marker
+            or "narrate_context.json" in _files
+            or "audit_trail.json" in _files
+        )
+        if not is_landscape:
+            continue
+        seen.add(dir_path)
+        result.append(dir_path)
 
     # Subdirectory scans
     for subdir in ("pipeline", "drugs", "targets"):

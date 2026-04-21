@@ -71,8 +71,9 @@ nodes:
 
   - id: fetch_si_phase1
     bash: |
+      COMPANY=$resolve.output.company_canonical
       bash cli_anything/cortellis/skills/pipeline/recipes/fetch_phase_si.sh \
-        'organizationsOriginator:"$resolve.output.company_canonical" AND developmentIsActive:Yes AND phaseHighest:"Phase I"' \
+        "organizationsOriginator:\"$COMPANY\" AND developmentIsActive:Yes AND phaseHighest:\"Phase I\"" \
         raw/$resolve.output.company_name/phase1_si.csv \
         cli_anything/cortellis/skills/pipeline/recipes
     depends_on: [resolve]
@@ -80,8 +81,9 @@ nodes:
 
   - id: fetch_si_preclinical
     bash: |
+      COMPANY=$resolve.output.company_canonical
       bash cli_anything/cortellis/skills/pipeline/recipes/fetch_phase_si.sh \
-        'organizationsOriginator:"$resolve.output.company_canonical" AND developmentIsActive:Yes AND phaseHighest:"Preclinical"' \
+        "organizationsOriginator:\"$COMPANY\" AND developmentIsActive:Yes AND phaseHighest:\"Preclinical\"" \
         raw/$resolve.output.company_name/preclinical_si.csv \
         cli_anything/cortellis/skills/pipeline/recipes
     depends_on: [resolve]
