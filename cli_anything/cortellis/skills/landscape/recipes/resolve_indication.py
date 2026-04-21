@@ -178,10 +178,31 @@ def _try_expand(name):
     return ABBREVIATIONS.get(key, name)
 
 
+_COMPANY_SUFFIXES = re.compile(
+    r"\b(inc\.?|corp\.?|ltd\.?|llc|gmbh|s\.?a\.?|n\.?v\.?|b\.?v\.?|plc\.?|a/s|ag|as|"
+    r"pharma(?:ceuticals?)?|biosciences?|biotechnology|therapeutics?|biopharm|"
+    r"biopharma|bio(?:tech)?|genomics|sciences?|laboratories?|labs?)\b",
+    re.IGNORECASE,
+)
+
+
+def _looks_like_company(name: str) -> bool:
+    """Return True if the input strongly resembles a company name rather than an indication."""
+    return bool(_COMPANY_SUFFIXES.search(name))
+
+
 if __name__ == "__main__":
     name = sys.argv[1] if len(sys.argv) > 1 else ""
     if not name:
         print("Usage: python3 resolve_indication.py <indication_name>", file=sys.stderr)
+        sys.exit(1)
+
+    if _looks_like_company(name):
+        print(
+            f"ERROR: '{name}' looks like a company name, not an indication. "
+            f"Use 'cortellis run-skill pipeline' for company pipelines.",
+            file=sys.stderr,
+        )
         sys.exit(1)
 
     cached = cache_get("indications", name)

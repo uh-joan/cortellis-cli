@@ -1763,6 +1763,251 @@ def setup_cmd() -> None:
 
 
 # ---------------------------------------------------------------------------
+# diff — wiki-vs-live delta check for autonomous refresh triggering
+# ---------------------------------------------------------------------------
+
+@cli.command("diff")
+@click.argument("slug", required=False)
+@click.option("--all", "scan_all_flag", is_flag=True,
+              help="Scan all wiki articles and report which need refreshing.")
+@click.option("--type", "article_type", default=None,
+              type=click.Choice(["indication", "company", "drug"]),
+              help="Override entity type detection.")
+@click.option("--threshold-drugs", default=None, type=int,
+              help="New drug count delta to trigger refresh (default: 3 for indications).")
+@click.option("--threshold-age", default=None, type=int,
+              help="Max article age in days before refresh is triggered (default: 14).")
+@click.pass_context
+def diff_cmd(ctx, slug, scan_all_flag, article_type, threshold_drugs, threshold_age):
+    """Compare compiled wiki articles against live Cortellis API counts.
+
+    \b
+    Checks total drug and deal counts in the live API against what was last
+    compiled into the wiki. Outputs a structured delta and a should_refresh
+    recommendation — designed for use by scheduled autonomous agents.
+
+    \b
+    Examples:
+      cortellis diff obesity                    # check one indication
+      cortellis diff obesity --threshold-age 7  # tighter age threshold
+      cortellis diff --all                      # scan all wiki articles
+      cortellis --json diff obesity             # machine-readable output
+    """
+    import json as _json
+    from cli_anything.cortellis.core.diff import compute_diff, scan_all as _scan_all
+
+    if not slug and not scan_all_flag:
+        raise click.UsageError("Provide a SLUG or use --all to scan every article.")
+
+    thresholds = {}
+    if threshold_drugs is not None:
+        thresholds["new_drugs"] = threshold_drugs
+    if threshold_age is not None:
+        thresholds["max_age_days"] = threshold_age
+    thr_arg = thresholds or None
+
+    client = _client(ctx)
+    json_mode = ctx.obj.get("json", False)
+
+    if scan_all_flag:
+        results = _scan_all(client, base_dir=".", thresholds=thr_arg)
+        if json_mode:
+            click.echo(_json.dumps(results, indent=2))
+            return
+        _print_diff_table(results)
+        return
+
+    result = compute_diff(slug, client, base_dir=".", article_type=article_type,
+                          thresholds=thr_arg)
+    if json_mode:
+        click.echo(_json.dumps(result, indent=2))
+        return
+    _print_diff_one(result)
+
+
+def _print_diff_one(r: dict) -> None:
+    from rich.console import Console
+    from rich.table import Table
+    from rich import box
+
+    console = Console()
+    if r.get("error"):
+        console.print(f"[red]Error:[/red] {r['error']} ({r['slug']})")
+        return
+
+    flag = "[green]OK[/green]" if not r["should_refresh"] else "[yellow]REFRESH[/yellow]"
+    console.print(f"\n[bold]{r['title']}[/bold]  ({r['slug']})  {flag}")
+    console.print(f"  Compiled: {r.get('compiled_at', '-')[:10]}  |  Age: {r.get('age_days', '?')}d")
+    console.print(f"  Reason:   {r['reason']}")
+
+    delta = r.get("delta", {})
+    t = Table(box=box.SIMPLE, show_header=True, header_style="bold cyan")
+    t.add_column("Metric", style="dim")
+    t.add_column("Before", justify="right")
+    t.add_column("After", justify="right")
+    t.add_column("Delta", justify="right")
+
+    for label, key in [("Drugs", "total_drugs")]:
+        d = delta.get(key, {})
+        before = str(d.get("before", "-"))
+        after = str(d.get("after") or "-")
+        dv = d.get("delta")
+        delta_str = (f"[green]+{dv}[/green]" if dv and dv > 0
+                     else f"[red]{dv}[/red]" if dv and dv < 0
+                     else str(dv) if dv is not None else "-")
+        t.add_row(label, before, after, delta_str)
+
+    console.print(t)
+
+
+def _print_diff_table(results: list) -> None:
+    from rich.console import Console
+    from rich.table import Table
+    from rich import box
+
+    console = Console()
+    import re as _re
+
+    t = Table(box=box.SIMPLE, show_header=True, header_style="bold cyan", expand=False)
+    t.add_column("Slug", min_width=20, max_width=30)
+    t.add_column("Age", justify="right", min_width=4)
+    t.add_column("ΔDrugs", justify="right", min_width=7)
+    t.add_column("Status", min_width=7)
+    t.add_column("Reason", style="dim", min_width=20)
+
+    for r in results:
+        if r.get("error"):
+            t.add_row(r["slug"], "-", "-", f"[red]ERR[/red]", r["error"])
+            continue
+        delta = r.get("delta", {})
+        dd = delta.get("total_drugs", {}).get("delta")
+        status = "[yellow]REFRESH[/yellow]" if r["should_refresh"] else "[green]ok[/green]"
+        reason = r.get("reason", "-")
+        reason_short = _re.sub(r" \(threshold: \d+\)", "", reason)
+        t.add_row(
+            r["slug"],
+            f"{r.get('age_days', '?')}d",
+            f"+{dd}" if dd and dd > 0 else str(dd) if dd is not None else "-",
+            status, reason_short,
+        )
+
+    console.print(t)
+    refresh_count = sum(1 for r in results if r.get("should_refresh"))
+    console.print(f"\n{refresh_count}/{len(results)} articles need refresh.")
+
+
+# ---------------------------------------------------------------------------
+# watch — autonomous refresh loop (run via cron)
+# ---------------------------------------------------------------------------
+
+@cli.command("watch")
+@click.option("--dry-run", is_flag=True,
+              help="Show what would refresh without running any skills.")
+@click.option("--type", "article_types", default="indication",
+              help="Comma-separated entity types to check (default: indication).")
+@click.option("--crontab", is_flag=True,
+              help="Print a ready-to-paste crontab entry and exit.")
+@click.pass_context
+def watch_cmd(ctx, dry_run, article_types, crontab):
+    """Scan wiki for stale articles and run landscape refresh on each.
+
+    \b
+    Designed to run unattended via cron. Each run:
+      1. Calls `cortellis diff --all` to find articles needing refresh
+      2. Runs `cortellis run-skill landscape <slug>` for each stale indication
+      3. Appends a summary to daily/<date>-watch.md
+
+    \b
+    Examples:
+      cortellis watch --dry-run          # preview without running
+      cortellis watch                    # run once
+      cortellis watch --crontab          # print crontab setup line
+
+    \b
+    Cron setup (runs every 6 hours):
+      0 */6 * * * cd /path/to/repo && cortellis watch >> daily/watch.log 2>&1
+    """
+    import subprocess
+    import sys
+    from datetime import datetime, timezone
+    from pathlib import Path
+    from cli_anything.cortellis.core.diff import scan_all
+
+    if crontab:
+        import os
+        repo = os.getcwd()
+        click.echo("# Add to crontab with: crontab -e")
+        click.echo(f"0 */6 * * * cd {repo} && cortellis watch >> daily/watch.log 2>&1")
+        return
+
+    types = {t.strip() for t in article_types.split(",") if t.strip()}
+    client = _client(ctx)
+    now = datetime.now(timezone.utc)
+    date_str = now.strftime("%Y-%m-%d")
+    time_str = now.strftime("%H:%M")
+
+    click.echo(f"[{date_str} {time_str}] cortellis watch — scanning wiki...")
+
+    results = scan_all(client, base_dir=".", types=types)
+    to_refresh = [r for r in results if r.get("should_refresh") and not r.get("error")]
+    ok_count = len(results) - len(to_refresh)
+
+    click.echo(f"  {len(to_refresh)} need refresh, {ok_count} ok")
+
+    if not to_refresh:
+        click.echo("  nothing to do.")
+        _watch_log(".", date_str, time_str, [], dry_run)
+        return
+
+    outcomes = []
+    for r in to_refresh:
+        slug = r["slug"]
+        atype = r.get("type", "")
+        reason = r.get("reason", "")
+        click.echo(f"  → [{atype}] {slug}  ({reason})")
+
+        if dry_run:
+            outcomes.append({"slug": slug, "status": "dry-run"})
+            continue
+
+        if atype == "indication":
+            cmd = ["cortellis", "run-skill", "landscape", r.get("title", slug), "--force-refresh"]
+        else:
+            click.echo(f"    skip — no watch handler for type '{atype}'")
+            outcomes.append({"slug": slug, "status": "skipped"})
+            continue
+
+        result = subprocess.run(cmd, capture_output=False, text=True)
+        status = "ok" if result.returncode == 0 else f"failed (exit {result.returncode})"
+        click.echo(f"    {status}")
+        outcomes.append({"slug": slug, "status": status})
+
+    _watch_log(".", date_str, time_str, outcomes, dry_run)
+    click.echo(f"[{date_str} {time_str}] done.")
+
+
+def _watch_log(base_dir: str, date_str: str, time_str: str, outcomes: list, dry_run: bool) -> None:
+    """Append a watch run summary to daily/<date>-watch.md."""
+    import os
+    daily_dir = os.path.join(base_dir, "daily")
+    os.makedirs(daily_dir, exist_ok=True)
+    log_path = os.path.join(daily_dir, f"{date_str}-watch.md")
+
+    mode_tag = " (dry-run)" if dry_run else ""
+    lines = [f"\n## [{time_str}] watch run{mode_tag}\n\n"]
+    if not outcomes:
+        lines.append("- nothing to refresh\n")
+    else:
+        for o in outcomes:
+            lines.append(f"- **{o['slug']}**: {o['status']}\n")
+
+    with open(log_path, "a", encoding="utf-8") as f:
+        if not os.path.exists(log_path) or os.path.getsize(log_path) == 0:
+            f.write(f"# Watch Log — {date_str}\n")
+        f.writelines(lines)
+
+
+# ---------------------------------------------------------------------------
 # run-skill — harness mode: enforced step sequencing for skill workflows
 # ---------------------------------------------------------------------------
 

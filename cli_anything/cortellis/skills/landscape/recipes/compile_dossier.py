@@ -935,15 +935,29 @@ def main():
         sys.exit(1)
 
     # Validate this is an indication landscape directory, not a company pipeline dir.
-    # Phase CSVs (launched.csv, phase3.csv, phase2.csv) exist in both landscape and pipeline dirs,
-    # so checking only for those is insufficient. narrate_context.json and audit_trail.json are
-    # written exclusively by the landscape skill and never by compile_pipeline.py.
+    # Phase CSVs exist in both landscape and pipeline dirs so they are not a reliable signal.
+    # freshness.json with "landscape_dir" key is written by the landscape freshness step early
+    # in the pipeline — before the scoring/narrative steps that produce audit_trail.json.
+    # This makes it a better discriminator than late-stage sentinel files the harness itself creates.
+    freshness_path = os.path.join(landscape_dir, "freshness.json")
+    freshness_data = {}
+    if os.path.exists(freshness_path):
+        try:
+            import json as _json
+            with open(freshness_path, encoding="utf-8") as _f:
+                freshness_data = _json.load(_f)
+        except Exception:
+            pass
+
     is_landscape = (
-        os.path.exists(os.path.join(landscape_dir, "narrate_context.json"))
-        or os.path.exists(os.path.join(landscape_dir, "audit_trail.json"))
+        "landscape_dir" in freshness_data                                          # primary: set early by landscape freshness step
+        or os.path.exists(os.path.join(landscape_dir, "narrate_context.json"))     # fallback: late-stage landscape artifact
+        or os.path.exists(os.path.join(landscape_dir, "audit_trail.json"))         # fallback: late-stage landscape artifact
     )
     if not is_landscape:
-        print(f"Skipping {landscape_dir}: not an indication landscape directory (missing narrate_context.json / audit_trail.json)", file=sys.stderr)
+        print(f"Skipping {landscape_dir}: not an indication landscape directory "
+              f"(missing landscape_dir in freshness.json, narrate_context.json, and audit_trail.json)",
+              file=sys.stderr)
         sys.exit(0)
 
     # Canonical indication name: ALWAYS prefer narrate_context.json (ontology-resolved),

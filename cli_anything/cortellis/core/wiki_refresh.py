@@ -507,6 +507,19 @@ def _full_one(
         source_dir = _resolve_path(meta.get("source_dir", ""), base_dir)
         output_dir = Path(source_dir) if source_dir and os.path.isdir(source_dir) \
             else REPO_ROOT / "raw" / slug
+        # Guard: skip if output_dir is not a genuine landscape directory.
+        # freshness.json with a "landscape_dir" key is written exclusively by the landscape
+        # skill's freshness step. Pipeline directories either lack this file entirely or
+        # have a freshness.json without the "landscape_dir" key.
+        # Only proceed if the marker is positively confirmed.
+        freshness_file = output_dir / "freshness.json"
+        freshness_data = read_json_safe(str(freshness_file)) if freshness_file.exists() else {}
+        if not (freshness_data or {}).get("landscape_dir"):
+            raise _SkipError(
+                f"source_dir does not appear to be a landscape directory "
+                f"(freshness.json missing or lacks landscape_dir key) — "
+                f"skipping to prevent company article misclassification"
+            )
         exit_code = runner.execute(title, output_dir)
 
     elif atype == "conference":
