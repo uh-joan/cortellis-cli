@@ -9,6 +9,7 @@ Root group: cortellis (with --json flag)
 """
 
 import os
+import re
 import sys
 
 import click

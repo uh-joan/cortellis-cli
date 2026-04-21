@@ -93,11 +93,14 @@ def get_raw_dirs(base_dir: str = None) -> list[str]:
 
 
 def get_newest_mtime(directory: str) -> Optional[datetime]:
-    """Get the newest modification time of any file in a directory.
+    """Get the newest modification time of any data file in a directory.
     Returns datetime in UTC, or None if directory is empty.
+    Excludes .wiki_compiled_at so the marker never invalidates itself.
     """
     newest = None
     for fname in os.listdir(directory):
+        if fname == _MARKER_FILE:
+            continue
         fpath = os.path.join(directory, fname)
         if not os.path.isfile(fpath):
             continue
@@ -142,10 +145,13 @@ def get_stale_indications(base_dir: str = None) -> list[dict]:
         else:
             try:
                 wiki_compiled_at = open(marker_path).read().strip()
-                compiled_dt = datetime.fromisoformat(
-                    wiki_compiled_at.replace("Z", "+00:00")
+                # Use marker file's mtime (not parsed content) — avoids sub-second
+                # race where enrichment_manifest.json is written 0.5s before the marker
+                # but within the same second, making parsed content < file mtime.
+                marker_mtime = datetime.fromtimestamp(
+                    os.path.getmtime(marker_path), tz=timezone.utc
                 )
-                if raw_mtime is not None and raw_mtime > compiled_dt:
+                if raw_mtime is not None and raw_mtime > marker_mtime:
                     wiki_status = "stale"
                 else:
                     wiki_status = "fresh"
