@@ -65,8 +65,8 @@ load_dotenv()
 @click.option("--debug", is_flag=True, default=False,
               help="Show API commands being executed in chat mode.")
 @click.option("--engine", default="claude",
-              type=click.Choice(["claude", "codex"], case_sensitive=False),
-              help="AI engine for chat mode: 'claude' (Claude Code) or 'codex' (OpenAI Codex).")
+              type=click.Choice(["claude", "codex", "pi"], case_sensitive=False),
+              help="AI engine for chat mode: 'claude' (Claude Code), 'codex' (OpenAI Codex), or 'pi' (Pi coding agent).")
 @click.option("--no-flush", "no_flush", is_flag=True, default=False,
               help="Skip session memory flush on exit (useful for testing).")
 @click.version_option(__version__, prog_name="cortellis")
@@ -1706,7 +1706,23 @@ def setup_cmd() -> None:
         click.echo("    npm install -g @openai/codex")
         click.echo("    codex login --device-auth")
 
-    if not claude_bin and not codex_bin:
+    pi_bin = shutil.which("pi")
+    if pi_bin:
+        click.echo("  Pi coding agent found!")
+        try:
+            pi_check = _sp.run([pi_bin, "--version"],
+                               capture_output=True, text=True, timeout=5)
+            ver = (pi_check.stdout or pi_check.stderr).strip()
+            click.echo(f"  {ver or 'version unknown'} — 'cortellis --engine pi' is ready.")
+        except Exception:
+            click.echo("  Found — 'cortellis --engine pi' should be ready.")
+    else:
+        click.echo("  Pi coding agent not found.")
+        click.echo("  To enable AI chat mode with Pi, install it:")
+        click.echo("    npm install -g @mariozechner/pi-coding-agent")
+        click.echo("    pi /log  (configure a provider)")
+
+    if not claude_bin and not codex_bin and not pi_bin:
         click.echo("  (Optional — all other commands work without an AI engine)")
     click.echo()
 
@@ -2741,6 +2757,16 @@ def chat_cmd(debug, engine="claude", no_flush=False) -> None:
         click.echo(_BANNER)
         click.echo("  Cortellis AI Chat — powered by Codex")
         click.echo("  Ask questions naturally. Type 'exit' or Ctrl-D to quit.\n")
+    elif engine == "pi":
+        ai_bin = shutil.which("pi")
+        if not ai_bin:
+            click.echo("Error: 'pi' CLI not found. Install Pi coding agent:")
+            click.echo("  npm install -g @mariozechner/pi-coding-agent")
+            click.echo("  pi /log  (configure a provider)")
+            raise SystemExit(1)
+        click.echo(_BANNER)
+        click.echo("  Cortellis AI Chat — powered by Pi")
+        click.echo("  Ask questions naturally. Type 'exit' or Ctrl-D to quit.\n")
     else:
         ai_bin = shutil.which("claude")
         if not ai_bin:
@@ -3094,6 +3120,28 @@ All skills and their workflows are included below in the system context."""
                    "-C", os.getcwd(),
                    "--output-last-message", _codex_out,
                    full_message]
+        elif engine == "pi":
+            _has_session_memory = bool(daily_log_section or insights_section)
+            _memory_rule = (
+                "MEMORY RULE: Sections labeled 'What Happened in Previous Sessions' "
+                "are your ONLY source of truth about past conversations. "
+                "When asked what was discussed, report ONLY what appears in those sections — "
+                "nothing more. Do NOT add context, code changes, PR numbers, test results, "
+                "or anything else from your training data. If it is not in the memory sections, "
+                "it did not happen as far as you are concerned."
+                if _has_session_memory else
+                "MEMORY RULE: No session memory is available for this workspace. "
+                "If asked what was discussed previously, say exactly: "
+                "'I have no memory of previous sessions in this workspace.' "
+                "Do not fabricate any session history from training data."
+            )
+            full_message = f"{_memory_rule}\n\n{effective_prompt}\n\n---\n\n{routed_question}"
+            # Pi has no --append-system-prompt; prepend context to the prompt message.
+            # --no-context-files prevents Pi from auto-loading AGENTS.md/CLAUDE.md since
+            # we inject all context programmatically via the system prompt.
+            cmd = [ai_bin, "--no-context-files", "-p", full_message]
+            if use_context and not first_turn:
+                cmd.append("-c")
         else:
             cmd = [ai_bin, "--print", "-p", routed_question,
                    "--append-system-prompt", effective_prompt,
@@ -3131,8 +3179,8 @@ All skills and their workflows are included below in the system context."""
         spinner_thread.start()
 
         popen_kwargs = dict(stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
-        if engine == "codex":
-            # Prevent codex from blocking on stdin
+        if engine in ("codex", "pi"):
+            # Prevent blocking on stdin
             popen_kwargs["stdin"] = subprocess.DEVNULL
         proc = subprocess.Popen(cmd, **popen_kwargs)
         first_output = True
@@ -3191,6 +3239,48 @@ All skills and their workflows are included below in the system context."""
                     _entry = (
                         f"\n\n---\n\n"
                         f"### [Codex] Turn ({_now.strftime('%H:%M:%S')} UTC)\n\n"
+                        f"**Q:** {routed_question[:300]}\n\n"
+                        f"**A:** {text[:500]}{'...' if len(text) > 500 else ''}\n"
+                    )
+                    if not os.path.exists(_log_path):
+                        with open(_log_path, "w", encoding="utf-8") as _lf:
+                            _lf.write(f"# Daily Log — {_now.strftime('%Y-%m-%d')}\n")
+                    with open(_log_path, "a", encoding="utf-8") as _lf:
+                        _lf.write(_entry)
+                except Exception as _e:
+                    sys.stderr.write(f"  Warning: could not write session log: {_e}\n")
+        elif engine == "pi":
+            # Pi -p mode: stdout is the plain-text response.
+            pi_lines = []
+            for _line in iter(proc.stdout.readline, b""):
+                _decoded = _line.decode("utf-8", errors="replace")
+                pi_lines.append(_decoded)
+            stop_spinner.set()
+            spinner_thread.join()
+            elapsed = int(time.time() - t_start)
+            if spinner_state[1]:
+                sys.stdout.write(f"\r  Answered in {elapsed}s" + " " * 40 + "\n\n")
+            else:
+                sys.stdout.write(f"  Answered in {elapsed}s\n\n")
+            sys.stdout.flush()
+            text = "".join(pi_lines).strip()
+            if not text:
+                text = "[No response from Pi]"
+            sys.stdout.write(text)
+            if not text.endswith("\n"):
+                sys.stdout.write("\n")
+            sys.stdout.flush()
+
+            if not no_flush:
+                try:
+                    from datetime import datetime as _dt2, timezone as _tz2
+                    _now = _dt2.now(_tz2.utc)
+                    _daily_dir = os.path.join(os.getcwd(), "daily")
+                    os.makedirs(_daily_dir, exist_ok=True)
+                    _log_path = os.path.join(_daily_dir, f"{_now.strftime('%Y-%m-%d')}.md")
+                    _entry = (
+                        f"\n\n---\n\n"
+                        f"### [Pi] Turn ({_now.strftime('%H:%M:%S')} UTC)\n\n"
                         f"**Q:** {routed_question[:300]}\n\n"
                         f"**A:** {text[:500]}{'...' if len(text) > 500 else ''}\n"
                     )
