@@ -13,6 +13,15 @@ function stripFrontmatter(content) {
   return content.slice(end + 4).trimStart()
 }
 
+// Extract a single field value from YAML frontmatter
+function getFrontmatterField(content, field) {
+  if (!content.startsWith('---')) return null
+  const end = content.indexOf('\n---', 4)
+  const block = end === -1 ? content : content.slice(0, end)
+  const match = block.match(new RegExp(`^${field}:\\s*'?([^'\\n]+)'?`, 'm'))
+  return match ? match[1].trim() : null
+}
+
 // Replace [[slug\|Title]] and [[slug|Title]] wikilinks with [Title](wiki://slug)
 function parseWikilinks(content) {
   return content.replace(/\[\[([^\]|\\]+?)(?:[|\\]+([^\]]+?))?\]\]/g, (_, slug, title) => {
@@ -158,6 +167,15 @@ export default function WikiPanel({ article, onBack, onNavigate, historyDepth = 
     return parseWikilinks(stripFrontmatter(data.content))
   }, [data?.content])
 
+  const compiledAt = useMemo(() => {
+    if (!data?.content) return null
+    const raw = getFrontmatterField(data.content, 'compiled_at')
+    if (!raw) return null
+    try {
+      return new Date(raw).toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' })
+    } catch { return raw }
+  }, [data?.content])
+
   function handleLinkClick(href) {
     if (!href?.startsWith('wiki://')) return false
     const slug = href.slice(7)
@@ -207,6 +225,11 @@ export default function WikiPanel({ article, onBack, onNavigate, historyDepth = 
       {data && (
         <>
           <h1 className="wiki-article-title">{article.title}</h1>
+          {compiledAt && (
+            <div style={{ fontSize: '0.75rem', color: 'var(--text-dim)', marginBottom: '0.75rem' }}>
+              Compiled {compiledAt}
+            </div>
+          )}
 
           {article.type === 'indications' && enrichManifest?.exists && (
             <div className={`wiki-enrich-callout ${enrichManifest.coverage_pct === 100 ? 'complete' : ''}`}>
