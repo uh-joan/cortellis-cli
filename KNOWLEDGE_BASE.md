@@ -156,6 +156,54 @@ wiki/indications/<indication>.md  ← updated with extracted commercial sections
 
 ---
 
+## `cortellis diff` — Compare wiki vs live API
+
+Checks total drug and deal counts in the live Cortellis API against what was last compiled into the wiki. Outputs a staleness verdict and `should_refresh` recommendation. Used internally by `cortellis watch`.
+
+```bash
+cortellis diff obesity                      # check one indication
+cortellis diff obesity --threshold-age 7    # flag if article is older than 7 days
+cortellis diff obesity --threshold-drugs 5  # flag if 5+ new drugs since last compile
+cortellis diff --all                         # scan every wiki article
+cortellis --json diff --all                  # machine-readable output
+```
+
+**Defaults:** `--threshold-drugs 3` for indications, `--threshold-age 14` days.
+
+**Output fields:** `slug`, `type`, `compiled_at`, `age_days`, `live_drugs`, `wiki_drugs`, `delta_drugs`, `should_refresh`.
+
+---
+
+## `cortellis watch` — Autonomous staleness monitor
+
+Scans all compiled wiki articles for stale data and re-runs the full landscape skill for each one that needs refreshing. Designed to run unattended via launchd or cron.
+
+```bash
+cortellis watch                # run once
+cortellis watch --dry-run      # preview which articles would refresh, no API calls
+cortellis watch --type indication,company   # limit to specific entity types
+```
+
+**What each run does:**
+1. Calls `cortellis diff --all` to find stale articles
+2. Runs `cortellis run-skill landscape <slug>` for each stale indication
+3. Appends a timestamped summary to `daily/watch.log`
+
+**Staleness criteria (defaults):** article older than 14 days, or live drug count differs by 3+.
+
+**Scheduling (launchd — recommended on macOS):**
+```xml
+<!-- ~/Library/LaunchAgents/com.cortellis.watch.plist -->
+<!-- Fires at 00:30, 06:30, 12:30, 18:30 UTC (BST = UTC+1: 01:30, 07:30, 13:30, 19:30) -->
+```
+```bash
+launchctl load ~/Library/LaunchAgents/com.cortellis.watch.plist
+```
+
+**Log:** `daily/watch.log` — each run appends `[YYYY-MM-DD HH:MM] cortellis watch — scanning wiki...` and per-wave harness output for each refreshed article.
+
+---
+
 ## `/signals` — Morning intelligence briefing
 
 Scans all compiled wiki articles and raw staging files for pipeline changes, emerging science, and high-confidence genetic evidence. No API calls — reads from `wiki/` and `raw/`.
