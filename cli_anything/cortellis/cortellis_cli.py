@@ -2502,6 +2502,145 @@ def wiki_cleanup_cmd(keep, confirm) -> None:
     click.echo(f"  rm -rf {backup_dir}")
 
 
+@wiki_group.command("sources")
+@click.argument("article_slug")
+@click.option("--type", "article_type", default="indications", show_default=True,
+              help="Article type: indications, companies, drugs, targets.")
+def wiki_sources_cmd(article_slug, article_type) -> None:
+    """Show API calls that produced a wiki article.
+
+    \b
+    Examples:
+      cortellis wiki sources obesity
+      cortellis wiki sources metabolic-dysfunction-associated-steatohepatitis
+    """
+    import json as _json
+    from cli_anything.cortellis.utils.wiki import wiki_root, article_path, read_article
+
+    w_dir = wiki_root(".")
+    path = article_path(article_type, article_slug, ".")
+    art = read_article(path)
+    if not art:
+        click.echo(f"Article not found: {article_type}/{article_slug}", err=True)
+        return
+
+    source_dir = (art["meta"] or {}).get("source_dir", "")
+    if not source_dir:
+        click.echo(f"No source_dir in article frontmatter — article may pre-date source tracking.")
+        return
+
+    sources_path = os.path.join(source_dir, "sources.json")
+    if not os.path.exists(sources_path):
+        click.echo(f"No sources.json found at {sources_path}")
+        click.echo("Re-run the landscape skill to generate source attribution.")
+        return
+
+    with open(sources_path, encoding="utf-8") as f:
+        data = _json.load(f)
+
+    calls = data.get("api_calls", [])
+    click.echo(f"\n## Source attribution: {article_slug}")
+    click.echo(f"Generated: {data.get('generated_at', '?')}  |  {len(calls)} API call(s)\n")
+    click.echo(f"{'Method':<6}  {'Timestamp':<20}  Endpoint")
+    click.echo("-" * 72)
+    for c in calls:
+        params = c.get("params") or {}
+        param_str = f"  params={params}" if params else ""
+        click.echo(f"{c.get('method','?'):<6}  {c.get('timestamp','?'):<20}  {c.get('endpoint','?')}{param_str}")
+    click.echo(f"\n{len(calls)} call(s) from {source_dir}")
+
+
+@wiki_group.command("search")
+@click.argument("query")
+@click.option(
+    "--depth", default="summary",
+    type=click.Choice(["summary", "outline", "full"], case_sensitive=False),
+    show_default=True,
+    help="summary=first 3 sentences | outline=H2 headers | full=complete article",
+)
+@click.option("--type", "article_type", default=None, help="Filter by type: indications, companies, drugs, targets.")
+@click.option("--max", "max_results", default=5, show_default=True, help="Max results to return.")
+def wiki_search_cmd(query, depth, article_type, max_results) -> None:
+    """Search wiki articles with progressive disclosure.
+
+    \b
+    Depth levels:
+      summary  (default) — frontmatter + first 3 sentences (~200 tokens/result)
+      outline             — H2 headers + first sentence per section
+      full                — complete article body
+
+    \b
+    Examples:
+      cortellis wiki search "NASH pipeline"
+      cortellis wiki search "resmetirom" --depth outline
+      cortellis wiki search "GLP-1" --depth full --type indications
+    """
+    from cli_anything.cortellis.utils.wiki import wiki_root, search_wiki
+
+    w_dir = wiki_root(".")
+    results = search_wiki(query, w_dir, article_type=article_type, depth=depth, max_results=max_results)
+
+    if not results:
+        click.echo(f"No wiki articles found matching: {query}")
+        return
+
+    click.echo(f"\n## Wiki Search: `{query}` (depth={depth})\n")
+    click.echo(f"> {len(results)} result(s)\n")
+
+    for i, r in enumerate(results, 1):
+        score_str = f"score={r['relevance_score']:.2f} | depth={r['coverage_depth']}"
+        compiled = f" | compiled={r['compiled_at']}" if r["compiled_at"] else ""
+        click.echo(f"### {i}. {r['title']}  [{score_str}{compiled}]")
+        click.echo(f"_{r['match_count']} match(es)_\n")
+        if r["excerpt"]:
+            click.echo(r["excerpt"])
+        click.echo()
+
+
+@wiki_group.command("scores")
+@click.option("--type", "article_type", default=None, help="Filter by type: indications, companies, drugs, targets.")
+@click.option("--min-score", default=0.0, type=float, help="Only show articles at or above this score.")
+def wiki_scores_cmd(article_type, min_score) -> None:
+    """Show relevance scores for all wiki articles.
+
+    \b
+    Examples:
+      cortellis wiki scores
+      cortellis wiki scores --type indications
+      cortellis wiki scores --min-score 0.5
+    """
+    from cli_anything.cortellis.utils.wiki import list_articles, wiki_root, compute_relevance_score
+
+    w_dir = wiki_root(".")
+    articles = list_articles(w_dir, article_type)
+
+    if not articles:
+        click.echo("No wiki articles found.")
+        return
+
+    rows = []
+    for art in articles:
+        meta = art["meta"]
+        if not meta:
+            continue
+        score, depth = compute_relevance_score(meta)
+        if score < min_score:
+            continue
+        rows.append((score, depth, meta.get("type", "?"), meta.get("title", "?"), meta.get("compiled_at", "")[:10]))
+
+    rows.sort(reverse=True)
+
+    if not rows:
+        click.echo(f"No articles with score ≥ {min_score}.")
+        return
+
+    click.echo(f"\n{'Score':>6}  {'Depth':<8}  {'Type':<12}  {'Compiled':<10}  Title")
+    click.echo("-" * 72)
+    for score, depth, atype, title, compiled in rows:
+        click.echo(f"  {score:.2f}  {depth:<8}  {atype:<12}  {compiled:<10}  {title}")
+    click.echo(f"\n{len(rows)} article(s) shown.")
+
+
 # ---------------------------------------------------------------------------
 # web — browser-based chat UI
 # ---------------------------------------------------------------------------
