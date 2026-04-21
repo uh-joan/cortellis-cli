@@ -48,7 +48,7 @@ Drugs, companies, deals, trials, regulatory, targets, drug design, ontology, ana
 
 ### 2. Skills — Multi-Step Analysis Workflows
 
-Slash commands that orchestrate full analytical pipelines — works with [Claude Code](https://docs.anthropic.com/en/docs/claude-code) or [OpenAI Codex](https://github.com/openai/codex):
+Slash commands that orchestrate full analytical pipelines — works with [Claude Code](https://docs.anthropic.com/en/docs/claude-code), [OpenAI Codex](https://github.com/openai/codex), or [Pi](https://github.com/badlogic/pi-mono):
 
 | Command | What it does |
 |---------|-------------|
@@ -107,11 +107,12 @@ Chat with your compiled wiki, run queries, and explore the knowledge graph — n
 
 ## See It In Action
 
-Start the CLI with Claude Code (default) or OpenAI Codex:
+Start the CLI with Claude Code (default), OpenAI Codex, or Pi:
 
 ```bash
 cortellis                        # Claude Code (default)
 cortellis --engine codex         # OpenAI Codex
+cortellis --engine pi            # Pi coding agent
 ```
 
 The SessionStart hook injects compiled wiki context — the AI already knows your landscapes, signals, and previous insights.
@@ -170,7 +171,8 @@ Accumulated session insights — key findings, scenarios, implications from past
 
 - **Python 3.9+**
 - **[Cortellis API credentials](https://www.cortellis.com)** — active subscription required
-- **AI engine** (choose one, both optional — all CLI commands work without them):
+- **AI engine** (choose one, all optional — all CLI commands work without them):
   - **[Claude Code](https://docs.anthropic.com/en/docs/claude-code)** — `npm install -g @anthropic-ai/claude-code` + `claude login`
   - **[OpenAI Codex](https://github.com/openai/codex)** — `npm install -g @openai/codex` + `codex login --device-auth` (ChatGPT Plus/Pro subscription)
+  - **[Pi](https://github.com/badlogic/pi-mono)** — `npm install -g @mariozechner/pi-coding-agent` + `pi /log` (configure any LLM provider)
 - **[Obsidian](https://obsidian.md)** *(optional)* — for wiki graph view and visual navigation

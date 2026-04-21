@@ -130,4 +130,8 @@ The harness handles all steps internally (API calls, compilation, wiki updates).
 - `/pipeline "Novo Nordisk"` → `{run_prefix} pipeline "Novo Nordisk"`
 - Auto-detected queries (e.g. "obesity landscape") → same harness command
 - `changelog` has no wiki output — summarize stdout directly
+
+CRITICAL: The argument to `run-skill` must be ONLY the entity name (drug, company, indication, target) extracted from the user's query — never the full query string.
+- WRONG: `{run_prefix} pipeline "run a fresh pipeline analysis for Novo Nordisk"`
+- RIGHT: `{run_prefix} pipeline "Novo Nordisk"`
 """

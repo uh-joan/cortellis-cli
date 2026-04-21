@@ -28,7 +28,7 @@ nodes:
     bash: |
       bash cli_anything/cortellis/skills/pipeline/recipes/fetch_phase.sh \
         $resolve.output.company_id L \
-        raw/$resolve.output.company_name/launched.csv \
+        raw/pipeline/$resolve.output.company_name/launched.csv \
         cli_anything/cortellis/skills/pipeline/recipes
     depends_on: [resolve]
     api_calls: true
@@ -37,7 +37,7 @@ nodes:
     bash: |
       bash cli_anything/cortellis/skills/pipeline/recipes/fetch_phase.sh \
         $resolve.output.company_id C3 \
-        raw/$resolve.output.company_name/phase3.csv \
+        raw/pipeline/$resolve.output.company_name/phase3.csv \
         cli_anything/cortellis/skills/pipeline/recipes
     depends_on: [resolve]
     api_calls: true
@@ -46,7 +46,7 @@ nodes:
     bash: |
       bash cli_anything/cortellis/skills/pipeline/recipes/fetch_phase.sh \
         $resolve.output.company_id C2 \
-        raw/$resolve.output.company_name/phase2.csv \
+        raw/pipeline/$resolve.output.company_name/phase2.csv \
         cli_anything/cortellis/skills/pipeline/recipes
     depends_on: [resolve]
     api_calls: true
@@ -55,7 +55,7 @@ nodes:
     bash: |
       bash cli_anything/cortellis/skills/pipeline/recipes/fetch_phase.sh \
         $resolve.output.company_id C1 \
-        raw/$resolve.output.company_name/phase1_ci.csv \
+        raw/pipeline/$resolve.output.company_name/phase1_ci.csv \
         cli_anything/cortellis/skills/pipeline/recipes
     depends_on: [resolve]
     api_calls: true
@@ -64,25 +64,27 @@ nodes:
     bash: |
       bash cli_anything/cortellis/skills/pipeline/recipes/fetch_phase.sh \
         $resolve.output.company_id DR \
-        raw/$resolve.output.company_name/discovery_ci.csv \
+        raw/pipeline/$resolve.output.company_name/discovery_ci.csv \
         cli_anything/cortellis/skills/pipeline/recipes
     depends_on: [resolve]
     api_calls: true
 
   - id: fetch_si_phase1
     bash: |
+      COMPANY=$resolve.output.company_canonical
       bash cli_anything/cortellis/skills/pipeline/recipes/fetch_phase_si.sh \
-        'organizationsOriginator:"$resolve.output.company_canonical" AND developmentIsActive:Yes AND phaseHighest:"Phase I"' \
-        raw/$resolve.output.company_name/phase1_si.csv \
+        "organizationsOriginator:\"$COMPANY\" AND developmentIsActive:Yes AND phaseHighest:\"Phase I\"" \
+        raw/pipeline/$resolve.output.company_name/phase1_si.csv \
         cli_anything/cortellis/skills/pipeline/recipes
     depends_on: [resolve]
     api_calls: true
 
   - id: fetch_si_preclinical
     bash: |
+      COMPANY=$resolve.output.company_canonical
       bash cli_anything/cortellis/skills/pipeline/recipes/fetch_phase_si.sh \
-        'organizationsOriginator:"$resolve.output.company_canonical" AND developmentIsActive:Yes AND phaseHighest:"Preclinical"' \
-        raw/$resolve.output.company_name/preclinical_si.csv \
+        "organizationsOriginator:\"$COMPANY\" AND developmentIsActive:Yes AND phaseHighest:\"Preclinical\"" \
+        raw/pipeline/$resolve.output.company_name/preclinical_si.csv \
         cli_anything/cortellis/skills/pipeline/recipes
     depends_on: [resolve]
     api_calls: true
@@ -92,7 +94,7 @@ nodes:
   - id: catch_missing
     bash: |
       python3 cli_anything/cortellis/skills/pipeline/recipes/catch_missing_drugs.py \
-        $resolve.output.company_id raw/$resolve.output.company_name
+        $resolve.output.company_id raw/pipeline/$resolve.output.company_name
     depends_on: [fetch_launched, fetch_phase3, fetch_phase2, fetch_phase1_ci,
                  fetch_discovery_ci, fetch_si_phase1, fetch_si_preclinical]
     trigger_rule: all_done
@@ -105,7 +107,7 @@ nodes:
   - id: report
     bash: |
       python3 cli_anything/cortellis/skills/pipeline/recipes/report_generator.py \
-        raw/$resolve.output.company_name \
+        raw/pipeline/$resolve.output.company_name \
         "$resolve.output.company_canonical" \
         "$resolve.output.company_id" \
         "$resolve.output.active_drugs"
@@ -118,7 +120,7 @@ nodes:
   - id: compile
     bash: |
       python3 cli_anything/cortellis/skills/pipeline/recipes/compile_pipeline.py \
-        raw/$resolve.output.company_name "$resolve.output.company_canonical"
+        raw/pipeline/$resolve.output.company_name "$resolve.output.company_canonical"
     depends_on: [report]
     model: opus
     review_gate: true

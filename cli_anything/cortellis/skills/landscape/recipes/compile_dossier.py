@@ -348,19 +348,6 @@ def compile_indication_article(landscape_dir, indication_name, slug, base_dir=No
             f"| Early stage (drug-design, net-new) | {len(dd_preclinical)} |\n"
         )
     body_parts.append("\n")
-    if dd_preclinical:
-        body_parts.append(
-            f"*{len(dd_preclinical)} additional preclinical program(s) tracked in the "
-            f"drug-design SI database with active development intent but not yet in the "
-            f"Cortellis drugs endpoint:*\n\n"
-        )
-        body_parts.append("| Program | Org | Mechanism | Added |\n|---|---|---|---|\n")
-        for p in dd_preclinical[:20]:
-            body_parts.append(
-                f"| {p.get('name', '-')} | {p.get('org', '-')} "
-                f"| {p.get('mechanism', '-') or '-'} | {p.get('added_date', '-')} |\n"
-            )
-        body_parts.append("\n")
 
     # Competitive Landscape — CPI Rankings
     body_parts.append("## Competitive Landscape\n\n")
@@ -584,6 +571,21 @@ def compile_indication_article(landscape_dir, indication_name, slug, base_dir=No
                 )
             body_parts.append("\n")
 
+    # Early-Stage Programs (Drug-Design SI)
+    if dd_preclinical:
+        body_parts.append("## Early-Stage Programs\n\n")
+        body_parts.append(
+            f"*{len(dd_preclinical)} preclinical program(s) tracked in the drug-design SI database "
+            f"with active development intent, not yet appearing in the Cortellis drugs endpoint:*\n\n"
+        )
+        body_parts.append("| Program | Org | Mechanism | Added |\n|---|---|---|---|\n")
+        for p in dd_preclinical[:20]:
+            body_parts.append(
+                f"| {p.get('name', '-')} | {p.get('org', '-')} "
+                f"| {p.get('mechanism', '-') or '-'} | {p.get('added_date', '-')} |\n"
+            )
+        body_parts.append("\n")
+
     # Deal Landscape
     deals_md = read_md_safe(os.path.join(landscape_dir, "deals_analytics.md"))
     if deals_md:
@@ -661,6 +663,21 @@ def compile_company_articles(landscape_dir, indication_name, indication_slug, ba
         company_name = r.get("company", "")
         if not company_name:
             continue
+
+        # Resolve display name to canonical API name so landscape and pipeline
+        # articles share the same slug (e.g. "Novo Nordisk A/S" → novo-nordisk-a-s,
+        # not a separate "Novo Nordisk" → novo-nordisk article).
+        try:
+            from cli_anything.cortellis.skills.pipeline.recipes.resolve_company import (
+                resolve as _rc_resolve, get_name as _rc_get_name,
+            )
+            _pid, _, _ = _rc_resolve(company_name)
+            if _pid:
+                _cname = _rc_get_name(_pid)
+                if _cname:
+                    company_name = _cname
+        except Exception:
+            pass  # fall back to display name
 
         company_slug = find_company_slug(company_name, base_dir)
         path = article_path("companies", company_slug, base_dir)
@@ -1060,6 +1077,12 @@ def main():
     emit_enrichment_manifest(landscape_dir, indication_name, slug, base_dir)
 
     print(f"Done. Wiki articles compiled for {indication_name}.")
+    try:
+        from datetime import datetime as _dt, timezone as _tz
+        with open(os.path.join(landscape_dir, ".wiki_compiled_at"), "w") as _mf:
+            _mf.write(_dt.now(_tz.utc).strftime("%Y-%m-%dT%H:%M:%SZ"))
+    except Exception:
+        pass
 
 
 if __name__ == "__main__":

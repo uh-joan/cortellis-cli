@@ -9,6 +9,7 @@ Root group: cortellis (with --json flag)
 """
 
 import os
+import re
 import sys
 
 import click
@@ -65,8 +66,8 @@ load_dotenv()
 @click.option("--debug", is_flag=True, default=False,
               help="Show API commands being executed in chat mode.")
 @click.option("--engine", default="claude",
-              type=click.Choice(["claude", "codex"], case_sensitive=False),
-              help="AI engine for chat mode: 'claude' (Claude Code) or 'codex' (OpenAI Codex).")
+              type=click.Choice(["claude", "codex", "pi"], case_sensitive=False),
+              help="AI engine for chat mode: 'claude' (Claude Code), 'codex' (OpenAI Codex), or 'pi' (Pi coding agent).")
 @click.option("--no-flush", "no_flush", is_flag=True, default=False,
               help="Skip session memory flush on exit (useful for testing).")
 @click.version_option(__version__, prog_name="cortellis")
@@ -78,6 +79,13 @@ def cli(ctx: click.Context, json_mode: bool, debug: bool, engine: str, no_flush:
     ctx.obj["client"] = CortellisClient()
 
     if ctx.invoked_subcommand is None:
+        # --json with no subcommand is a malformed call (--json is for data commands).
+        # Bail immediately instead of blocking in interactive chat — this prevents
+        # subprocess callers (e.g. Pi) from hanging when they forget the subcommand.
+        if json_mode:
+            import sys as _sys
+            click.echo('{"error": "no subcommand given — use cortellis --json <command> [args]"}')
+            _sys.exit(1)
         # No subcommand — launch AI chat mode
         ctx.invoke(chat_cmd, debug=debug, engine=engine, no_flush=no_flush)
 
@@ -1706,7 +1714,23 @@ def setup_cmd() -> None:
         click.echo("    npm install -g @openai/codex")
         click.echo("    codex login --device-auth")
 
-    if not claude_bin and not codex_bin:
+    pi_bin = shutil.which("pi")
+    if pi_bin:
+        click.echo("  Pi coding agent found!")
+        try:
+            pi_check = _sp.run([pi_bin, "--version"],
+                               capture_output=True, text=True, timeout=5)
+            ver = (pi_check.stdout or pi_check.stderr).strip()
+            click.echo(f"  {ver or 'version unknown'} — 'cortellis --engine pi' is ready.")
+        except Exception:
+            click.echo("  Found — 'cortellis --engine pi' should be ready.")
+    else:
+        click.echo("  Pi coding agent not found.")
+        click.echo("  To enable AI chat mode with Pi, install it:")
+        click.echo("    npm install -g @mariozechner/pi-coding-agent")
+        click.echo("    pi /log  (configure a provider)")
+
+    if not claude_bin and not codex_bin and not pi_bin:
         click.echo("  (Optional — all other commands work without an AI engine)")
     click.echo()
 
@@ -2094,7 +2118,7 @@ def run_skill_pipeline(company: str, force_refresh: bool, review: bool, dry_run:
         return
 
     slug = re.sub(r"[^a-z0-9]+", "-", company.lower()).strip("-")
-    output_dir = REPO_ROOT / "raw" / slug
+    output_dir = REPO_ROOT / "raw" / "pipeline" / slug
 
     exit_code = runner.execute(
         company,
@@ -2741,6 +2765,16 @@ def chat_cmd(debug, engine="claude", no_flush=False) -> None:
         click.echo(_BANNER)
         click.echo("  Cortellis AI Chat — powered by Codex")
         click.echo("  Ask questions naturally. Type 'exit' or Ctrl-D to quit.\n")
+    elif engine == "pi":
+        ai_bin = shutil.which("pi")
+        if not ai_bin:
+            click.echo("Error: 'pi' CLI not found. Install Pi coding agent:")
+            click.echo("  npm install -g @mariozechner/pi-coding-agent")
+            click.echo("  pi /log  (configure a provider)")
+            raise SystemExit(1)
+        click.echo(_BANNER)
+        click.echo("  Cortellis AI Chat — powered by Pi")
+        click.echo("  Ask questions naturally. Type 'exit' or Ctrl-D to quit.\n")
     else:
         ai_bin = shutil.which("claude")
         if not ai_bin:
@@ -2957,9 +2991,14 @@ All skills and their workflows are included below in the system context."""
 
         def _harness_q(skill_nm, skill_args):
             hint = wiki_output_hint(skill_nm, skill_args)
+            wave_instruction = (
+                "Show the wave status as each wave completes."
+                if debug else
+                "When done, show only a brief one-line status (e.g. 'Completed successfully' or 'Failed at wave N: compile')."
+            )
             return (
                 f"[HARNESS: Run `source {venv_activate} && cortellis run-skill {skill_nm} \"{skill_args}\"` "
-                f"as a single Bash command. Narrate each wave as it prints. "
+                f"as a single Bash command. {wave_instruction} "
                 f"Then {hint} and summarize. End with 2-3 follow-up suggestions.] "
                 f"{skill_args}"
             )
@@ -3094,6 +3133,29 @@ All skills and their workflows are included below in the system context."""
                    "-C", os.getcwd(),
                    "--output-last-message", _codex_out,
                    full_message]
+        elif engine == "pi":
+            _has_session_memory = bool(daily_log_section or insights_section)
+            _memory_rule = (
+                "MEMORY RULE: Sections labeled 'What Happened in Previous Sessions' "
+                "are your ONLY source of truth about past conversations. "
+                "When asked what was discussed, report ONLY what appears in those sections — "
+                "nothing more. Do NOT add context, code changes, PR numbers, test results, "
+                "or anything else from your training data. If it is not in the memory sections, "
+                "it did not happen as far as you are concerned."
+                if _has_session_memory else
+                "MEMORY RULE: No session memory is available for this workspace. "
+                "If asked what was discussed previously, say exactly: "
+                "'I have no memory of previous sessions in this workspace.' "
+                "Do not fabricate any session history from training data."
+            )
+            full_message = f"{_memory_rule}\n\n{effective_prompt}\n\n---\n\n{routed_question}"
+            # Pi has no --append-system-prompt; prepend context to the prompt message.
+            # --no-context-files prevents Pi from auto-loading AGENTS.md/CLAUDE.md since
+            # we inject all context programmatically via the system prompt.
+            # --mode json streams JSONL events so we can show live progress via spinner
+            cmd = [ai_bin, "--mode", "json", "--no-context-files", "-p", full_message]
+            if use_context and not first_turn:
+                cmd.append("-c")
         else:
             cmd = [ai_bin, "--print", "-p", routed_question,
                    "--append-system-prompt", effective_prompt,
@@ -3131,8 +3193,8 @@ All skills and their workflows are included below in the system context."""
         spinner_thread.start()
 
         popen_kwargs = dict(stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
-        if engine == "codex":
-            # Prevent codex from blocking on stdin
+        if engine in ("codex", "pi"):
+            # Prevent blocking on stdin
             popen_kwargs["stdin"] = subprocess.DEVNULL
         proc = subprocess.Popen(cmd, **popen_kwargs)
         first_output = True
@@ -3191,6 +3253,170 @@ All skills and their workflows are included below in the system context."""
                     _entry = (
                         f"\n\n---\n\n"
                         f"### [Codex] Turn ({_now.strftime('%H:%M:%S')} UTC)\n\n"
+                        f"**Q:** {routed_question[:300]}\n\n"
+                        f"**A:** {text[:500]}{'...' if len(text) > 500 else ''}\n"
+                    )
+                    if not os.path.exists(_log_path):
+                        with open(_log_path, "w", encoding="utf-8") as _lf:
+                            _lf.write(f"# Daily Log — {_now.strftime('%Y-%m-%d')}\n")
+                    with open(_log_path, "a", encoding="utf-8") as _lf:
+                        _lf.write(_entry)
+                except Exception as _e:
+                    sys.stderr.write(f"  Warning: could not write session log: {_e}\n")
+        elif engine == "pi":
+            # Pi --mode json streams JSONL events. Parse them in real-time:
+            # - text_delta events → accumulate final response text
+            # - tool_use_start events → update spinner with friendly command status
+            # - turn_end / agent_end → marks completion
+            pi_text_parts = []
+            pi_had_turn_end = False
+            _pi_exec_seen = ""
+            for line in iter(proc.stdout.readline, b""):
+                decoded = line.decode("utf-8", errors="replace").strip()
+                if not decoded:
+                    continue
+                try:
+                    event = _json.loads(decoded)
+                except _json.JSONDecodeError:
+                    continue
+
+                etype = event.get("type", "")
+
+                if etype == "tool_execution_start":
+                    # Reset per-tool text tracking for the new execution
+                    _pi_exec_seen = ""
+
+                elif etype == "tool_execution_update":
+                    # Parse harness progress lines from partial subprocess output
+                    content = event.get("partialResult", {}).get("content", [])
+                    full_text = "".join(c.get("text", "") for c in content if isinstance(c, dict))
+                    new_text = full_text[len(_pi_exec_seen):]
+                    _pi_exec_seen = full_text
+                    for _line in new_text.splitlines():
+                        _line = _line.strip()
+                        if not _line or len(_line) < 5:
+                            continue
+                        # Harness wave labels: "▶ Wave N: node1 node2 ..."
+                        _wm = re.match(r"[▶►]?\s*Wave\s+\d+[:\s]+(.+)", _line)
+                        if _wm:
+                            _nodes = _wm.group(1).strip().split()
+                            _first = _nodes[0] if _nodes else ""
+                            _wave_labels = {
+                                "resolve": "Resolving company...",
+                                "fetch_launched": "Fetching launched drugs...",
+                                "fetch_phase3": "Fetching Phase 3 drugs...",
+                                "fetch_phase2": "Fetching Phase 2 drugs...",
+                                "fetch_phase1_ci": "Fetching Phase 1 drugs...",
+                                "fetch_discovery_ci": "Fetching discovery drugs...",
+                                "fetch_si_phase1": "Fetching SI Phase 1 drugs...",
+                                "fetch_si_preclinical": "Fetching preclinical drugs...",
+                                "catch_missing": "Checking for missed drugs...",
+                                "report": "Generating pipeline report...",
+                                "compile": "Compiling to knowledge base...",
+                                "narrate": "Generating strategic narrative...",
+                                "strategic_scoring": "Computing competitive scores...",
+                            }
+                            _wlabel = _wave_labels.get(_first, f"Processing: {_first}")
+                            if not debug:
+                                if spinner_state[1]:
+                                    elapsed = int(time.time() - t_start)
+                                    sys.stdout.write(f"\r  {spinner_state[0]}  ({elapsed}s)\n")
+                                    sys.stdout.flush()
+                                    spinner_state[1] = False
+                                spinner_state[0] = _wlabel
+                            continue
+                        # Lines like "Compiling X to wiki...", "Done.", "Written:"
+                        if any(_kw in _line for _kw in ("Compiling ", "Written:", "Done.", "Completed")):
+                            if not debug:
+                                spinner_state[0] = _line[:60]
+
+                if etype == "tool_execution_start":
+                    # Pi fires this top-level event right when a tool runs
+                    cmd_str = event.get("args", {}).get("command", "")
+                    if cmd_str:
+                        if debug:
+                            if first_output:
+                                stop_spinner.set()
+                                spinner_thread.join()
+                                if spinner_state[1]:
+                                    sys.stdout.write("\n")
+                                first_output = False
+                            short = cmd_str.split("cortellis", 1)[1].strip() if "cortellis" in cmd_str else cmd_str[:80]
+                            sys.stdout.write(f"  > {short}\n")
+                            sys.stdout.flush()
+                        else:
+                            new_status = translate_command(cmd_str)
+                            if new_status:
+                                if spinner_state[1]:
+                                    elapsed = int(time.time() - t_start)
+                                    _ln = f"  {spinner_state[0]}  ({elapsed}s)"
+                                    sys.stdout.write(f"\r{_ln:<80s}\n")
+                                    sys.stdout.flush()
+                                    spinner_state[1] = False
+                                spinner_state[0] = new_status
+
+                elif etype == "message_update":
+                    ame = event.get("assistantMessageEvent", {})
+                    ame_type = ame.get("type", "")
+                    if ame_type == "text_delta":
+                        pi_text_parts.append(ame.get("delta", ""))
+
+                elif etype == "turn_end":
+                    elapsed = int(time.time() - t_start)
+                    if spinner_state[1]:
+                        sys.stdout.write(f"\r  Answered in {elapsed}s" + " " * 40 + "\n\n")
+                    else:
+                        sys.stdout.write(f"  Answered in {elapsed}s\n\n")
+                    sys.stdout.flush()
+                    first_output = False
+                    pi_had_turn_end = True
+                    # Keep spinner alive for next turn; reset label and clock
+                    spinner_state[0] = "Querying Cortellis"
+                    spinner_state[1] = False
+                    t_start = time.time()
+
+                elif etype == "agent_end":
+                    # Fallback: extract text from last assistant message if streaming missed it
+                    if not pi_text_parts:
+                        for msg in reversed(event.get("messages", [])):
+                            if msg.get("role") == "assistant":
+                                for block in msg.get("content", []):
+                                    if block.get("type") == "text":
+                                        pi_text_parts.append(block.get("text", ""))
+                                break
+
+            if not stop_spinner.is_set():
+                stop_spinner.set()
+                spinner_thread.join()
+                if not pi_had_turn_end:
+                    elapsed = int(time.time() - t_start)
+                    if spinner_state[1]:
+                        sys.stdout.write(f"\r  Answered in {elapsed}s" + " " * 40 + "\n\n")
+                    else:
+                        sys.stdout.write(f"  Answered in {elapsed}s\n\n")
+                    sys.stdout.flush()
+                elif spinner_state[1]:
+                    sys.stdout.write("\r" + " " * 80 + "\r")
+                    sys.stdout.flush()
+
+            text = "".join(pi_text_parts).strip()
+            if not text:
+                text = "[No response from Pi]"
+            sys.stdout.write(text)
+            if not text.endswith("\n"):
+                sys.stdout.write("\n")
+            sys.stdout.flush()
+
+            if not no_flush:
+                try:
+                    from datetime import datetime as _dt2, timezone as _tz2
+                    _now = _dt2.now(_tz2.utc)
+                    _daily_dir = os.path.join(os.getcwd(), "daily")
+                    os.makedirs(_daily_dir, exist_ok=True)
+                    _log_path = os.path.join(_daily_dir, f"{_now.strftime('%Y-%m-%d')}.md")
+                    _entry = (
+                        f"\n\n---\n\n"
+                        f"### [Pi] Turn ({_now.strftime('%H:%M:%S')} UTC)\n\n"
                         f"**Q:** {routed_question[:300]}\n\n"
                         f"**A:** {text[:500]}{'...' if len(text) > 500 else ''}\n"
                     )
