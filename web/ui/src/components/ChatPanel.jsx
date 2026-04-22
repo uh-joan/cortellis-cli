@@ -17,7 +17,9 @@ export default function ChatPanel({ convId, workspace, initialMessage, onReady, 
   }, [])
 
   useEffect(() => {
+    let cancelled = false
     listMessages(convId).then(msgs => {
+      if (cancelled) return
       setMessages(msgs)
       isFirstMessage.current = msgs.filter(m => m.role === 'user').length === 0
       if (!readOnly) setTimeout(scrollToBottom, 50)
@@ -26,6 +28,7 @@ export default function ChatPanel({ convId, workspace, initialMessage, onReady, 
         handleSend(initialMessage)
       }
     })
+    return () => { cancelled = true }
   }, [convId, scrollToBottom])
 
   async function handleSend(content) {

@@ -356,7 +356,7 @@ def stream_chat_turn(conv_id: str, question: str, workspace_path: str, engine: s
                                 yield f"data: {json.dumps({'type': 'tool_call', 'status': status, 'command': cmd_str})}\n\n"
 
                 elif etype == "result":
-                    text = event.get("result", "")
+                    text = event.get("result") or ""
                     yield f"data: {json.dumps({'type': 'result', 'text': text})}\n\n"
         finally:
             timer.cancel()
