@@ -4,7 +4,7 @@ import MessageList from './MessageList.jsx'
 import MessageInput from './MessageInput.jsx'
 import ContextBanner from './ContextBanner.jsx'
 
-export default function ChatPanel({ convId, workspace, initialMessage, onReady, onTitleUpdate, readOnly = false }) {
+export default function ChatPanel({ convId, workspace, initialMessage, onReady, onTitleUpdate, readOnly = false, engine = 'claude' }) {
   const [messages, setMessages] = useState([])
   const [streaming, setStreaming] = useState(false)
   const [toolCalls, setToolCalls] = useState([])
@@ -85,7 +85,7 @@ export default function ChatPanel({ convId, workspace, initialMessage, onReady, 
             created_at: new Date().toISOString(),
           }])
         }
-      })
+      }, engine)
     } catch (e) {
       setMessages(prev => [...prev, {
         id: `err-${Date.now()}`,

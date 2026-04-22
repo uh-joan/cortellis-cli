@@ -34,11 +34,11 @@ export async function listMessages(convId) {
   return res.json()
 }
 
-export async function sendMessage(convId, content, onEvent) {
+export async function sendMessage(convId, content, onEvent, engine = 'claude') {
   const res = await fetch(`${BASE}/conversations/${convId}/message`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ content }),
+    body: JSON.stringify({ content, engine }),
   })
   if (!res.ok) {
     const text = await res.text()

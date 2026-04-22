@@ -20,6 +20,9 @@ export default function App() {
   const [wikiMode, setWikiMode] = useState('list') // 'list' | 'graph'
   const [wikiArticle, setWikiArticle] = useState(null)
   const [wikiHistory, setWikiHistory] = useState([])
+  const [engine, setEngine] = useState(() => localStorage.getItem('cortellis_engine') || 'claude')
+
+  useEffect(() => { localStorage.setItem('cortellis_engine', engine) }, [engine])
 
   useEffect(() => {
     if (!workspace) {
@@ -253,11 +256,12 @@ export default function App() {
             onReady={() => setPendingMessage(null)}
             onTitleUpdate={title => handleConvTitleUpdate(activeConvId, title)}
             readOnly={conversations.find(c => c.id === activeConvId)?.title.startsWith('CLI — ')}
+            engine={engine}
           />
         )}
 
         {showChat && !activeConvId && (
-          <EmptyState onStartChat={handleStartChat} />
+          <EmptyState onStartChat={handleStartChat} engine={engine} onEngineChange={setEngine} />
         )}
       </div>
     </div>
@@ -274,7 +278,7 @@ const SKILLS = [
   '/insights',
 ]
 
-function EmptyState({ onStartChat }) {
+function EmptyState({ onStartChat, engine = 'claude', onEngineChange }) {
   const [input, setInput] = useState('')
   const [menuOpen, setMenuOpen] = useState(false)
   const menuRef = useRef(null)
@@ -333,6 +337,15 @@ function EmptyState({ onStartChat }) {
             )}
           </div>
         </div>
+      </div>
+      <div className="engine-selector">
+        {['claude', 'codex', 'pi'].map(e => (
+          <button
+            key={e}
+            className={`engine-pill${engine === e ? ' engine-pill-active' : ''}`}
+            onClick={() => onEngineChange?.(e)}
+          >{e.charAt(0).toUpperCase() + e.slice(1)}</button>
+        ))}
       </div>
       <div className="empty-suggestions">
         {suggestions.map(s => (

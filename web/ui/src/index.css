@@ -385,6 +385,25 @@ body {
 }
 .suggestion-chip:hover { border-color: var(--accent); color: var(--text); }
 
+.engine-selector {
+  display: flex;
+  gap: 8px;
+  justify-content: center;
+  margin-bottom: 12px;
+}
+.engine-pill {
+  padding: 5px 16px;
+  background: none;
+  border: 1px solid var(--border);
+  border-radius: 20px;
+  font-size: 13px;
+  cursor: pointer;
+  color: var(--text-dim);
+  transition: border-color 0.15s, color 0.15s, background 0.15s;
+}
+.engine-pill:hover { border-color: var(--accent); color: var(--text); }
+.engine-pill-active { border-color: var(--accent); color: var(--text); background: color-mix(in srgb, var(--accent) 12%, transparent); }
+
 /* Messages */
 .message { margin-bottom: 24px; }
 

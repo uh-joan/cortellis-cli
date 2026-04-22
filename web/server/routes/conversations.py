@@ -18,6 +18,7 @@ class RenameConversation(BaseModel):
 
 class NewMessage(BaseModel):
     content: str
+    engine: str = "claude"
 
 
 @router.get("/conversations")
@@ -70,7 +71,7 @@ def send_message(conv_id: str, body: NewMessage):
     db.add_message(conv_id, "user", body.content)
 
     return StreamingResponse(
-        chat.stream_chat_turn(conv_id, body.content, conv["workspace_path"]),
+        chat.stream_chat_turn(conv_id, body.content, conv["workspace_path"], engine=body.engine),
         media_type="text/event-stream",
         headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
     )

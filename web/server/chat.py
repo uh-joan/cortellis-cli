@@ -2,6 +2,7 @@
 
 import json
 import os
+import re
 import shutil
 import subprocess
 import sys
@@ -138,19 +139,14 @@ def _route_question(question: str) -> str:
         return question
 
 
-def stream_chat_turn(conv_id: str, question: str, workspace_path: str):
+def stream_chat_turn(conv_id: str, question: str, workspace_path: str, engine: str = "claude"):
     """Generator that yields SSE-formatted strings for a single chat turn."""
-    ai_bin = shutil.which("claude")
-    if not ai_bin:
-        codex_available = bool(shutil.which("codex"))
-        msg = (
-            "Web UI requires Claude Code CLI. "
-            "For Codex, use the terminal: cortellis --engine codex"
-            if codex_available else
-            "claude CLI not found. Install Claude Code: https://claude.ai/code"
-        )
-        yield f"data: {json.dumps({'type': 'error', 'text': msg})}\n\n"
-        return
+
+    try:
+        from cli_anything.cortellis.core.status_translator import translate_command
+    except Exception:
+        def translate_command(x):
+            return None
 
     system_prompt = build_system_prompt(workspace_path)
     wiki_context = _build_wiki_context(question, workspace_path)
@@ -167,62 +163,206 @@ def stream_chat_turn(conv_id: str, question: str, workspace_path: str):
     effective_prompt = system_prompt + wiki_context + history_block
     routed_question = _route_question(question)
 
-    cmd = [
-        ai_bin, "--print", "-p", routed_question,
-        "--append-system-prompt", effective_prompt,
-        "--allowedTools", "Bash",
-        "--output-format", "stream-json", "--verbose",
-    ]
+    if engine == "pi":
+        ai_bin = shutil.which("pi")
+        if not ai_bin:
+            yield f"data: {json.dumps({'type': 'error', 'text': 'pi CLI not found. Install: npm install -g @mariozechner/pi-coding-agent'})}\n\n"
+            return
 
-    try:
-        proc = subprocess.Popen(
-            cmd,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.STDOUT,
-            cwd=workspace_path,
-        )
-    except Exception as e:
-        yield f"data: {json.dumps({'type': 'error', 'text': str(e)})}\n\n"
+        cmd = [ai_bin, "--mode", "json", "--no-context-files", "-p", f"{effective_prompt}\n\n{routed_question}"]
+
+        try:
+            proc = subprocess.Popen(
+                cmd,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.STDOUT,
+                stdin=subprocess.DEVNULL,
+                cwd=workspace_path,
+            )
+        except Exception as e:
+            yield f"data: {json.dumps({'type': 'error', 'text': str(e)})}\n\n"
+            return
+
+        text = ""
+        turn_ended = False
+        timer = threading.Timer(_MAX_CHAT_SECONDS, proc.kill)
+        timer.start()
+        try:
+            for line in iter(proc.stdout.readline, b""):
+                decoded = line.decode("utf-8", errors="replace").strip()
+                if not decoded:
+                    continue
+                try:
+                    event = json.loads(decoded)
+                except json.JSONDecodeError:
+                    continue
+
+                etype = event.get("type", "")
+
+                if etype == "text_delta":
+                    text += event.get("delta", {}).get("text", "")
+
+                elif etype == "tool_execution_start":
+                    raw_cmd = event.get("command", "") or event.get("name", "")
+                    status = translate_command(raw_cmd) or raw_cmd or "Running tool…"
+                    yield f"data: {json.dumps({'type': 'tool_call', 'status': status, 'command': raw_cmd})}\n\n"
+
+                elif etype == "tool_execution_update":
+                    content_list = event.get("partialResult", {}).get("content", [])
+                    for item in content_list:
+                        item_text = item if isinstance(item, str) else item.get("text", "") if isinstance(item, dict) else ""
+                        m = re.search(r"[▶►]?\s*Wave\s+\d+[:\s]+(.+)", item_text)
+                        if m:
+                            label = m.group(1).strip()
+                            status = translate_command(label) or label
+                            yield f"data: {json.dumps({'type': 'tool_call', 'status': status, 'command': label})}\n\n"
+
+                elif etype in ("turn_end", "agent_end"):
+                    yield f"data: {json.dumps({'type': 'result', 'text': text})}\n\n"
+                    yield f"data: {json.dumps({'type': 'done'})}\n\n"
+                    turn_ended = True
+        finally:
+            timer.cancel()
+
+        proc.wait()
+        if not turn_ended:
+            yield f"data: {json.dumps({'type': 'result', 'text': text})}\n\n"
+            yield f"data: {json.dumps({'type': 'done'})}\n\n"
+
+        if text:
+            db.add_message(conv_id, "assistant", text)
         return
 
-    try:
-        from cli_anything.cortellis.core.status_translator import translate_command
-    except Exception:
-        def translate_command(x):
-            return None
+    elif engine == "codex":
+        import tempfile
 
-    text = ""
-    timer = threading.Timer(_MAX_CHAT_SECONDS, proc.kill)
-    timer.start()
-    try:
-        for line in iter(proc.stdout.readline, b""):
-            decoded = line.decode("utf-8", errors="replace").strip()
-            if not decoded:
-                continue
+        ai_bin = shutil.which("codex")
+        if not ai_bin:
+            yield f"data: {json.dumps({'type': 'error', 'text': 'codex CLI not found. Install: npm install -g @openai/codex'})}\n\n"
+            return
+
+        full_message = f"{effective_prompt}\n\n{routed_question}"
+
+        tmp = tempfile.NamedTemporaryFile(mode="w", suffix=".txt", delete=False)
+        tmp_file = tmp.name
+        tmp.close()
+
+        cmd = [
+            ai_bin, "exec",
+            "--dangerously-bypass-approvals-and-sandbox",
+            "--ephemeral",
+            "-C", workspace_path,
+            "--output-last-message", tmp_file,
+            full_message,
+        ]
+
+        try:
+            proc = subprocess.Popen(
+                cmd,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.STDOUT,
+                cwd=workspace_path,
+            )
+        except Exception as e:
+            yield f"data: {json.dumps({'type': 'error', 'text': str(e)})}\n\n"
+            return
+
+        timer = threading.Timer(_MAX_CHAT_SECONDS, proc.kill)
+        timer.start()
+        try:
+            for line in iter(proc.stdout.readline, b""):
+                decoded = line.decode("utf-8", errors="replace").strip()
+                if not decoded:
+                    continue
+                yield f"data: {json.dumps({'type': 'tool_call', 'status': decoded, 'command': decoded})}\n\n"
+        finally:
+            timer.cancel()
+
+        proc.wait()
+
+        text = ""
+        try:
+            with open(tmp_file, "r", encoding="utf-8", errors="replace") as f:
+                text = f.read().strip()
+        except Exception:
+            pass
+        finally:
             try:
-                event = json.loads(decoded)
-            except json.JSONDecodeError:
-                continue
+                os.unlink(tmp_file)
+            except Exception:
+                pass
 
-            etype = event.get("type", "")
+        yield f"data: {json.dumps({'type': 'result', 'text': text})}\n\n"
+        yield f"data: {json.dumps({'type': 'done'})}\n\n"
 
-            if etype == "assistant" and "message" in event:
-                content = event["message"].get("content", [])
-                if isinstance(content, list):
-                    for block in content:
-                        if block.get("type") == "tool_use" and block.get("name") == "Bash":
-                            cmd_str = block.get("input", {}).get("command", "")
-                            status = translate_command(cmd_str) or "Running query…"
-                            yield f"data: {json.dumps({'type': 'tool_call', 'status': status, 'command': cmd_str})}\n\n"
+        if text:
+            db.add_message(conv_id, "assistant", text)
+        return
 
-            elif etype == "result":
-                text = event.get("result", "")
-                yield f"data: {json.dumps({'type': 'result', 'text': text})}\n\n"
-    finally:
-        timer.cancel()
+    else:
+        # Claude branch (default)
+        ai_bin = shutil.which("claude")
+        if not ai_bin:
+            codex_available = bool(shutil.which("codex"))
+            msg = (
+                "Web UI requires Claude Code CLI. "
+                "For Codex, use the terminal: cortellis --engine codex"
+                if codex_available else
+                "claude CLI not found. Install Claude Code: https://claude.ai/code"
+            )
+            yield f"data: {json.dumps({'type': 'error', 'text': msg})}\n\n"
+            return
 
-    proc.wait()
-    yield f"data: {json.dumps({'type': 'done'})}\n\n"
+        cmd = [
+            ai_bin, "--print", "-p", routed_question,
+            "--append-system-prompt", effective_prompt,
+            "--allowedTools", "Bash",
+            "--output-format", "stream-json", "--verbose",
+        ]
 
-    if text:
-        db.add_message(conv_id, "assistant", text)
+        try:
+            proc = subprocess.Popen(
+                cmd,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.STDOUT,
+                cwd=workspace_path,
+            )
+        except Exception as e:
+            yield f"data: {json.dumps({'type': 'error', 'text': str(e)})}\n\n"
+            return
+
+        text = ""
+        timer = threading.Timer(_MAX_CHAT_SECONDS, proc.kill)
+        timer.start()
+        try:
+            for line in iter(proc.stdout.readline, b""):
+                decoded = line.decode("utf-8", errors="replace").strip()
+                if not decoded:
+                    continue
+                try:
+                    event = json.loads(decoded)
+                except json.JSONDecodeError:
+                    continue
+
+                etype = event.get("type", "")
+
+                if etype == "assistant" and "message" in event:
+                    content = event["message"].get("content", [])
+                    if isinstance(content, list):
+                        for block in content:
+                            if block.get("type") == "tool_use" and block.get("name") == "Bash":
+                                cmd_str = block.get("input", {}).get("command", "")
+                                status = translate_command(cmd_str) or "Running query…"
+                                yield f"data: {json.dumps({'type': 'tool_call', 'status': status, 'command': cmd_str})}\n\n"
+
+                elif etype == "result":
+                    text = event.get("result", "")
+                    yield f"data: {json.dumps({'type': 'result', 'text': text})}\n\n"
+        finally:
+            timer.cancel()
+
+        proc.wait()
+        yield f"data: {json.dumps({'type': 'done'})}\n\n"
+
+        if text:
+            db.add_message(conv_id, "assistant", text)
