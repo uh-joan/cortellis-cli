@@ -108,8 +108,9 @@ Touch only what the task requires. For `cortellis_cli.py`, `harness_runner.py`, 
 
 ## Ambiguity Gate (Skills)
 
-Before running `landscape`, `pipeline`, `drug-profile`, or `target-profile`:
-- If the drug/indication/company name could match multiple entities, present options first.
+Before running `landscape`, `pipeline`, `drug-profile`, `target-profile`, `drug-comparison`, or `conference-intel`:
+- If the drug/indication/company/conference name could match multiple entities, present options first.
+- For `drug-comparison`: resolve brand names to INNs before fetching (e.g., "Ozempic" → "semaglutide", "Mounjaro" → "tirzepatide").
 - If the task scope is unclear (one drug vs. full competitive landscape), ask.
 
 API calls and wiki writes are not free to undo. Clarify before launching a multi-step workflow.

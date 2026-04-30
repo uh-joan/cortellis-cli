@@ -18,7 +18,7 @@ Refreshes the wiki without starting a chat session. Three tiers of increasing de
 # Tier 1 — fast compile from cached data
 cortellis wiki refresh
 
-# Tier 2 — re-pull structured data, no LLM
+# Tier 2 — re-pull structured data, no LLM, uses API
 cortellis wiki refresh --fetch
 cortellis wiki refresh --fetch --type drug          # drugs only
 cortellis wiki refresh --fetch --type drug,target   # multiple types
