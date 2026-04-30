@@ -1,6 +1,6 @@
 ---
 name: drug-comparison
-description: /drug-comparison: Side-by-Side Drug Comparison
+description: Use when a user asks to compare two or more drugs head-to-head, uses phrasing like "X vs Y", "compare [drugs]", or wants side-by-side data on mechanism, phase, trials, deals, or financials for 2–5 named drugs.
 ---
 
 # /drug-comparison — Side-by-Side Drug Comparison

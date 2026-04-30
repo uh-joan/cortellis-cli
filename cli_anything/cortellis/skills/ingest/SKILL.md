@@ -1,3 +1,8 @@
+---
+name: ingest
+description: Use when a user has an internal document (deal memo, expert call notes, prior analysis) in markdown or text format that should be entity-linked into the wiki as a first-class knowledge node connecting to known drugs, companies, and indications.
+---
+
 # /ingest — Internal Document Ingestion
 
 Reads a document (markdown or text file), extracts mentions of known wiki entities, and writes a `wiki/internal/<slug>.md` article with wikilinks. Internal documents become first-class wiki nodes that surface in `/signals` and `/insights` alongside Cortellis data.

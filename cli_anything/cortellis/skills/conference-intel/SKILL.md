@@ -1,6 +1,6 @@
 ---
-name: conference-intel  
-description: /conference-intel: Conference Intelligence Briefing
+name: conference-intel
+description: Use when a user asks about a scientific conference (ASCO, ADA, ESMO, AHA, DDW, etc.), wants competitive intelligence from a medical meeting, asks what was presented or announced, or needs a briefing on upcoming or past conferences by name or therapeutic area.
 ---
 
 # /conference-intel — Conference Intelligence Briefing

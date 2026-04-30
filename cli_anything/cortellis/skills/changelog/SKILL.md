@@ -1,6 +1,6 @@
 ---
 name: changelog
-description: /changelog: Competitive Landscape History
+description: Use when a user asks what changed in a competitive landscape, wants pipeline evolution history, asks "what's new since last run", "what changed in [indication]", or wants a temporal diff of drug counts, company rankings, or phase transitions.
 ---
 
 # /changelog — Competitive Landscape History

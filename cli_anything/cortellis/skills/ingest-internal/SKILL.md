@@ -1,3 +1,8 @@
+---
+name: ingest-internal
+description: Use when a user wants to ingest a raw file (PDF, PPTX, CSV, Excel, markdown) from raw/internal/ into the wiki in one automated step — combining text extraction, entity linking, and commercial data extraction without an approval gate.
+---
+
 # /ingest-internal — Unified Internal Document Ingestion
 
 Drop a raw file from `raw/internal/` into the wiki in one command:

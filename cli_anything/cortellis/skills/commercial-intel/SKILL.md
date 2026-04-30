@@ -1,3 +1,8 @@
+---
+name: commercial-intel
+description: Use when a user has a market research document (PDF, PPTX, CSV) to extract structured commercial data — physician prescribing preferences, epidemiology numbers, market forecasts, access/reimbursement coverage, or unmet need — and wants to review the extracted sections before merging into the wiki.
+---
+
 # /commercial-intel — Commercial Intelligence Extraction
 
 Reads a Clarivate (or similar) market research document, extracts structured commercial data, shows the proposed sections to the user for review, then merges approved sections into the corresponding indication wiki article.
