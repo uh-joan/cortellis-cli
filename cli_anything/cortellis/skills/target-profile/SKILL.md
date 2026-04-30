@@ -1,6 +1,6 @@
 ---
 name: target-profile
-description: /target-profile: Deep Biological Target Profile
+description: Use when a user asks about a biological target — its biology, druggability, disease associations, genetic evidence, drug pipeline by mechanism, protein interactions, or pharmacology data. Triggers on gene symbols or target names (GLP-1, EGFR, PD-L1, KRAS, BTK, HER2).
 ---
 
 # /target-profile — Deep Biological Target Profile
@@ -16,6 +16,26 @@ Everything about a biological target as a drug target: biology, disease associat
 /target-profile "BTK"
 /target-profile "KRAS"
 ```
+
+## Failure Modes to Avoid
+
+**Using training knowledge about the target:**
+Wrong — describes GLP-1 receptor biology from training data when `record.json` or `opentargets.json` haven't been fetched yet.
+Correct — fetches all data files first, then synthesizes exclusively from what the APIs returned.
+
+**Flagging expected empty files as data gaps:**
+```
+# Wrong — surfaces expected sparse files as problems:
+⚠️ patents.json is empty — no patent data available for this target.
+⚠️ literature.json returned 0 results — literature may be missing.
+
+# Correct — per Learned Optimizations, patents/references/literature are empty
+# for receptor/ligand targets under this subscription; skip sections silently.
+```
+
+**Truncating the disease associations table:**
+Wrong — shows top 10 disease associations and adds "and X more."
+Correct — every row in `condition_drugs.json` appears in the table; no truncation.
 
 ## Workflow
 

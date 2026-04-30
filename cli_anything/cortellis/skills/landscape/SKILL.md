@@ -1,6 +1,6 @@
 ---
 name: landscape
-description: /landscape: Competitive Landscape Report
+description: Use when a user asks for a competitive landscape, who is active in a disease area, pipeline overview by indication/target/modality, or wants to understand competitive dynamics. Triggers on therapeutic area names (obesity, NSCLC, MASH), target names (GLP-1 receptor), or modality names (ADC, mRNA, gene therapy).
 ---
 
 # /landscape — Competitive Landscape Report
@@ -50,6 +50,33 @@ Generate a full competitive landscape for a therapeutic indication.
 ```
 
 > **New to `/landscape`?** Read `docs/worked_example_mash.md` for a narrated end-to-end example before your first run.
+
+## Failure Modes to Avoid
+
+**Skipping Step 0 (freshness check):**
+Wrong — runs all 15 API steps even when a fresh compiled wiki article exists → wastes 3–5 minutes for no new data.
+Correct — checks freshness first; if `fresh`, reads `wiki/indications/<slug>.md` and answers in seconds.
+
+**Truncating drug tables:**
+```
+# Wrong — never do this:
+### Phase 3 (12)
+| Drug | Company | Mechanism |
+| semaglutide | Novo Nordisk | GLP-1 agonist |
+| tirzepatide | Eli Lilly | GIP/GLP-1 dual agonist |
++ 10 others
+
+# Correct — every drug gets its own row:
+### Phase 3 (12)
+| Drug | Company | Mechanism |
+| semaglutide | Novo Nordisk | GLP-1 agonist |
+| tirzepatide | Eli Lilly | GIP/GLP-1 dual agonist |
+| ... all 12 rows ... |
+```
+
+**Adding drugs from training knowledge:**
+Wrong — adds "ozempic" as a separate row because the model knows it's a GLP-1 drug.
+Correct — only rows that appear in the CSV files produced by the fetch scripts.
 
 ## Technology Mode Workflow
 

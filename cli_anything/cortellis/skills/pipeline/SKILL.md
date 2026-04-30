@@ -1,6 +1,6 @@
 ---
 name: pipeline
-description: /pipeline: Company Pipeline Analysis
+description: Use when a user asks about a specific company's drug pipeline, R&D portfolio, preclinical or clinical programs, or what a pharma or biotech company is working on. Triggers on company names (Novo Nordisk, Eli Lilly, Pfizer, Zealand Pharma) or company IDs.
 ---
 
 # /pipeline — Company Pipeline Analysis
@@ -13,6 +13,25 @@ Analyze a company's full drug development pipeline, merging CI and Drug Design (
 /pipeline "Novo Nordisk"
 /pipeline "Eli Lilly"
 /pipeline 18614
+```
+
+## Failure Modes to Avoid
+
+**Skipping SI fetch because it "usually returns empty":**
+Wrong — skips Steps 4a/4b because the Learned Optimization says SI is sparse → misses early-stage biotech compounds that only appear in SI.
+Correct — always runs Steps 4a/4b; treats empty result as expected rather than skipping the call.
+
+**Announcing completion before all phases are listed:**
+Wrong — delivers a summary after listing Launched and Phase 3, omits Phase 1 and Preclinical sections.
+Correct — all phases (Launched → Phase 3 → Phase 2 → Phase 1 merged → Preclinical merged) appear before the report is considered done.
+
+**Approximating drug counts:**
+```
+# Wrong:
+Total drugs (CI): ~40 (Launched: ~8, Phase 3: ~6, Phase 2: ~10, Phase 1: ~8, Discovery: ~8)
+
+# Correct — use exact @totalResults from each API response:
+Total drugs (CI): 43 (Launched: 8, Phase 3: 6, Phase 2: 11, Phase 1: 9, Discovery: 9)
 ```
 
 ## Workflow

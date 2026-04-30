@@ -1,6 +1,6 @@
 ---
 name: drug-profile
-description: /drug-profile: Deep Drug Profile
+description: Use when a user asks about a specific drug — its phase, mechanism, indications, clinical trials, deals, regulatory milestones, SWOT analysis, financial data, or development history. Triggers on drug names (semaglutide, tirzepatide, ozempic, durvalumab) or numeric drug IDs.
 ---
 
 # /drug-profile — Deep Drug Profile
@@ -14,6 +14,29 @@ Everything about a single drug from Cortellis data.
 /drug-profile semaglutide
 /drug-profile 101964
 ```
+
+## Failure Modes to Avoid
+
+**Showing empty sections instead of skipping them:**
+```
+# Wrong — shows skeleton for missing data:
+## SWOT Analysis
+### Strengths
+N/A
+### Weaknesses
+N/A
+
+# Correct — omits the entire section when swot.json is empty (28B):
+(no SWOT section rendered)
+```
+
+**Using training knowledge to fill gaps:**
+Wrong — adds trial data for semaglutide from training knowledge when `trials.json` returns sparse results.
+Correct — only reports what the CLI returned; if a section is empty, skip it or note "no data available from Cortellis."
+
+**Running all enrichment steps for biologics:**
+Wrong — runs `enrich_cpic.py` for tirzepatide (a peptide biologic) → returns empty, wastes an API call.
+Correct — per Learned Optimizations, CPIC is only useful for small molecules with known CYP/transporter interactions; skip for biologics.
 
 ## Workflow
 
