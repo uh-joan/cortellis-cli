@@ -162,6 +162,12 @@ def build_graph_from_wiki(wiki_dir: str) -> "nx.Graph":
                 if related_slug != slug and related_slug in known_slugs and not G.has_edge(slug, related_slug):
                     G.add_edge(slug, related_slug, weight=1.0, source="related")
 
+        elif atype == "internal":
+            # internal.entities → internal↔drug/company/indication/target edges
+            for entity_slug in meta.get("entities", []):
+                if entity_slug != slug and entity_slug in known_slugs and not G.has_edge(slug, entity_slug):
+                    G.add_edge(slug, entity_slug, weight=1.0, source="internal_entities")
+
     return G
 
 
