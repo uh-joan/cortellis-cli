@@ -27,6 +27,9 @@ flush.log
 
 # Landscape skill governance/process artifacts (POC-internal, not shipped)
 cli_anything/cortellis/skills/landscape/docs/governance/
+
+# Reddit intelligence skill — local only, uses personal Apify token
+cli_anything/cortellis/skills/reddit-intel/
 scripts/
 data/
 
