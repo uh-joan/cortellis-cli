@@ -12,6 +12,7 @@ Reads a workflow YAML DAG and executes recipe nodes with:
 """
 
 import json
+import logging
 import os
 import re
 import shlex
@@ -259,8 +260,10 @@ def _exec_node(node: Node, bash: str, output_dir: Path) -> NodeResult:
         print(f"  [{node.id}] TIMEOUT after {node_timeout}s", file=sys.stderr)
         return NodeResult(status="failed", returncode=-1, duration=duration)
     duration = time.monotonic() - t0
+    _debug = logging.getLogger(__name__).isEnabledFor(logging.DEBUG)
     if result.returncode != 0:
-        print(f"  [{node.id}] stderr: {result.stderr.strip()[:300]}", file=sys.stderr)
+        stderr_out = result.stderr.strip() if _debug else result.stderr.strip()[:300]
+        print(f"  [{node.id}] stderr: {stderr_out}", file=sys.stderr)
     status = "success" if result.returncode == 0 or node.allow_fail else "failed"
     return NodeResult(
         status=status,
@@ -392,10 +395,13 @@ class HarnessRunner:
                     continue
 
                 # Dispatch wave — parallel for independent nodes
+                _debug = logging.getLogger(__name__).isEnabledFor(logging.DEBUG)
                 if len(to_run) == 1:
                     node = to_run[0]
                     bash = resolve(node.bash)
                     print(f"  [{node.id}] running...", file=sys.stderr)
+                    if _debug:
+                        print(f"  [{node.id}] cmd: {bash}", file=sys.stderr)
                     result = _run_node(node, bash, output_dir)
                     state[node.id] = result
                     self._log_result(node, result)
@@ -407,6 +413,8 @@ class HarnessRunner:
                         for node in to_run:
                             bash = resolve(node.bash)
                             print(f"  [{node.id}] dispatching...", file=sys.stderr)
+                            if _debug:
+                                print(f"  [{node.id}] cmd: {bash}", file=sys.stderr)
                             fut = pool.submit(_run_node, node, bash, output_dir)
                             futures[fut] = node
 

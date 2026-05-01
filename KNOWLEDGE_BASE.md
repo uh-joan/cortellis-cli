@@ -256,6 +256,99 @@ wiki/log.md                ← chronological activity record
 
 ---
 
+## `cortellis wiki cleanup` — Prune session insight files
+
+Removes surplus session insight files from `wiki/insights/sessions/`, keeping the N most recent per indication. Moves surplus to a `.backup/` folder — nothing is permanently deleted until you verify and manually remove the backup.
+
+```bash
+cortellis wiki cleanup                    # preview surplus (dry-run)
+cortellis wiki cleanup --keep 5           # preview keeping 5 per indication
+cortellis wiki cleanup --confirm          # move surplus to .backup/
+cortellis wiki cleanup --keep 1 --confirm # keep only most recent per indication
+```
+
+**Default:** keeps 3 files per indication. Without `--confirm` always dry-runs.
+
+---
+
+## `cortellis wiki sources <slug>` — Show API calls behind an article
+
+Prints the timestamped Cortellis API calls that produced a compiled wiki article. Useful for auditing what data went into a landscape or verifying source coverage.
+
+```bash
+cortellis wiki sources obesity
+cortellis wiki sources metabolic-dysfunction-associated-steatohepatitis
+cortellis wiki sources novo-nordisk --type companies
+```
+
+**Options:** `--type` — article type: `indications` (default), `companies`, `drugs`, `targets`.
+
+**Prerequisite:** article must have been compiled by a harness run that supports source tracking. Older articles compiled before source tracking was added will show a "pre-dates source tracking" message.
+
+---
+
+## `cortellis wiki search <query>` — Search wiki articles
+
+Keyword search across all compiled wiki articles with progressive disclosure — choose how much of each result to see.
+
+```bash
+cortellis wiki search "NASH pipeline"
+cortellis wiki search "resmetirom" --depth outline
+cortellis wiki search "GLP-1" --depth full --type indications
+cortellis wiki search "Novo Nordisk" --max 10
+```
+
+**Depth levels:**
+| Depth | What you get | Approx size |
+|-------|-------------|-------------|
+| `summary` (default) | Frontmatter + first 3 sentences | ~200 tokens/result |
+| `outline` | H2 headers + first sentence per section | medium |
+| `full` | Complete article body | large |
+
+**Options:** `--type` — filter by `indications`, `companies`, `drugs`, `targets`. `--max` — max results (default 5).
+
+---
+
+## `cortellis wiki scores` — Article quality scores
+
+Shows relevance scores for all compiled wiki articles, sorted highest first. Score reflects compilation depth (presence of structured sections, frontmatter completeness, wikilink density).
+
+```bash
+cortellis wiki scores
+cortellis wiki scores --type indications
+cortellis wiki scores --min-score 0.5
+```
+
+**Output columns:** Score · Depth · Type · Compiled date · Title
+
+---
+
+## `cortellis repl` — Interactive command REPL
+
+Launches an interactive prompt for running CLI commands without re-invoking `cortellis` each time. Useful for rapid iteration across multiple queries in a single session.
+
+```bash
+cortellis repl
+```
+
+Tab-completion and history are available inside the REPL.
+
+---
+
+## `cortellis --debug` — Debug mode
+
+Enables verbose output for all commands. For harness-based skills (`run-skill`, skills triggered from chat), prints the resolved bash command before each node runs and shows full stderr on failure (not truncated).
+
+```bash
+cortellis --debug run-skill landscape obesity
+cortellis --debug run-skill drug-profile tirzepatide
+cortellis --debug                               # chat with debug output
+```
+
+In chat mode, the AI engine shows raw tool calls and the harness prints per-node commands as Claude executes them.
+
+---
+
 ## Wiki structure
 
 All commands compile into `wiki/`. Articles cross-link with `[[wikilinks]]` and are readable in [Obsidian](https://obsidian.md) as a graph vault.

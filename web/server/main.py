@@ -38,8 +38,8 @@ app.include_router(wiki.router, prefix="/api")
 app.include_router(memory.router, prefix="/api")
 app.include_router(internal.router, prefix="/api")
 
-# Workspace is always the repo root (two levels up from web/server/)
-_WORKSPACE = str(Path(__file__).resolve().parents[2])
+# Workspace is wherever the user invokes `cortellis web` from
+_WORKSPACE = os.getcwd()
 
 @app.get("/api/config")
 def get_config():

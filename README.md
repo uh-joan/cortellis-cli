@@ -58,6 +58,8 @@ Slash commands that orchestrate full analytical pipelines — works with [Claude
 | `/target-profile GLP-1` | Target biology — disease associations, drug pipeline, pharmacology |
 | `/drug-comparison tirzepatide vs semaglutide` | Head-to-head comparison across all dimensions |
 | `/conference-intel ASCO 2026` | Conference briefing — "What's New / So What / What's Next" |
+| `/enrich obesity` | Fill deep drug/company/target profiles for all priority entities in a landscape |
+| `/ingest-internal <file> <indication>` | Ingest internal doc (forecast, KOL call, market research) and merge into indication article |
 | `/signals` | Strategic intelligence report across all analyzed landscapes |
 | `/insights` | Accumulated analytical insights from previous sessions |
 

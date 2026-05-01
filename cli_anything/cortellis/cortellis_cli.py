@@ -2996,8 +2996,9 @@ All skills and their workflows are included below in the system context."""
                 if debug else
                 "When done, show only a brief one-line status (e.g. 'Completed successfully' or 'Failed at wave N: compile')."
             )
+            debug_flag = "--debug " if debug else ""
             return (
-                f"[HARNESS: Run `source {venv_activate} && cortellis run-skill {skill_nm} \"{skill_args}\"` "
+                f"[HARNESS: Run `source {venv_activate} && cortellis {debug_flag}run-skill {skill_nm} \"{skill_args}\"` "
                 f"as a single Bash command. {wave_instruction} "
                 f"Then {hint} and summarize. End with 2-3 follow-up suggestions.] "
                 f"{skill_args}"
