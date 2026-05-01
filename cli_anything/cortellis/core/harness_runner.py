@@ -170,8 +170,22 @@ def _resolve_vars(text: str, state: dict[str, NodeResult], for_shell: bool = Fal
             return m.group(0)
         output = result.output.strip()
 
-        if rest in _FIELD_MAP:
-            entry = _FIELD_MAP[rest]
+        # If full suffix isn't known, peel trailing components (e.g. .md) to find a match
+        matched_rest, leftover = rest, ""
+        if matched_rest not in _FIELD_MAP:
+            _try, _left = matched_rest, ""
+            while _try:
+                last_dot = _try.rfind(".")
+                if last_dot == -1:
+                    break
+                _left = _try[last_dot:] + _left
+                _try = _try[:last_dot]
+                if _try in _FIELD_MAP:
+                    matched_rest, leftover = _try, _left
+                    break
+
+        if matched_rest in _FIELD_MAP:
+            entry = _FIELD_MAP[matched_rest]
             idx, do_slug = entry[0], entry[1]
             join_remaining = entry[2] if len(entry) > 2 else False
             if idx == -1:
@@ -185,7 +199,7 @@ def _resolve_vars(text: str, state: dict[str, NodeResult], for_shell: bool = Fal
                 else:
                     val = output
             val = _slug_name(val) if do_slug else val
-            return shlex.quote(val) if for_shell else val
+            return (shlex.quote(val) if for_shell else val) + leftover
 
         return shlex.quote(output) if for_shell else output
 
