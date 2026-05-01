@@ -215,8 +215,9 @@ def _should_skip(node: Node, state: dict[str, NodeResult]) -> bool:
             if r.status in ("failed", "skipped"):
                 return True
     elif node.trigger_rule == "all_done":
-        # Skip only when ALL upstreams are skipped (nothing was fetched — fresh path)
-        if dep_results and all(r.status == "skipped" for r in dep_results):
+        # Skip only when ALL upstreams failed — skipped means data exists from a prior
+        # run, so compile can still use it. Only bail if everything actually errored.
+        if dep_results and all(r.status == "failed" for r in dep_results):
             return True
 
     # Evaluate when: condition
