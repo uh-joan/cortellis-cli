@@ -442,7 +442,13 @@ def compile_indication_article(landscape_dir, indication_name, slug, base_dir=No
     # Key Drugs — top drugs from launched.csv and phase3.csv
     launched_rows = read_csv_safe(os.path.join(landscape_dir, "launched.csv"))
     phase3_rows = read_csv_safe(os.path.join(landscape_dir, "phase3.csv"))
-    flagship_drugs = launched_rows[:10] + phase3_rows[:10]
+    _seen_drug_names: set[str] = set()
+    flagship_drugs = []
+    for _d in launched_rows[:10] + phase3_rows[:10]:
+        _dkey = (_d.get("drug_name") or _d.get("name") or _d.get("drug") or "").strip().lower()
+        if _dkey and _dkey not in _seen_drug_names:
+            _seen_drug_names.add(_dkey)
+            flagship_drugs.append(_d)
     if flagship_drugs:
         # Check if any drug has enrichment data (from drug-profile skill)
         has_drug_enrichment = any(
@@ -755,12 +761,16 @@ def compile_company_articles(landscape_dir, indication_name, indication_slug, ba
         ind_launched = read_csv_safe(os.path.join(landscape_dir, "launched.csv"))
         ind_phase3 = read_csv_safe(os.path.join(landscape_dir, "phase3.csv"))
         company_drugs = []
+        _seen_comp_drugs: set[str] = set()
         for drug in ind_launched + ind_phase3:
             drug_comp = (
                 drug.get("company") or drug.get("company_name") or ""
             ).lower()
             if company_name_lower in drug_comp or drug_comp in company_name_lower:
-                company_drugs.append(drug)
+                _dkey = (drug.get("drug_name") or drug.get("name") or drug.get("drug") or "").strip().lower()
+                if _dkey and _dkey not in _seen_comp_drugs:
+                    _seen_comp_drugs.add(_dkey)
+                    company_drugs.append(drug)
         if company_drugs:
             body_parts.append("## Key Drugs\n\n")
             body_parts.append(
