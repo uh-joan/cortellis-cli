@@ -171,6 +171,17 @@ nodes:
     fs_exclusive: true
     api_calls: true
 
+  - id: enrich_historical_timeline
+    bash: |
+      python3 cli_anything/cortellis/skills/landscape/recipes/enrich_historical_timeline.py \
+        raw/$resolve.output.indication_name --months 24
+    depends_on: [enrich_mechanisms]
+    trigger_rule: all_done
+    when: "$freshness.output.status != 'fresh'"
+    allow_fail: true
+    api_calls: true
+    resume_output: phase_timeline.csv
+
   # ── Step 5: Company chain (serial) ─────────────────────────────────────────
 
   - id: company_landscape
