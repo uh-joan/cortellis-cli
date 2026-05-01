@@ -252,6 +252,7 @@ def compile_indication_article(landscape_dir, indication_name, slug, base_dir=No
     dd_preclinical = load_drugdesign_preclinical(landscape_dir)
     dd_mech_counts = load_drugdesign_mechanism_counts(landscape_dir)
     source_count = count_enrichment_sources(landscape_dir)
+    _regions_path = os.path.join(landscape_dir, "approval_regions.json")
 
     # Top company for index
     top_company = ""
@@ -334,9 +335,12 @@ def compile_indication_article(landscape_dir, indication_name, slug, base_dir=No
 
     # Pipeline Overview
     body_parts.append("## Pipeline Overview\n\n")
+    _launched_note = (
+        " ‡" if os.path.exists(_regions_path) else ""
+    )
     body_parts.append("| Phase | Count |\n|---|---|\n")
     phase_labels = {
-        "launched": "Launched", "phase3": "Phase 3", "phase2": "Phase 2",
+        "launched": f"Launched{_launched_note}", "phase3": "Phase 3", "phase2": "Phase 2",
         "phase1": "Phase 1", "discovery": "Discovery", "other": "Other",
     }
     for phase_key in PHASE_FILES:
@@ -346,6 +350,11 @@ def compile_indication_article(landscape_dir, indication_name, slug, base_dir=No
     if dd_preclinical:
         body_parts.append(
             f"| Early stage (drug-design, net-new) | {len(dd_preclinical)} |\n"
+        )
+    if os.path.exists(_regions_path):
+        body_parts.append(
+            f"\n_‡ Launched count is global (any market). "
+            f"See Key Drugs table for per-drug regional breakdown (US · EU · JP)._\n"
         )
     body_parts.append("\n")
 
@@ -449,6 +458,24 @@ def compile_indication_article(landscape_dir, indication_name, slug, base_dir=No
         if _dkey and _dkey not in _seen_drug_names:
             _seen_drug_names.add(_dkey)
             flagship_drugs.append(_d)
+
+    # Load approval regions if available
+    _regions_by_drug: dict[str, str] = {}
+    if os.path.exists(_regions_path):
+        try:
+            _rdata = json.load(open(_regions_path))
+            for _a in _rdata.get("analyses", []):
+                _rname = (_a.get("drug_name") or "").strip().lower()
+                _parts = []
+                if _a.get("has_us"): _parts.append("US")
+                if _a.get("has_eu"): _parts.append("EU")
+                if _a.get("has_jp"): _parts.append("JP")
+                _other = [c for c in (_a.get("countries") or []) if c not in ("US", "EU", "Japan", "JP")]
+                _parts.extend(_other[:2])
+                _regions_by_drug[_rname] = " · ".join(_parts) if _parts else ""
+        except Exception:
+            pass
+
     if flagship_drugs:
         # Check if any drug has enrichment data (from drug-profile skill)
         has_drug_enrichment = any(
@@ -456,9 +483,12 @@ def compile_indication_article(landscape_dir, indication_name, slug, base_dir=No
             in enrichments["drugs"]
             for d in flagship_drugs
         )
+        has_regions = bool(_regions_by_drug)
         body_parts.append("## Key Drugs\n\n")
         if has_drug_enrichment:
-            body_parts.append("| Drug | Phase | Mechanism | Company | Inds | Trials | |\n|---|---|---|---|---|---|---|\n")
+            body_parts.append("| Drug | Phase | Mechanism | Company | Regions | Inds | Trials | |\n|---|---|---|---|---|---|---|---|\n")
+        elif has_regions:
+            body_parts.append("| Drug | Phase | Mechanism | Company | Regions |\n|---|---|---|---|---|\n")
         else:
             body_parts.append("| Drug | Phase | Mechanism | Company |\n|---|---|---|---|\n")
         for drug in flagship_drugs:
@@ -469,12 +499,15 @@ def compile_indication_article(landscape_dir, indication_name, slug, base_dir=No
             drug_slug = slugify(normalize_drug_name(dname)) if dname != "-" else ""
             drug_str = wikilink(drug_slug, dname) if dname != "-" else "-"
             comp_str = wikilink(find_company_slug(comp, base_dir), comp) if comp != "-" else "-"
+            regions = _regions_by_drug.get(dname.strip().lower(), "")
             if has_drug_enrichment:
                 enr = enrichments["drugs"].get(drug_slug, {})
                 inds = str(enr["indication_count"]) if enr.get("indication_count") else ""
                 trials = str(enr["ct_trial_count"]) if enr.get("ct_trial_count") else ""
                 flag = "⚠" if enr.get("conflict_count", 0) > 0 else ""
-                body_parts.append(f"| {drug_str} | {phase} | {mech} | {comp_str} | {inds} | {trials} | {flag} |\n")
+                body_parts.append(f"| {drug_str} | {phase} | {mech} | {comp_str} | {regions} | {inds} | {trials} | {flag} |\n")
+            elif has_regions:
+                body_parts.append(f"| {drug_str} | {phase} | {mech} | {comp_str} | {regions} |\n")
             else:
                 body_parts.append(f"| {drug_str} | {phase} | {mech} | {comp_str} |\n")
         body_parts.append("\n")

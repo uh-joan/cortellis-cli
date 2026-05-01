@@ -144,6 +144,18 @@ nodes:
     allow_fail: true
     api_calls: true
 
+  - id: enrich_approval_regions
+    bash: |
+      python3 cli_anything/cortellis/skills/landscape/recipes/enrich_approval_regions.py \
+        raw/$resolve.output.indication_name \
+        $resolve.output.indication_id \
+        "$resolve.output.indication_name"
+    depends_on: [fetch_launched]
+    when: "$freshness.output.status != 'fresh'"
+    resume_output: approval_regions.json
+    allow_fail: true
+    api_calls: true
+
   - id: group_biosimilars
     bash: "python3 cli_anything/cortellis/skills/landscape/recipes/group_biosimilars.py raw/$resolve.output.indication_name"
     depends_on: [enrich_mechanisms]
@@ -279,7 +291,7 @@ nodes:
     bash: |
       python3 cli_anything/cortellis/skills/landscape/recipes/compile_dossier.py \
         raw/$resolve.output.indication_name "$resolve.output.indication_name"
-    depends_on: [strategic_narrative, loe_analysis, opportunity_matrix]
+    depends_on: [strategic_narrative, loe_analysis, opportunity_matrix, enrich_approval_regions]
     trigger_rule: all_done
     model: opus
     review_gate: true
