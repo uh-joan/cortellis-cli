@@ -1,6 +1,6 @@
 ---
 name: landscape
-description: Use when a user asks for a competitive landscape, who is active in a disease area, pipeline overview by indication/target/modality, or wants to understand competitive dynamics. Triggers on therapeutic area names (obesity, NSCLC, MASH), target names (GLP-1 receptor), or modality names (ADC, mRNA, gene therapy).
+description: Use when a user asks for a competitive landscape, who is active in a disease area, pipeline overview by indication/target/modality, or wants to understand competitive dynamics. Triggers on therapeutic area names (obesity, NSCLC, MASH), target names (GLP-1 receptor), or modality names (ADC, mRNA, gene therapy). Also triggers on "scenario analysis", "do a scenario analysis", "counterfactual", "what if [company] exits", "what if [drug] fails" — route those to scenario_library.py (Step 12b), not insights_report.py.
 ---
 
 # /landscape — Competitive Landscape Report
@@ -50,6 +50,34 @@ Generate a full competitive landscape for a therapeutic indication.
 ```
 
 > **New to `/landscape`?** Read `docs/worked_example_mash.md` for a narrated end-to-end example before your first run.
+
+## Scenario Analysis Routing
+
+**If the user's request contains any of these phrases — route directly to `scenario_library.py` and stop. Do NOT run `insights_report.py` or `strategic_narrative.py`.**
+
+Trigger phrases:
+- "scenario analysis", "do a scenario analysis", "run scenario analysis"
+- "counterfactual", "what if", "what happens if"
+- "scenarios for <indication>"
+
+**Shortcut workflow (landscape data already compiled):**
+```bash
+RECIPES="cli_anything/cortellis/skills/landscape/recipes"
+SLUG=$(python3 -c "import sys; sys.path.insert(0,'.'); from cli_anything.cortellis.utils.wiki import slugify; print(slugify('<INDICATION>'))")
+DIR="raw/$SLUG"
+
+# Run LOE analysis first (required for loe_wave scenario)
+python3 $RECIPES/loe_analysis.py $DIR | tee $DIR/loe_analysis.md
+
+# Run all 5 counterfactual scenarios
+python3 $RECIPES/scenario_library.py $DIR "<INDICATION_NAME>" --scenarios all | tee $DIR/scenario_analysis.md
+```
+
+Display the output of `scenario_library.py` verbatim. Do not substitute `insights_report.py` or `strategic_narrative.py` for this step.
+
+If `raw/<slug>/strategic_scoring.csv` does not exist, the landscape hasn't been compiled yet — run the full workflow first (Steps 0–12), then run the scenario shortcut above.
+
+---
 
 ## Failure Modes to Avoid
 
