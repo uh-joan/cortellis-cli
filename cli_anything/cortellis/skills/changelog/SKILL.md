@@ -1,11 +1,18 @@
 ---
 name: changelog
-description: Use when a user asks what changed in a competitive landscape, wants pipeline evolution history, asks "what's new since last run", "what changed in [indication]", or wants a temporal diff of drug counts, company rankings, or phase transitions.
+description: Use when a user asks what changed in a competitive landscape, wants pipeline evolution history, asks "what's new since last run", "what changed in [indication]", "how did the pipeline evolve", or wants a temporal diff of drug counts, company rankings, or phase transitions.
 ---
 
 # /changelog — Competitive Landscape History
 
 Show how a compiled landscape evolved over time using raw data history.
+
+## IMPORTANT — Execution rules
+
+1. **Always run the harness.** Never answer changelog questions from memory, wiki context, or the landscape output. Always execute `cortellis run-skill changelog "<indication>"` and display the output verbatim.
+2. **Do not report internal harness details.** Never mention variable names, node IDs, file paths, or implementation bugs to the user.
+3. **Display the script output as-is.** The harness prints the changelog narrative directly — pass it through without reformatting or adding commentary.
+4. **Do not say "no data yet" without running the skill.** The historical timeline may have been populated in the same session. Always run first, then report what the script returns.
 
 ## Usage
 /changelog obesity
