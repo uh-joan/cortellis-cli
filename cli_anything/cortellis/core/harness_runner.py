@@ -421,7 +421,7 @@ class HarnessRunner:
                     result = _run_node(node, bash, output_dir)
                     state[node.id] = result
                     self._log_result(node, result)
-                    if result.status == "success" and result.output.strip() and node.id in ("read_wiki", "report"):
+                    if result.status == "success" and result.output.strip() and (node.terminal_output or node.id in ("read_wiki", "report")):
                         print(result.output, flush=True)
                 else:
                     futures = {}
