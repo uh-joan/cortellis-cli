@@ -3486,6 +3486,51 @@ All skills and their workflows are included below in the system context."""
                                     sys.stdout.write(f"  > {tool}\n")
                                     sys.stdout.flush()
 
+                elif etype == "user" and "message" in event:
+                    # Tool results — scan for harness wave progress labels
+                    _wave_labels = {
+                        "resolve": "Resolving...",
+                        "fetch_launched": "Fetching launched drugs...",
+                        "fetch_phase3": "Fetching Phase 3 drugs...",
+                        "fetch_phase2": "Fetching Phase 2 drugs...",
+                        "fetch_phase1_ci": "Fetching Phase 1 drugs...",
+                        "fetch_discovery_ci": "Fetching discovery drugs...",
+                        "fetch_si_phase1": "Fetching SI Phase 1 drugs...",
+                        "fetch_si_preclinical": "Fetching preclinical drugs...",
+                        "catch_missing": "Checking for missed drugs...",
+                        "report": "Generating report...",
+                        "compile": "Compiling to knowledge base...",
+                        "narrate": "Generating strategic narrative...",
+                        "strategic_scoring": "Computing competitive scores...",
+                    }
+                    _content = event["message"].get("content", [])
+                    if isinstance(_content, list):
+                        for _block in _content:
+                            if _block.get("type") != "tool_result":
+                                continue
+                            _rc = _block.get("content", "")
+                            _rtext = (
+                                "".join(c.get("text", "") for c in _rc if isinstance(c, dict))
+                                if isinstance(_rc, list) else (_rc if isinstance(_rc, str) else "")
+                            )
+                            for _rline in _rtext.splitlines():
+                                _rline = _rline.strip()
+                                _wm = re.match(r"[▶►]?\s*Wave\s+\d+[:\s]+(.+)", _rline)
+                                if _wm:
+                                    _nodes = _wm.group(1).strip().split()
+                                    _first = _nodes[0] if _nodes else ""
+                                    _wlabel = _wave_labels.get(_first, f"Processing: {_first}")
+                                    if debug:
+                                        sys.stdout.write(f"  {_rline}\n")
+                                        sys.stdout.flush()
+                                    else:
+                                        if spinner_state[1]:
+                                            elapsed = int(time.time() - t_start)
+                                            sys.stdout.write(f"\r  {spinner_state[0]}  ({elapsed}s)\n")
+                                            sys.stdout.flush()
+                                            spinner_state[1] = False
+                                        spinner_state[0] = _wlabel
+
                 elif etype == "result":
                     # Stop spinner and print final answer
                     stop_spinner.set()
