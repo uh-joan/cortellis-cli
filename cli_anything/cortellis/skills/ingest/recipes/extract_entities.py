@@ -322,7 +322,17 @@ def cortellis_ner_entities(text: str, base_dir: str) -> list:
         from cli_anything.cortellis.core import ner as _ner
 
         client = CortellisClient()
-        result = _ner.match(client, text)
+        # NER API uses GET with text as URL param (~7500 char limit after encoding).
+        # Normalize whitespace first (newlines encode as %0A, tripling URL size),
+        # then sample start + mid of doc so entities aren't missed in long PDFs.
+        import re as _re
+        clean = _re.sub(r'\s+', ' ', text).strip()
+        if len(clean) > 3000:
+            mid = len(clean) // 2
+            ner_text = clean[:3000] + " " + clean[mid:mid + 3000]
+        else:
+            ner_text = clean
+        result = _ner.match(client, ner_text[:6000])
         raw_entities = (
             result.get("NamedEntityRecognition", {})
                   .get("Entities", {})
