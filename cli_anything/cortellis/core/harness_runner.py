@@ -58,6 +58,7 @@ class Node:
     allow_fail: bool = False
     review_gate: bool = False
     resume_output: Optional[str] = None  # if set, skip if this file exists
+    terminal_output: bool = False        # if set, print stdout directly to user
     timeout: Optional[int] = None        # per-node override; falls back to _NODE_TIMEOUT
 
 
@@ -87,6 +88,7 @@ def _load_nodes(yaml_path: Path) -> list[Node]:
             review_gate=n.get("review_gate", False),
             resume_output=n.get("resume_output"),
             timeout=n.get("timeout"),
+            terminal_output=n.get("terminal_output", False),
         ))
     return nodes
 
@@ -427,7 +429,7 @@ class HarnessRunner:
                             state[node.id] = result
                             self._log_result(node, result)
                             # Print terminal-output nodes directly to stdout
-                            if result.status == "success" and result.output.strip() and node.id in ("read_wiki", "report"):
+                            if result.status == "success" and result.output.strip() and (node.terminal_output or node.id in ("read_wiki", "report")):
                                 print(result.output, flush=True)
 
                 # Check for hard failures (non-allow_fail nodes)

@@ -34,3 +34,4 @@ nodes:
         raw/$resolve.output.indication_name \
         $ARGUMENTS
     depends_on: [resolve]
+    terminal_output: true
