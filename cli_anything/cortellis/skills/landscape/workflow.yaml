@@ -151,7 +151,7 @@ nodes:
         $resolve.output.indication_id \
         "$resolve.output.indication_name"
     depends_on: [fetch_launched]
-    when: "$freshness.output.status != 'fresh'"
+    trigger_rule: all_done
     resume_output: approval_regions.json
     allow_fail: true
     api_calls: true
