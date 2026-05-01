@@ -12,7 +12,6 @@ Reads a workflow YAML DAG and executes recipe nodes with:
 """
 
 import json
-import logging
 import os
 import re
 import shlex
@@ -260,7 +259,7 @@ def _exec_node(node: Node, bash: str, output_dir: Path) -> NodeResult:
         print(f"  [{node.id}] TIMEOUT after {node_timeout}s", file=sys.stderr)
         return NodeResult(status="failed", returncode=-1, duration=duration)
     duration = time.monotonic() - t0
-    _debug = logging.getLogger(__name__).isEnabledFor(logging.DEBUG)
+    _debug = "--debug" in sys.argv
     if result.returncode != 0:
         stderr_out = result.stderr.strip() if _debug else result.stderr.strip()[:300]
         print(f"  [{node.id}] stderr: {stderr_out}", file=sys.stderr)
@@ -395,7 +394,7 @@ class HarnessRunner:
                     continue
 
                 # Dispatch wave — parallel for independent nodes
-                _debug = logging.getLogger(__name__).isEnabledFor(logging.DEBUG)
+                _debug = "--debug" in sys.argv
                 if len(to_run) == 1:
                     node = to_run[0]
                     bash = resolve(node.bash)
