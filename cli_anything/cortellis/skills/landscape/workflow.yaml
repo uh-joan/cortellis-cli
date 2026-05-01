@@ -296,13 +296,24 @@ nodes:
     model: opus
     allow_fail: true
 
+  - id: scenario_library
+    bash: |
+      python3 cli_anything/cortellis/skills/landscape/recipes/scenario_library.py \
+        raw/$resolve.output.indication_name "$resolve.output.indication_name" --scenarios all \
+        | tee raw/$resolve.output.indication_name/scenario_analysis.md
+    depends_on: [loe_analysis]
+    trigger_rule: all_done
+    model: opus
+    allow_fail: true
+    terminal_output: true
+
   # ── Step 15: Compile to wiki (opus — final synthesis) ─────────────────────
 
   - id: compile
     bash: |
       python3 cli_anything/cortellis/skills/landscape/recipes/compile_dossier.py \
         raw/$resolve.output.indication_name "$resolve.output.indication_name"
-    depends_on: [strategic_narrative, loe_analysis, opportunity_matrix, enrich_approval_regions]
+    depends_on: [strategic_narrative, scenario_library, opportunity_matrix, enrich_approval_regions]
     trigger_rule: all_done
     model: opus
     review_gate: true
