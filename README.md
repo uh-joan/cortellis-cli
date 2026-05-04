@@ -58,10 +58,6 @@ Slash commands that orchestrate full analytical pipelines — works with [Claude
 | `/target-profile GLP-1` | Target biology — disease associations, drug pipeline, pharmacology |
 | `/drug-comparison tirzepatide vs semaglutide` | Head-to-head comparison across all dimensions |
 | `/conference-intel ASCO 2026` | Conference briefing — "What's New / So What / What's Next" |
-| `/enrich obesity` | Fill deep drug/company/target profiles for all priority entities in a landscape |
-| `/ingest-internal <file> <indication>` | Ingest internal doc (forecast, KOL call, market research) and merge into indication article |
-| `/signals` | Strategic intelligence report across all analyzed landscapes |
-| `/insights` | Accumulated analytical insights from previous sessions |
 
 **Skills are self-evolving.** The more you use them, the faster and smarter they get. Entity lookups are cached so repeated runs skip API calls entirely. After each run, a reviewer checks what worked and what was empty, and encodes the patterns directly into the skill — so next time it skips what's known to be irrelevant for that drug class or indication. Ships pre-seeded with common patterns from real runs; compounds from there. Inspired by [Hermes Agent](https://github.com/NousResearch/hermes-agent)'s background skill review mechanism.
 
@@ -102,7 +98,6 @@ Prefer a browser? The same intelligence is available as a web app:
 
 ```bash
 cortellis web          # opens http://localhost:7337
-cortellis web --dev    # hot-reload mode for UI development (requires node/npm)
 ```
 
 Chat with your compiled wiki, run queries, and explore the knowledge graph — no terminal required. The UI is built during `cortellis setup`.
