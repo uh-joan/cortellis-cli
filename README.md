@@ -31,6 +31,35 @@ pip install git+https://github.com/uh-joan/cortellis-cli.git
 cortellis setup    # credentials + API test, 30 seconds
 ```
 
+## Windows
+
+Works on Windows with a few prerequisites. Open PowerShell and follow these steps:
+
+**1. Install Python 3.9+**
+Download from https://www.python.org/downloads/ — during install, check **"Add Python to PATH"**.
+
+**2. Install Git Bash** (required for skills — `/landscape`, `/pipeline`, etc.)
+Download from https://git-scm.com/download/win. Use all defaults.
+
+**3. Install Node.js** (required for Claude Code)
+Download from https://nodejs.org — LTS version.
+
+**4. Install Claude Code**
+```powershell
+npm install -g @anthropic-ai/claude-code
+```
+
+**5. Pull and set up**
+```powershell
+git clone https://github.com/uh-joan/cortellis-cli.git
+cd cortellis-cli
+cortellis setup
+```
+
+That's it. `cortellis setup` creates the local environment and walks through credentials. After that, all CLI commands and chat mode work from PowerShell.
+
+> **Note:** Skills (`/landscape`, `/pipeline`, etc.) require Git Bash to be installed. Basic data commands work without it.
+
 ## Three Layers
 
 A CLI for raw data access, a **harness** for deterministic multi-step analysis, and a compounding wiki that gets smarter with every session.
