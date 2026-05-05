@@ -14,8 +14,14 @@ def _auto_venv() -> None:
     If this looks like a cortellis project but has no .venv yet, print a
     helpful first-run message and exit.
     """
+    import subprocess as _sp
+
     cwd = os.getcwd()
-    local_bin = os.path.join(cwd, ".venv", "bin", "cortellis")
+    # Windows uses Scripts\cortellis.exe; Unix uses bin/cortellis
+    if sys.platform == "win32":
+        local_bin = os.path.join(cwd, ".venv", "Scripts", "cortellis.exe")
+    else:
+        local_bin = os.path.join(cwd, ".venv", "bin", "cortellis")
     is_project = os.path.isdir(os.path.join(cwd, "cli_anything", "cortellis"))
 
     is_setup = "setup" in sys.argv[1:]
@@ -23,7 +29,12 @@ def _auto_venv() -> None:
     if os.path.isfile(local_bin):
         # Guard against infinite re-exec loop: check the running script, not the interpreter
         if os.path.abspath(sys.argv[0]) != os.path.abspath(local_bin):
-            os.execv(local_bin, [local_bin] + sys.argv[1:])
+            if sys.platform == "win32":
+                # os.execv doesn't cleanly replace the process on Windows
+                result = _sp.run([local_bin] + sys.argv[1:])
+                sys.exit(result.returncode)
+            else:
+                os.execv(local_bin, [local_bin] + sys.argv[1:])
     elif is_project and not is_setup:
         print(
             "No local environment found.\n"

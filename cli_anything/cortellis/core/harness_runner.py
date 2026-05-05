@@ -15,6 +15,7 @@ import json
 import os
 import re
 import shlex
+import shutil
 import subprocess
 import sys
 import threading
@@ -25,6 +26,10 @@ from dataclasses import dataclass, field
 from graphlib import TopologicalSorter
 from pathlib import Path
 from typing import Optional
+
+# On Windows, bash (Git Bash / WSL) must be used for workflow recipes.
+# Resolved once at import; None means fall back to cmd.exe (skills will likely fail).
+_BASH_EXE: str | None = shutil.which("bash") if sys.platform == "win32" else None
 
 import yaml
 
@@ -260,11 +265,19 @@ _NODE_TIMEOUT = 600  # seconds; a hung recipe blocks its wave thread indefinitel
 def _exec_node(node: Node, bash: str, output_dir: Path) -> NodeResult:
     """Run the resolved bash command and return a NodeResult."""
     t0 = time.monotonic()
+    # On Windows, route through bash (Git Bash/WSL) so workflow recipes work.
+    # If bash isn't on PATH the node will fail with a clear error.
+    if sys.platform == "win32":
+        cmd: str | list[str] = [_BASH_EXE, "-c", bash] if _BASH_EXE else bash
+        use_shell = _BASH_EXE is None
+    else:
+        cmd = bash
+        use_shell = True
     try:
         node_timeout = node.timeout if node.timeout else _NODE_TIMEOUT
         result = subprocess.run(
-            bash,
-            shell=True,
+            cmd,
+            shell=use_shell,
             capture_output=True,
             text=True,
             cwd=os.getcwd(),

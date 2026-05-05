@@ -1588,8 +1588,12 @@ def setup_cmd() -> None:
     import sys as _sys0
     _pkg_root = str(Path(__file__).resolve().parents[2])
     _venv_dir = Path.cwd() / ".venv"
-    _venv_pip = _venv_dir / "bin" / "pip"
-    _venv_python = _venv_dir / "bin" / "python3"
+    if _sys0.platform == "win32":
+        _venv_pip = _venv_dir / "Scripts" / "pip.exe"
+        _venv_python = _venv_dir / "Scripts" / "python.exe"
+    else:
+        _venv_pip = _venv_dir / "bin" / "pip"
+        _venv_python = _venv_dir / "bin" / "python3"
 
     if not _venv_dir.exists():
         click.echo("  Creating virtual environment (.venv)...")
@@ -1614,7 +1618,8 @@ def setup_cmd() -> None:
         click.echo("  Dependencies installed.")
     else:
         click.echo("  Warning: could not install dependencies. Run manually:")
-        click.echo(f"    .venv/bin/pip install -e {_pkg_root}")
+        _pip_hint = str(_venv_dir / ("Scripts\\pip.exe" if _sys0.platform == "win32" else "bin/pip"))
+        click.echo(f"    {_pip_hint} install -e {_pkg_root}")
     click.echo()
 
     # Step 1: Credentials
@@ -2786,8 +2791,9 @@ def chat_cmd(debug, engine="claude", no_flush=False) -> None:
         click.echo("  Ask questions naturally. Type 'exit' or Ctrl-D to quit.\n")
 
     from cli_anything.cortellis.utils.skill_registry import build_skill_registry_prompt
-    _cwd_venv = Path.cwd() / ".venv" / "bin" / "activate"
-    _pkg_venv = Path(__file__).resolve().parents[2] / ".venv" / "bin" / "activate"
+    _act_rel = ("Scripts", "activate.bat") if sys.platform == "win32" else ("bin", "activate")
+    _cwd_venv = Path.cwd() / ".venv" / _act_rel[0] / _act_rel[1]
+    _pkg_venv = Path(__file__).resolve().parents[2] / ".venv" / _act_rel[0] / _act_rel[1]
     _venv_act = str(_cwd_venv if _cwd_venv.exists() else _pkg_venv)
     skill_content = build_skill_registry_prompt(_venv_act)
 
