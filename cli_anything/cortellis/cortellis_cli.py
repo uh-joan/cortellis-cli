@@ -70,9 +70,11 @@ load_dotenv()
               help="AI engine for chat mode: 'claude' (Claude Code), 'codex' (OpenAI Codex), or 'pi' (Pi coding agent).")
 @click.option("--no-flush", "no_flush", is_flag=True, default=False,
               help="Skip session memory flush on exit (useful for testing).")
+@click.option("--query", "-q", default=None,
+              help="Non-interactive single query for headless/programmatic use (e.g. Discord bots).")
 @click.version_option(__version__, prog_name="cortellis")
 @click.pass_context
-def cli(ctx: click.Context, json_mode: bool, debug: bool, engine: str, no_flush: bool) -> None:
+def cli(ctx: click.Context, json_mode: bool, debug: bool, engine: str, no_flush: bool, query: str | None) -> None:
     """Cortellis pharmaceutical intelligence CLI."""
     ctx.ensure_object(dict)
     ctx.obj["json"] = json_mode
@@ -87,7 +89,7 @@ def cli(ctx: click.Context, json_mode: bool, debug: bool, engine: str, no_flush:
             click.echo('{"error": "no subcommand given — use cortellis --json <command> [args]"}')
             _sys.exit(1)
         # No subcommand — launch AI chat mode
-        ctx.invoke(chat_cmd, debug=debug, engine=engine, no_flush=no_flush)
+        ctx.invoke(chat_cmd, debug=debug, engine=engine, no_flush=no_flush, query=query)
 
 
 def _client(ctx: click.Context) -> CortellisClient:
@@ -2747,7 +2749,7 @@ def web_cmd(host, port, dev) -> None:
 # chat — AI-powered natural language interface via Claude Code
 # ---------------------------------------------------------------------------
 
-def chat_cmd(debug, engine="claude", no_flush=False) -> None:
+def chat_cmd(debug, engine="claude", no_flush=False, query=None) -> None:
     """Start an AI chat session for querying Cortellis in natural language.
 
     Launches an AI engine (Claude Code or Codex) with Cortellis knowledge pre-loaded.
@@ -2760,6 +2762,7 @@ def chat_cmd(debug, engine="claude", no_flush=False) -> None:
     from pathlib import Path
 
     engine = (engine or "claude").lower()
+    _one_shot = query is not None
     if engine == "codex":
         ai_bin = shutil.which("codex")
         if not ai_bin:
@@ -2767,9 +2770,10 @@ def chat_cmd(debug, engine="claude", no_flush=False) -> None:
             click.echo("  npm install -g @openai/codex")
             click.echo("  export OPENAI_API_KEY=<your-key>")
             raise SystemExit(1)
-        click.echo(_BANNER)
-        click.echo("  Cortellis AI Chat — powered by Codex")
-        click.echo("  Ask questions naturally. Type 'exit' or Ctrl-D to quit.\n")
+        if not _one_shot:
+            click.echo(_BANNER)
+            click.echo("  Cortellis AI Chat — powered by Codex")
+            click.echo("  Ask questions naturally. Type 'exit' or Ctrl-D to quit.\n")
     elif engine == "pi":
         ai_bin = shutil.which("pi")
         if not ai_bin:
@@ -2777,18 +2781,20 @@ def chat_cmd(debug, engine="claude", no_flush=False) -> None:
             click.echo("  npm install -g @mariozechner/pi-coding-agent")
             click.echo("  pi /log  (configure a provider)")
             raise SystemExit(1)
-        click.echo(_BANNER)
-        click.echo("  Cortellis AI Chat — powered by Pi")
-        click.echo("  Ask questions naturally. Type 'exit' or Ctrl-D to quit.\n")
+        if not _one_shot:
+            click.echo(_BANNER)
+            click.echo("  Cortellis AI Chat — powered by Pi")
+            click.echo("  Ask questions naturally. Type 'exit' or Ctrl-D to quit.\n")
     else:
         ai_bin = shutil.which("claude")
         if not ai_bin:
             click.echo("Error: 'claude' CLI not found. Install Claude Code first.")
             click.echo("  https://docs.anthropic.com/en/docs/claude-code")
             raise SystemExit(1)
-        click.echo(_BANNER)
-        click.echo("  Cortellis AI Chat — powered by Claude Code")
-        click.echo("  Ask questions naturally. Type 'exit' or Ctrl-D to quit.\n")
+        if not _one_shot:
+            click.echo(_BANNER)
+            click.echo("  Cortellis AI Chat — powered by Claude Code")
+            click.echo("  Ask questions naturally. Type 'exit' or Ctrl-D to quit.\n")
 
     from cli_anything.cortellis.utils.skill_registry import build_skill_registry_prompt
     _act_rel = ("Scripts", "activate.bat") if sys.platform == "win32" else ("bin", "activate")
@@ -2957,9 +2963,16 @@ All skills and their workflows are included below in the system context."""
     except Exception:
         pass
 
+    _done = False
     while True:
+        if _done:
+            break
         try:
-            question = input("  you> ").strip()
+            if _one_shot:
+                question = query
+                _done = True
+            else:
+                question = input("  you> ").strip()
         except (EOFError, KeyboardInterrupt):
             if not no_flush:
                 try:
@@ -3186,14 +3199,20 @@ All skills and their workflows are included below in the system context."""
 
         def spin():
             dots = itertools.cycle(["", ".", "..", "..."])
+            _last_label = ""
             while not stop_spinner.is_set():
                 elapsed = int(time.time() - t_start)
                 d = next(dots)
                 label = spinner_state[0]
-                line = f"  {label}{d:<3s}  ({elapsed}s)"
-                sys.stdout.write(f"\r{line:<80s}")
-                sys.stdout.flush()
-                spinner_state[1] = True
+                if not _one_shot:
+                    line = f"  {label}{d:<3s}  ({elapsed}s)"
+                    sys.stdout.write(f"\r{line:<80s}")
+                    sys.stdout.flush()
+                    spinner_state[1] = True
+                elif label != _last_label:
+                    sys.stderr.write(f"[STATUS] {label}\n")
+                    sys.stderr.flush()
+                    _last_label = label
                 time.sleep(0.4)
 
         spinner_thread = threading.Thread(target=spin, daemon=True)

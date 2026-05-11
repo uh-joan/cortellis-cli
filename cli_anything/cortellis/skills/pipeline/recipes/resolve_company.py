@@ -21,6 +21,7 @@ sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), ".."
 from resolver_cache import cache_get, cache_set
 
 
+
 def run_cli(*args):
     r = subprocess.run(["cortellis", "--json"] + list(args), capture_output=True, text=True)
     try:
@@ -47,15 +48,15 @@ def best_from_search(comps, query_name=""):
     if isinstance(comps, dict):
         comps = [comps]
     if query_name:
-        q = query_name.lower()
-        # Exact match: return immediately
+        nq = normalize(query_name)
+        # Exact normalized match: return immediately
         for c in comps:
-            if c.get("@name", "").lower() == q:
+            if normalize(c.get("@name", "")) == nq:
                 return c["@id"], int(c.get("Drugs", {}).get("@activeDevelopment", "0"))
-        # Starts-with match: prefer over non-matches, pick highest active among matches
-        starts_with = [c for c in comps if c.get("@name", "").lower().startswith(q)]
-        if starts_with:
-            best = max(starts_with, key=lambda c: int(c.get("Drugs", {}).get("@activeDevelopment", "0")))
+        # Substring match: query contained in candidate name (e.g. "eli lilly" in "eli lilly and company")
+        matches = [c for c in comps if nq in normalize(c.get("@name", "")) or normalize(c.get("@name", "")).startswith(nq)]
+        if matches:
+            best = max(matches, key=lambda c: int(c.get("Drugs", {}).get("@activeDevelopment", "0")))
             return best["@id"], int(best.get("Drugs", {}).get("@activeDevelopment", "0"))
     best = max(comps, key=lambda c: int(c.get("Drugs", {}).get("@activeDevelopment", "0")))
     return best["@id"], int(best.get("Drugs", {}).get("@activeDevelopment", "0"))
@@ -91,7 +92,7 @@ def resolve(name):
 
     # Strategy 1: ontology depth-1 parents
     d = run_cli("ontology", "search", "--term", name, "--category", "company")
-    nodes = d.get("ontologyTreeOutput", {}).get("TaxonomyTree", {}).get("Node", [])
+    nodes = d.get("ontologyTreeOutput", {}).get("TaxonomyTree", {}).get("Node", []) if isinstance(d, dict) else []
     if isinstance(nodes, dict):
         nodes = [nodes]
     if isinstance(nodes, str):
@@ -99,7 +100,7 @@ def resolve(name):
 
     parents = [
         n for n in nodes
-        if n.get("@depth") == "1" and n.get("@name", "").lower().startswith(name.lower())
+        if n.get("@depth") == "1" and names_match(name, n.get("@name", ""))
     ]
     if parents:
         best_pid, best_active = "", 0
