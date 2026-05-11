@@ -572,6 +572,8 @@ class TestCompileDossierIntegration:
             ],
         )
 
+        import cli_anything.cortellis.skills.pipeline.recipes.resolve_company as _rc_mod
+        monkeypatch.setattr(_rc_mod, "resolve", lambda name: ("", 0, "FAIL"))
         from cli_anything.cortellis.skills.landscape.recipes import compile_dossier
         compile_dossier.main()
 

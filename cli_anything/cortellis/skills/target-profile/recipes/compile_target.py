@@ -586,6 +586,7 @@ def compile_target_article(target_dir, target_name, slug, base_dir=None):
         "organism": organism,
         "disease_count": len(disease_associations),
         "drug_count": total_drugs,
+        "active_drug_count": sum(a.get("active_count", 0) for a in disease_associations),
         "publication_count": len(publications),
         "patent_count": len(patent_items),
         "reference_count": len(reference_items),

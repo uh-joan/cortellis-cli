@@ -710,8 +710,8 @@ def compile_company_articles(landscape_dir, indication_name, indication_slug, ba
             from cli_anything.cortellis.skills.pipeline.recipes.resolve_company import (
                 resolve as _rc_resolve, get_name as _rc_get_name,
             )
-            _pid, _, _ = _rc_resolve(company_name)
-            if _pid:
+            _pid, _, _method = _rc_resolve(company_name)
+            if _pid and _method != "best-effort":
                 _cname = _rc_get_name(_pid)
                 if _cname:
                     company_name = _cname

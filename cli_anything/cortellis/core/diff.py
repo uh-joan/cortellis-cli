@@ -15,6 +15,7 @@ from datetime import datetime, timezone
 from typing import Optional
 
 from cli_anything.cortellis.core import drugs as _drugs
+from cli_anything.cortellis.core import targets as _targets
 from cli_anything.cortellis.utils.wiki import article_path, read_article, list_articles, wiki_root
 
 
@@ -29,6 +30,7 @@ _DEFAULT_THRESHOLDS = {
     "indication": {"new_drugs": 1, "max_age_days": 7},
     "company":    {"new_drugs": 1, "max_age_days": 7},
     "drug":       {               "max_age_days": 7},
+    "target":     {"new_active_drugs": 2, "max_age_days": 14},
 }
 
 
@@ -73,6 +75,54 @@ def _read_indication_id(source_dir: str) -> Optional[str]:
         return None
 
 
+def _read_target_id(source_dir: str) -> Optional[str]:
+    """Read the target ID from sources.json (stored in api_calls params)."""
+    path = os.path.join(source_dir, "sources.json")
+    if not os.path.exists(path):
+        return None
+    try:
+        import json
+        with open(path, encoding="utf-8") as f:
+            data = json.load(f)
+        for call in data.get("api_calls", []):
+            tid = call.get("params", {}).get("idList", "")
+            if tid:
+                return tid.split(",")[0]
+    except Exception:
+        return None
+    return None
+
+
+def _count_active_target_drugs(resp: dict) -> int:
+    """Count active drugs from a condition_drug_associations API response."""
+    try:
+        out = resp.get("TargetRecordsOutput", resp)
+        rec = out.get("TargetRecord", out)
+        if isinstance(rec, list):
+            rec = rec[0] if rec else {}
+        conditions = rec.get("ConditionDrugAssociations", {}).get("Condition", [])
+        if isinstance(conditions, dict):
+            conditions = [conditions]
+        active = 0
+        for c in conditions:
+            drug_ids = c.get("DrugId", [])
+            if isinstance(drug_ids, dict):
+                drug_ids = [drug_ids]
+            active += sum(1 for d in drug_ids if isinstance(d, dict) and d.get("@status") == "Active")
+        return active
+    except (KeyError, TypeError, AttributeError):
+        return 0
+
+
+def fetch_live_target_counts(target_id: str, client) -> dict:
+    """Fetch active drug count for a target from the live API."""
+    resp = _targets.condition_drug_associations(client, [target_id])
+    return {
+        "active_drug_count": _count_active_target_drugs(resp),
+        "fetched_at": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
+    }
+
+
 def fetch_live_counts(indication_name: str, client, indication_id: Optional[str] = None) -> dict:
     """Fetch total drug count for an indication from the live API.
 
@@ -102,7 +152,7 @@ def compute_diff(
     if article_type is None:
         article_type = _detect_type(slug, base_dir)
 
-    if article_type not in ("indication", "company", "drug"):
+    if article_type not in ("indication", "company", "drug", "target"):
         return {
             "slug": slug, "type": article_type,
             "error": f"unsupported type: {article_type}",
@@ -133,16 +183,32 @@ def compute_diff(
         indication_id = _read_indication_id(source_dir) if source_dir else None
         live = fetch_live_counts(title, client, indication_id=indication_id)
         live_drugs = live["total_drugs"]
+        live_active_drugs = None
+    elif article_type == "target":
+        source_dir = meta.get("source_dir", "")
+        target_id = _read_target_id(source_dir) if source_dir else None
+        if target_id:
+            live = fetch_live_target_counts(target_id, client)
+            live_active_drugs = live["active_drug_count"]
+        else:
+            live_active_drugs = None
+        live_drugs = None
     else:
         live_drugs = None
+        live_active_drugs = None
 
     drug_delta = (live_drugs - prev_drugs) if live_drugs is not None else None
+    prev_active = meta.get("active_drug_count")  # None = baseline not yet stored
+    active_delta = (live_active_drugs - int(prev_active)) if (live_active_drugs is not None and prev_active is not None) else None
+    active_thr = thr.get("new_active_drugs", 999)
 
     reasons = []
     if age >= max_age:
         reasons.append(f"age {age}d >= {max_age}d threshold")
     if drug_delta is not None and drug_delta >= drug_thr:
         reasons.append(f"+{drug_delta} drugs (threshold: {drug_thr})")
+    if active_delta is not None and active_delta >= active_thr:
+        reasons.append(f"+{active_delta} active drugs (threshold: {active_thr})")
 
     return {
         "slug": slug,
@@ -176,8 +242,15 @@ def scan_all(
             continue
         if types and atype not in types:
             continue
-        results.append(compute_diff(slug, client, base_dir=base_dir,
-                                    article_type=atype, thresholds=thresholds))
+        try:
+            results.append(compute_diff(slug, client, base_dir=base_dir,
+                                        article_type=atype, thresholds=thresholds))
+        except Exception as exc:
+            results.append({
+                "slug": slug, "type": atype,
+                "error": str(exc),
+                "should_refresh": False,
+            })
 
     results.sort(key=lambda r: (not r.get("should_refresh"), -r.get("age_days", 0)))
     return results
