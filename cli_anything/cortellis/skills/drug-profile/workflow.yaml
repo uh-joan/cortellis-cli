@@ -91,7 +91,7 @@ nodes:
   - id: enrich_regulatory
     bash: |
       python3 cli_anything/cortellis/skills/landscape/recipes/enrich_regulatory_milestones.py \
-        raw/drugs/$resolve.output.inn_slug "$resolve.output.drug_canonical"
+        raw/drugs/$resolve.output.inn_slug $resolve.output.drug_canonical
     depends_on: [fetch_record]
     api_calls: true
     allow_fail: true
@@ -101,51 +101,51 @@ nodes:
   - id: enrich_ct_trials
     bash: |
       python3 cli_anything/cortellis/skills/drug-profile/recipes/enrich_ct_trials.py \
-        raw/drugs/$resolve.output.inn_slug "$resolve.output.drug_canonical"
+        raw/drugs/$resolve.output.inn_slug $resolve.output.drug_canonical
     depends_on: [resolve]
     allow_fail: true
 
   - id: enrich_fda
     bash: |
       python3 cli_anything/cortellis/skills/drug-profile/recipes/enrich_fda_approval.py \
-        raw/drugs/$resolve.output.inn_slug "$resolve.output.drug_canonical" \
-        --phase "$resolve.output.drug_phase"
+        raw/drugs/$resolve.output.inn_slug $resolve.output.drug_canonical \
+        --phase $resolve.output.drug_phase
     depends_on: [resolve]
     allow_fail: true
 
   - id: enrich_ema
     bash: |
       python3 cli_anything/cortellis/skills/drug-profile/recipes/enrich_ema.py \
-        raw/drugs/$resolve.output.inn_slug "$resolve.output.drug_canonical" \
-        --phase "$resolve.output.drug_phase"
+        raw/drugs/$resolve.output.inn_slug $resolve.output.drug_canonical \
+        --phase $resolve.output.drug_phase
     depends_on: [resolve]
     allow_fail: true
 
   - id: enrich_patent
     bash: |
       python3 cli_anything/cortellis/skills/drug-profile/recipes/enrich_fda_patent.py \
-        raw/drugs/$resolve.output.inn_slug "$resolve.output.drug_canonical"
+        raw/drugs/$resolve.output.inn_slug $resolve.output.drug_canonical
     depends_on: [resolve]
     allow_fail: true
 
   - id: enrich_chembl
     bash: |
       python3 cli_anything/cortellis/skills/drug-profile/recipes/enrich_chembl.py \
-        raw/drugs/$resolve.output.inn_slug "$resolve.output.drug_canonical"
+        raw/drugs/$resolve.output.inn_slug $resolve.output.drug_canonical
     depends_on: [resolve]
     allow_fail: true
 
   - id: enrich_cpic
     bash: |
       python3 cli_anything/cortellis/skills/drug-profile/recipes/enrich_cpic.py \
-        raw/drugs/$resolve.output.inn_slug "$resolve.output.drug_canonical"
+        raw/drugs/$resolve.output.inn_slug $resolve.output.drug_canonical
     depends_on: [resolve]
     allow_fail: true
 
   - id: enrich_biorxiv
     bash: |
       python3 cli_anything/cortellis/skills/drug-profile/recipes/enrich_biorxiv.py \
-        raw/drugs/$resolve.output.inn_slug "$resolve.output.drug_canonical"
+        raw/drugs/$resolve.output.inn_slug $resolve.output.drug_canonical
     depends_on: [resolve]
     allow_fail: true
 
@@ -168,7 +168,7 @@ nodes:
   - id: compile
     bash: |
       python3 cli_anything/cortellis/skills/drug-profile/recipes/compile_drug.py \
-        raw/drugs/$resolve.output.inn_slug "$resolve.output.drug_canonical"
+        raw/drugs/$resolve.output.inn_slug $resolve.output.drug_canonical
     depends_on: [report]
     model: opus
     review_gate: true

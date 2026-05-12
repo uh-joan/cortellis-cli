@@ -92,7 +92,13 @@ def resolve(name):
 
     # Strategy 1: ontology depth-1 parents
     d = run_cli("ontology", "search", "--term", name, "--category", "company")
-    nodes = d.get("ontologyTreeOutput", {}).get("TaxonomyTree", {}).get("Node", []) if isinstance(d, dict) else []
+    _tree_out = d.get("ontologyTreeOutput", {}) if isinstance(d, dict) else {}
+    if not isinstance(_tree_out, dict):
+        _tree_out = {}
+    _taxonomy = _tree_out.get("TaxonomyTree", {})
+    if not isinstance(_taxonomy, dict):
+        _taxonomy = {}
+    nodes = _taxonomy.get("Node", [])
     if isinstance(nodes, dict):
         nodes = [nodes]
     if isinstance(nodes, str):

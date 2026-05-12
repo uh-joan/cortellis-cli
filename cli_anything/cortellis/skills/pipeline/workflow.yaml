@@ -108,9 +108,9 @@ nodes:
     bash: |
       python3 cli_anything/cortellis/skills/pipeline/recipes/report_generator.py \
         raw/pipeline/$resolve.output.company_name \
-        "$resolve.output.company_canonical" \
-        "$resolve.output.company_id" \
-        "$resolve.output.active_drugs"
+        $resolve.output.company_canonical \
+        $resolve.output.company_id \
+        $resolve.output.active_drugs
     depends_on: [catch_missing]
     trigger_rule: all_done
     model: opus
@@ -120,7 +120,7 @@ nodes:
   - id: compile
     bash: |
       python3 cli_anything/cortellis/skills/pipeline/recipes/compile_pipeline.py \
-        raw/pipeline/$resolve.output.company_name "$resolve.output.company_canonical"
+        raw/pipeline/$resolve.output.company_name $resolve.output.company_canonical
     depends_on: [report]
     model: opus
     review_gate: true

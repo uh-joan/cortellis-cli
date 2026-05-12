@@ -95,7 +95,7 @@ nodes:
     bash: |
       mkdir -p raw/targets/$resolve.output.target_name
       cortellis --json drug-design disease-briefings-search \
-        --query "$resolve.output.target_canonical" --hits 3 \
+        --query $resolve.output.target_canonical --hits 3 \
         > raw/targets/$resolve.output.target_name/briefings.json
     depends_on: [resolve]
     api_calls: true
@@ -105,7 +105,7 @@ nodes:
     bash: |
       mkdir -p raw/targets/$resolve.output.target_name
       bash cli_anything/cortellis/skills/target-profile/recipes/fetch_drugs_by_action.sh \
-        "$resolve.output.action_name" \
+        $resolve.output.action_name \
         raw/targets/$resolve.output.target_name/drugs_pipeline.json
     depends_on: [resolve]
     when: "$resolve.output.action_name != ''"
@@ -161,7 +161,7 @@ nodes:
   - id: compile
     bash: |
       python3 cli_anything/cortellis/skills/target-profile/recipes/compile_target.py \
-        raw/targets/$resolve.output.target_name "$resolve.output.target_canonical"
+        raw/targets/$resolve.output.target_name $resolve.output.target_canonical
     depends_on: [report]
     model: opus
     review_gate: true
