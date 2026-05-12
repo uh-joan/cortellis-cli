@@ -115,8 +115,17 @@ def _count_active_target_drugs(resp: dict) -> int:
 
 
 def fetch_live_target_counts(target_id: str, client) -> dict:
-    """Fetch active drug count for a target from the live API."""
-    resp = _targets.condition_drug_associations(client, [target_id])
+    """Fetch active drug count for a target from the live API.
+
+    Uses a fresh client to avoid Digest auth nonce conflicts when called
+    after drugs-v2 API calls in the same session.
+    """
+    from cli_anything.cortellis.core.client import CortellisClient
+    fresh = CortellisClient()
+    try:
+        resp = _targets.condition_drug_associations(fresh, [target_id])
+    finally:
+        fresh.close()
     return {
         "active_drug_count": _count_active_target_drugs(resp),
         "fetched_at": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
@@ -171,7 +180,7 @@ def compute_diff(
     title = meta.get("title", slug)
     compiled_at = meta.get("compiled_at", "")
     age = _age_days(compiled_at)
-    prev_drugs = int(meta.get("total_drugs") or 0)
+    prev_drugs = int(meta.get("total_drugs_api") or meta.get("total_drugs") or 0)
     prev_deals = int(meta.get("total_deals") or 0)
 
     thr = thresholds or _DEFAULT_THRESHOLDS.get(article_type, {})
@@ -241,6 +250,8 @@ def scan_all(
         if not slug or not atype:
             continue
         if types and atype not in types:
+            continue
+        if meta.get("diff_skip"):
             continue
         try:
             results.append(compute_diff(slug, client, base_dir=base_dir,

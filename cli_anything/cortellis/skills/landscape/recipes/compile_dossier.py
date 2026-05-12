@@ -12,6 +12,7 @@ This is Step 15 of the landscape skill pipeline.
 
 import json
 import os
+import subprocess
 import sys
 from datetime import datetime, timezone
 
@@ -41,6 +42,43 @@ from cli_anything.cortellis.utils.wiki import (
     log_activity,
     compute_relevance_score,
 )
+
+
+# ---------------------------------------------------------------------------
+# Target resolvability probe
+# ---------------------------------------------------------------------------
+
+def _fetch_api_drug_count(indication_id: str) -> int:
+    """Fetch unfiltered total drug count for an indication from the live API."""
+    try:
+        r = subprocess.run(
+            ["cortellis", "--json", "drugs", "search", "--indication", indication_id, "--hits", "1"],
+            capture_output=True, text=True, timeout=30,
+        )
+        if r.returncode == 0:
+            d = json.loads(r.stdout)
+            return int(d.get("drugResultsOutput", {}).get("@totalResults", 0))
+    except (subprocess.TimeoutExpired, OSError, ValueError, KeyError, json.JSONDecodeError):
+        pass
+    return 0
+
+
+def _try_resolve_target(query: str) -> bool:
+    """Return True if Cortellis can resolve this target name (uses resolver cache)."""
+    script = os.path.join(
+        os.path.dirname(os.path.abspath(__file__)),
+        "..", "target-profile", "recipes", "resolve_target_id.py",
+    )
+    if not os.path.exists(script):
+        return True  # optimistic when script missing
+    try:
+        r = subprocess.run(
+            [sys.executable, script, query],
+            capture_output=True, text=True, timeout=30,
+        )
+        return r.returncode == 0
+    except (subprocess.TimeoutExpired, OSError):
+        return True  # optimistic on transient failure
 
 
 # ---------------------------------------------------------------------------
@@ -253,6 +291,14 @@ def compile_indication_article(landscape_dir, indication_name, slug, base_dir=No
     dd_mech_counts = load_drugdesign_mechanism_counts(landscape_dir)
     source_count = count_enrichment_sources(landscape_dir)
     _regions_path = os.path.join(landscape_dir, "approval_regions.json")
+    _indication_id = None
+    if os.path.exists(_regions_path):
+        try:
+            with open(_regions_path) as _rf:
+                _indication_id = str(json.load(_rf).get("indication_id", "") or "")
+        except Exception:
+            pass
+    _api_drug_count = _fetch_api_drug_count(_indication_id) if _indication_id else 0
 
     # Top company for index
     top_company = ""
@@ -292,6 +338,7 @@ def compile_indication_article(landscape_dir, indication_name, slug, base_dir=No
         "source_dir": landscape_dir,
         "freshness_level": freshness.get("staleness_level", "unknown"),
         "total_drugs": phases["total"],
+        "total_drugs_api": _api_drug_count or phases["total"],
         "total_deals": deal_count,
         "preset": preset,
         "top_company": f"{top_company} ({top_cpi})" if top_company else "",
@@ -531,7 +578,13 @@ def compile_indication_article(landscape_dir, indication_name, slug, base_dir=No
             if target_slug:
                 matched_targets[mname] = target_slug
             mech_link = wikilink(target_slug or slugify(mname), mname) if mname != '-' else '-'
-            profile_flag = "✓" if mname != '-' and mname in enrichments["targets"] else ""
+            if mname == '-':
+                profile_flag = ""
+            elif mname in enrichments["targets"]:
+                profile_flag = "✓"
+            else:
+                query = target_slug.replace("-", " ") if target_slug else mname
+                profile_flag = "" if _try_resolve_target(query) else "✗"
             # bench count: look up by normalised mechanism name
             bench = ""
             if has_bench and mname != '-':
