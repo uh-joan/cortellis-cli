@@ -180,6 +180,9 @@ if __name__ == "__main__":
         sys.exit(1)
 
     cached = cache_get("targets_full", name)
+    if cached == "UNRESOLVABLE":
+        print(f"ERROR: could not resolve target '{name}' (cached)", file=sys.stderr)
+        sys.exit(1)
     if cached:
         print(cached)
         sys.exit(0)
@@ -190,5 +193,6 @@ if __name__ == "__main__":
         cache_set("targets_full", name, output)
         print(output)
     else:
+        cache_set("targets_full", name, "UNRESOLVABLE")
         print(f"ERROR: could not resolve target '{name}'", file=sys.stderr)
         sys.exit(1)

@@ -76,9 +76,10 @@ def resolve(name):
                         drug = _sr2.get("Drug", {}) if isinstance(_sr2, dict) else {}
                         if isinstance(drug, list):
                             drug = drug[0]
-                        return ner_id, drug.get("@name", name), drug.get("@phaseHighest", ""), indication_count(drug)
+                        if drug.get("@id"):  # only use NER id if drug record exists
+                            return ner_id, drug.get("@name", name), drug.get("@phaseHighest", ""), indication_count(drug)
                     except (json.JSONDecodeError, KeyError, TypeError, ValueError):
-                        return ner_id, name, "", 0
+                        pass  # fall through to Strategy 2
     except (json.JSONDecodeError, KeyError, TypeError, ValueError):
         pass
 
