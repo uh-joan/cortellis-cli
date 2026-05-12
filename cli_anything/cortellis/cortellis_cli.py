@@ -66,8 +66,8 @@ load_dotenv()
 @click.option("--debug", is_flag=True, default=False,
               help="Show API commands being executed in chat mode.")
 @click.option("--engine", default="claude",
-              type=click.Choice(["claude", "codex", "pi"], case_sensitive=False),
-              help="AI engine for chat mode: 'claude' (Claude Code), 'codex' (OpenAI Codex), or 'pi' (Pi coding agent).")
+              type=click.Choice(["claude", "codex", "pi", "lmstudio"], case_sensitive=False),
+              help="AI engine for chat mode: 'claude' (Claude Code), 'codex' (OpenAI Codex), 'pi' (Pi coding agent), or 'lmstudio' (local LM Studio server).")
 @click.option("--no-flush", "no_flush", is_flag=True, default=False,
               help="Skip session memory flush on exit (useful for testing).")
 @click.option("--query", "-q", default=None,
@@ -2672,6 +2672,215 @@ def wiki_scores_cmd(article_type, min_score) -> None:
     click.echo(f"\n{len(rows)} article(s) shown.")
 
 
+@wiki_group.command("changelogs")
+def wiki_changelogs_cmd() -> None:
+    """List indication slugs that have no compiled changelog.
+
+    \b
+    Examples:
+      cortellis wiki changelogs
+    """
+    from cli_anything.cortellis.utils.wiki import list_articles, wiki_root
+
+    w_dir = wiki_root(".")
+    articles = list_articles(w_dir, "indications")
+    missing = [
+        (art["meta"].get("slug", ""), art["meta"].get("title", ""))
+        for art in articles
+        if art.get("meta") and not art["meta"].get("changelog_compiled_at")
+    ]
+    if not missing:
+        click.echo("All indications have a compiled changelog.")
+        return
+    for slug, title in missing:
+        click.echo(f"{slug}  {title}")
+
+
+@wiki_group.command("gaps")
+@click.argument("indication", default="")
+def wiki_gaps_cmd(indication: str) -> None:
+    """List entities in compiled indication articles that lack wiki profiles.
+
+    \b
+    Output (one entity per line):
+      TARGET <slug> <active_drugs> <companies>
+      DRUG   <slug> <phase>
+      COMPANY <slug> <rank> <cpi>
+
+    \b
+    Examples:
+      cortellis wiki gaps
+      cortellis wiki gaps obesity
+    """
+    import re
+    from datetime import datetime, timezone, timedelta
+    from pathlib import Path
+    from cli_anything.cortellis.utils.wiki import wiki_root
+
+    w_dir = Path(wiki_root("."))
+    ind_dir = w_dir / "indications"
+    if not ind_dir.is_dir():
+        return
+
+    if indication:
+        ind_files = [ind_dir / f"{indication}.md"] if (ind_dir / f"{indication}.md").exists() else []
+    else:
+        ind_files = sorted(ind_dir.glob("*.md"))
+
+    cutoff = datetime.now(timezone.utc) - timedelta(days=90)
+
+    def _split_row(row: str) -> list[str]:
+        # Normalize \| inside wiki links to avoid splitting on them,
+        # then split on | and restore.
+        return [c.replace("\x00", "\\|").strip() for c in row.replace("\\|", "\x00").split("|")[1:-1]]
+
+    def _slug_from_link(link: str) -> str:
+        # Capture slug up to ], \, |, or the \x00 placeholder
+        m = re.match(r"\[\[([^\]\\|\x00]+)", link.replace("\\|", "\x00"))
+        return m.group(1).strip() if m else ""
+
+    def _to_slug(name: str) -> str:
+        return re.sub(r"[^a-z0-9]+", "-", name.lower().strip()).strip("-")
+
+    # Strip mechanism action-word suffixes to get the target/receptor slug.
+    # Order matters: longer compound suffixes before single words.
+    _ACTION_SUFFIXES = [
+        "gene-inhibitor", "gene-modulator",
+        "agonist", "antagonist", "inhibitor", "stimulator",
+        "modulator", "activator", "sensitizer", "ligand",
+    ]
+
+    def _mech_to_target_slug(slug: str) -> str:
+        for action in _ACTION_SUFFIXES:
+            if slug.endswith(f"-{action}"):
+                return slug[:-(len(action) + 1)]
+        return slug
+
+    seen: set[str] = set()
+
+    for ind_file in ind_files:
+        content = ind_file.read_text(encoding="utf-8")
+
+        # TARGETS: Mechanism Analysis table — Profile column empty, Active >= 4
+        mech_m = re.search(r"## Mechanism Analysis\n(.*?)(?=\n## |\Z)", content, re.DOTALL)
+        if mech_m:
+            for row in mech_m.group(1).splitlines():
+                if not row.startswith("|") or "---|" in row or "Mechanism" in row:
+                    continue
+                cols = _split_row(row)
+                if len(cols) < 10:
+                    continue
+                # Profile is last column: index 10 (with Bench) or index 9 (without)
+                profile_col = 10 if len(cols) >= 11 else 9
+                try:
+                    active = int(cols[1])
+                    n_companies = int(cols[7])
+                except ValueError:
+                    continue
+                if cols[profile_col].strip() in ("✓", "✗") or active < 4:
+                    continue
+                mech_slug = _slug_from_link(cols[0])
+                if not mech_slug:
+                    continue
+                slug = _mech_to_target_slug(mech_slug)
+                if slug in seen:
+                    continue
+                # Only emit slugs that look like discrete biological entities:
+                # receptors, kinases, channels, transporters, or short gene symbols
+                # (e.g. "inhbe", "gdf-8"). Skip pure mechanism labels like
+                # "insulin-sensitizer" or "nacht-lrr-pyd-domain-protein-3".
+                _entity_markers = ("-receptor", "-kinase", "-channel", "-transporter", "-enzyme")
+                _gene_symbol = re.match(r"^[a-z]{2,6}(-\d+)?$", slug)
+                if not any(m in slug for m in _entity_markers) and not _gene_symbol:
+                    continue
+                if (w_dir / "targets" / f"{slug}.md").exists():
+                    continue
+                # Check resolver cache: compiled article may live at canonical Cortellis slug
+                try:
+                    from cli_anything.cortellis.skills.resolver_cache import cache_get as _rc
+                    _cached = _rc("targets_full", slug)
+                    if _cached and _cached != "UNRESOLVABLE":
+                        _parts = _cached.split(",")
+                        if len(_parts) >= 2:
+                            _canonical = re.sub(r"[^a-z0-9]+", "-", _parts[1].lower().strip()).strip("-")
+                            if (w_dir / "targets" / f"{_canonical}.md").exists():
+                                continue
+                except Exception:
+                    pass
+                seen.add(slug)
+                click.echo(f"TARGET {slug} {active} {n_companies}")
+
+        # DRUGS: Key Drugs table — all rows without a wiki article
+        drugs_m = re.search(r"## Key Drugs\n(.*?)(?=\n## |\Z)", content, re.DOTALL)
+        if drugs_m:
+            for row in drugs_m.group(1).splitlines():
+                if not row.startswith("|") or "---|" in row or "Drug" in row:
+                    continue
+                cols = _split_row(row)
+                if len(cols) < 2:
+                    continue
+                slug = _slug_from_link(cols[0])
+                if not slug or slug in seen:
+                    continue
+                if (w_dir / "drugs" / f"{slug}.md").exists():
+                    continue
+                seen.add(slug)
+                phase = cols[1] if len(cols) > 1 else "?"
+                click.echo(f"DRUG {slug} {phase}")
+
+        # DRUGS: Recent Phase 3 entries within 90 days, clean INN only
+        p3_m = re.search(r"### Recent Phase 3 Entries\n(.*?)(?=\n### |\n## |\Z)", content, re.DOTALL)
+        if p3_m:
+            for row in p3_m.group(1).splitlines():
+                if not row.startswith("|") or "---|" in row or "Date" in row:
+                    continue
+                cols = _split_row(row)
+                if len(cols) < 2:
+                    continue
+                drug_name = cols[1]
+                if "(" in drug_name or "/" in drug_name:
+                    continue  # skip complex combo names
+                try:
+                    entry_date = datetime.fromisoformat(cols[0]).replace(tzinfo=timezone.utc)
+                    if entry_date < cutoff:
+                        continue
+                except ValueError:
+                    continue
+                slug = _to_slug(drug_name)
+                if not slug or slug in seen:
+                    continue
+                if (w_dir / "drugs" / f"{slug}.md").exists():
+                    continue
+                seen.add(slug)
+                click.echo(f"DRUG {slug} Phase 3 Clinical")
+
+        # COMPANIES: Competitive Landscape table — rank <= 30, no wiki article
+        comp_m = re.search(r"## Competitive Landscape\n(.*?)(?=\n## |\Z)", content, re.DOTALL)
+        if comp_m:
+            for row in comp_m.group(1).splitlines():
+                if not row.startswith("|") or "---|" in row or "Rank" in row:
+                    continue
+                cols = _split_row(row)
+                if len(cols) < 4:
+                    continue
+                try:
+                    rank = int(cols[0])
+                    cpi = float(cols[3])
+                except ValueError:
+                    continue
+                if rank > 30:
+                    continue
+                slug = _slug_from_link(cols[1])
+                if not slug or slug in seen:
+                    continue
+                companies_dir = w_dir / "companies"
+                # exact match OR prefix match (e.g. "regeneron" covers "regeneron-pharmaceuticals")
+                if (companies_dir / f"{slug}.md").exists() or any(companies_dir.glob(f"{slug}-*.md")):
+                    continue
+                seen.add(slug)
+                click.echo(f"COMPANY {slug} {rank} {cpi}")
+
+
 # ---------------------------------------------------------------------------
 # web — browser-based chat UI
 # ---------------------------------------------------------------------------
@@ -2784,6 +2993,24 @@ def chat_cmd(debug, engine="claude", no_flush=False, query=None) -> None:
         if not _one_shot:
             click.echo(_BANNER)
             click.echo("  Cortellis AI Chat — powered by Pi")
+            click.echo("  Ask questions naturally. Type 'exit' or Ctrl-D to quit.\n")
+    elif engine == "lmstudio":
+        ai_bin = None
+        _lmstudio_url = os.environ.get("LMSTUDIO_URL", "http://127.0.0.1:1234").rstrip("/")
+        _lmstudio_model = os.environ.get("LMSTUDIO_MODEL", "")
+        try:
+            import urllib.request as _lm_ur_init
+            with _lm_ur_init.urlopen(f"{_lmstudio_url}/v1/models", timeout=3) as _lm_r:
+                _lm_data = _json.loads(_lm_r.read())
+                if not _lmstudio_model and _lm_data.get("data"):
+                    _lmstudio_model = _lm_data["data"][0]["id"]
+        except Exception as _lm_err:
+            click.echo(f"Error: LM Studio not reachable at {_lmstudio_url}")
+            click.echo("  Start LM Studio, load a model, and enable the local server.")
+            raise SystemExit(1)
+        if not _one_shot:
+            click.echo(_BANNER)
+            click.echo(f"  Cortellis AI Chat — powered by LM Studio ({_lmstudio_model or 'auto'})")
             click.echo("  Ask questions naturally. Type 'exit' or Ctrl-D to quit.\n")
     else:
         ai_bin = shutil.which("claude")
@@ -3176,6 +3403,8 @@ All skills and their workflows are included below in the system context."""
             cmd = [ai_bin, "--mode", "json", "--no-context-files", "-p", full_message]
             if use_context and not first_turn:
                 cmd.append("-c")
+        elif engine == "lmstudio":
+            cmd = []  # no subprocess — HTTP tool loop runs below
         else:
             cmd = [ai_bin, "--print", "-p", routed_question,
                    "--append-system-prompt", effective_prompt,
@@ -3218,12 +3447,14 @@ All skills and their workflows are included below in the system context."""
         spinner_thread = threading.Thread(target=spin, daemon=True)
         spinner_thread.start()
 
-        popen_kwargs = dict(stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
-        if engine in ("codex", "pi"):
-            # Prevent blocking on stdin
-            popen_kwargs["stdin"] = subprocess.DEVNULL
-        proc = subprocess.Popen(cmd, **popen_kwargs)
+        proc = None
         first_output = True
+        if engine != "lmstudio":
+            popen_kwargs = dict(stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+            if engine in ("codex", "pi"):
+                # Prevent blocking on stdin
+                popen_kwargs["stdin"] = subprocess.DEVNULL
+            proc = subprocess.Popen(cmd, **popen_kwargs)
 
         if engine == "codex":
             # Parse codex stdout to surface tool-call activity in the spinner label.
@@ -3453,6 +3684,156 @@ All skills and their workflows are included below in the system context."""
                         _lf.write(_entry)
                 except Exception as _e:
                     sys.stderr.write(f"  Warning: could not write session log: {_e}\n")
+        elif engine == "lmstudio":
+            import urllib.request as _lm_ur
+            import urllib.error as _lm_ue
+
+            _lm_messages = [
+                {"role": "system", "content": effective_prompt},
+                {"role": "user", "content": routed_question},
+            ]
+            _lm_tools = [{
+                "type": "function",
+                "function": {
+                    "name": "bash",
+                    "description": "Execute a bash command and return its stdout",
+                    "parameters": {
+                        "type": "object",
+                        "properties": {
+                            "command": {"type": "string", "description": "The bash command to run"}
+                        },
+                        "required": ["command"],
+                    },
+                },
+            }]
+
+            _lm_text = ""
+            for _lm_turn in range(15):
+                _lm_payload = _json.dumps({
+                    "model": _lmstudio_model,
+                    "messages": _lm_messages,
+                    "tools": _lm_tools,
+                    "tool_choice": "auto",
+                    "max_tokens": 4096,
+                }).encode()
+                _lm_req = _lm_ur.Request(
+                    f"{_lmstudio_url}/v1/chat/completions",
+                    data=_lm_payload,
+                    headers={"Content-Type": "application/json"},
+                    method="POST",
+                )
+                try:
+                    with _lm_ur.urlopen(_lm_req, timeout=300) as _lm_r:
+                        _lm_resp = _json.loads(_lm_r.read())
+                except Exception as _lm_e:
+                    _lm_text = f"[LM Studio error: {_lm_e}]"
+                    break
+
+                _lm_choice = _lm_resp.get("choices", [{}])[0]
+                _lm_msg = _lm_choice.get("message", {})
+                _lm_content = _lm_msg.get("content") or ""
+                _lm_tool_calls = _lm_msg.get("tool_calls") or []
+
+                if not _lm_tool_calls:
+                    _lm_text = _lm_content.strip()
+                    break
+
+                _lm_messages.append({
+                    "role": "assistant",
+                    "content": _lm_content,
+                    "tool_calls": _lm_tool_calls,
+                })
+
+                for _lm_tc in _lm_tool_calls:
+                    _tc_id = _lm_tc.get("id", "call_0")
+                    _tc_args_raw = _lm_tc.get("function", {}).get("arguments", "{}")
+                    try:
+                        _tc_args = _json.loads(_tc_args_raw)
+                    except Exception:
+                        _tc_args = {}
+                    _tc_cmd = _tc_args.get("command", "")
+
+                    if _tc_cmd:
+                        if debug:
+                            if first_output:
+                                stop_spinner.set()
+                                spinner_thread.join()
+                                if spinner_state[1]:
+                                    sys.stdout.write("\n")
+                                first_output = False
+                            sys.stdout.write(f"  > {_tc_cmd[:80]}\n")
+                            sys.stdout.flush()
+                        else:
+                            try:
+                                from cli_anything.cortellis.core.status_translator import translate_command
+                                _tc_status = translate_command(_tc_cmd)
+                                if _tc_status:
+                                    if spinner_state[1]:
+                                        elapsed = int(time.time() - t_start)
+                                        sys.stdout.write(f"\r  {spinner_state[0]}  ({elapsed}s)\n")
+                                        sys.stdout.flush()
+                                        spinner_state[1] = False
+                                    spinner_state[0] = _tc_status
+                            except Exception:
+                                pass
+
+                    try:
+                        _tc_result = subprocess.run(
+                            ["bash", "-c", _tc_cmd],
+                            capture_output=True, text=True, timeout=60,
+                        )
+                        _tc_output = _tc_result.stdout
+                        if _tc_result.returncode != 0 and _tc_result.stderr:
+                            _tc_output += "\n" + _tc_result.stderr
+                    except subprocess.TimeoutExpired:
+                        _tc_output = "[Command timed out after 60s]"
+                    except Exception as _tc_e:
+                        _tc_output = f"[Error running command: {_tc_e}]"
+
+                    _lm_messages.append({
+                        "role": "tool",
+                        "tool_call_id": _tc_id,
+                        "content": _tc_output[:8000],
+                    })
+            else:
+                if not _lm_text:
+                    _lm_text = "[LM Studio: maximum tool iterations reached]"
+
+            stop_spinner.set()
+            spinner_thread.join()
+            elapsed = int(time.time() - t_start)
+            if spinner_state[1]:
+                sys.stdout.write(f"\r  Answered in {elapsed}s" + " " * 40 + "\n\n")
+            else:
+                sys.stdout.write(f"  Answered in {elapsed}s\n\n")
+            sys.stdout.flush()
+
+            text = _lm_text or "[No response from LM Studio]"
+            sys.stdout.write(text)
+            if not text.endswith("\n"):
+                sys.stdout.write("\n")
+            sys.stdout.flush()
+
+            if not no_flush:
+                try:
+                    from datetime import datetime as _dt2, timezone as _tz2
+                    _now = _dt2.now(_tz2.utc)
+                    _daily_dir = os.path.join(os.getcwd(), "daily")
+                    os.makedirs(_daily_dir, exist_ok=True)
+                    _log_path = os.path.join(_daily_dir, f"{_now.strftime('%Y-%m-%d')}.md")
+                    _entry = (
+                        f"\n\n---\n\n"
+                        f"### [LMStudio] Turn ({_now.strftime('%H:%M:%S')} UTC)\n\n"
+                        f"**Q:** {routed_question[:300]}\n\n"
+                        f"**A:** {text[:500]}{'...' if len(text) > 500 else ''}\n"
+                    )
+                    if not os.path.exists(_log_path):
+                        with open(_log_path, "w", encoding="utf-8") as _lf:
+                            _lf.write(f"# Daily Log — {_now.strftime('%Y-%m-%d')}\n")
+                    with open(_log_path, "a", encoding="utf-8") as _lf:
+                        _lf.write(_entry)
+                except Exception as _e:
+                    sys.stderr.write(f"  Warning: could not write session log: {_e}\n")
         else:
             # Parse stream-json to show tool calls + final answer
             for line in iter(proc.stdout.readline, b""):
@@ -3583,7 +3964,8 @@ All skills and their workflows are included below in the system context."""
                     sys.stdout.write(f"\r  Answered in {elapsed}s" + " " * 40 + "\n\n")
                     sys.stdout.flush()
 
-        proc.wait()
+        if proc is not None:
+            proc.wait()
         click.echo()
 
         # Append Q&A to history and persist for cross-session recall

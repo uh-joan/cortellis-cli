@@ -16,7 +16,7 @@ import sys
 import os
 import csv
 import re
-from datetime import datetime
+from datetime import datetime, timezone
 from collections import defaultdict
 
 # ── helpers ──────────────────────────────────────────────────────────────────
@@ -117,6 +117,19 @@ def load_notable_transitions(raw_dir: str) -> list[dict]:
 
 
 # ── main ─────────────────────────────────────────────────────────────────────
+
+def _stamp_changelog(wiki_file: str) -> None:
+    """Write changelog_compiled_at to the indication article frontmatter."""
+    now = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+    with open(wiki_file, encoding="utf-8") as f:
+        content = f.read()
+    if "changelog_compiled_at:" in content:
+        content = re.sub(r"changelog_compiled_at: '[^']*'", f"changelog_compiled_at: '{now}'", content)
+    else:
+        content = re.sub(r"\n---\n", f"\nchangelog_compiled_at: '{now}'\n---\n", content, count=1)
+    with open(wiki_file, "w", encoding="utf-8") as f:
+        f.write(content)
+
 
 def main():
     if len(sys.argv) < 4:
@@ -273,6 +286,12 @@ def main():
               f"Company rankings reflect current compiled state only._")
     else:
         print("_Only one snapshot available. Run /landscape periodically to build history._")
+
+    if os.path.exists(wiki_file):
+        try:
+            _stamp_changelog(wiki_file)
+        except Exception:
+            pass
 
 
 if __name__ == "__main__":

@@ -755,15 +755,69 @@ def check_freshness(
 def compute_relevance_score(meta: dict) -> tuple[float, str]:
     """Compute relevance score (0.0–1.0) and coverage depth for a wiki article.
 
-    Scoring rubric (indication articles):
+    Indication scoring rubric:
       - Source count  25%  — distinct enrichment sources present at compile time
       - Drug count    20%  — total_drugs normalized to 20+ drugs = full score
       - Phase breadth 20%  — how many of 5 phases have ≥1 drug
       - Recency       20%  — age decay: 0 days = 1.0, 90 days = 0.0
       - Synthesis     15%  — has CPI rankings + ≥5 sources
 
+    Company/drug/target articles use entity-specific signals instead.
+
     Returns (score, depth) where depth is 'shallow' | 'standard' | 'deep'.
     """
+    article_type = meta.get("type", "indication")
+
+    # Shared recency component
+    recency = 0.0
+    compiled_at = meta.get("compiled_at", "")
+    if compiled_at:
+        try:
+            compiled_dt = datetime.fromisoformat(compiled_at.replace("Z", "+00:00"))
+            age_days = (datetime.now(timezone.utc) - compiled_dt).days
+            recency = max(0.0, 1.0 - age_days / 90.0)
+        except (ValueError, TypeError):
+            pass
+
+    if article_type == "company":
+        pipeline = meta.get("pipeline") or {}
+        has_pipeline = bool(pipeline.get("total", 0))
+        has_cpi = bool(meta.get("indications") or meta.get("best_cpi"))
+        if has_pipeline and has_cpi:
+            score = 0.80 + 0.10 * recency  # fully enriched: pipeline + CPI
+        elif has_pipeline:
+            score = 0.65 + 0.10 * recency  # pipeline only
+        else:
+            score = 0.10 + 0.20 * recency  # landscape stub only
+        score = round(min(score, 1.0), 2)
+        return score, "deep" if score >= 0.7 else "standard" if score >= 0.4 else "shallow"
+
+    if article_type == "drug":
+        has_profile = bool(meta.get("source_dir"))
+        indication_count = int(meta.get("indication_count", 0) or 0)
+        has_targets = bool(meta.get("targets"))
+        if has_profile and indication_count >= 3 and has_targets:
+            score = 0.75 + 0.10 * recency
+        elif has_profile:
+            score = 0.50 + 0.15 * recency
+        else:
+            score = 0.15 * recency
+        score = round(min(score, 1.0), 2)
+        return score, "deep" if score >= 0.7 else "standard" if score >= 0.4 else "shallow"
+
+    if article_type == "target":
+        has_profile = bool(meta.get("source_dir"))
+        drug_count = int(meta.get("drug_count", 0) or 0)
+        if has_profile and drug_count > 10:
+            score = 0.80 + 0.10 * recency
+        elif has_profile:
+            score = 0.50 + 0.15 * recency
+        else:
+            score = 0.15 * recency
+        score = round(min(score, 1.0), 2)
+        return score, "deep" if score >= 0.7 else "standard" if score >= 0.4 else "shallow"
+
+    # Indication scoring
     score = 0.0
 
     source_count = meta.get("source_count", 0) or 0
@@ -779,14 +833,7 @@ def compute_relevance_score(meta: dict) -> tuple[float, str]:
     )
     score += 0.20 * (phases_covered / 5.0)
 
-    compiled_at = meta.get("compiled_at", "")
-    if compiled_at:
-        try:
-            compiled_dt = datetime.fromisoformat(compiled_at.replace("Z", "+00:00"))
-            age_days = (datetime.now(timezone.utc) - compiled_dt).days
-            score += 0.20 * max(0.0, 1.0 - age_days / 90.0)
-        except (ValueError, TypeError):
-            pass
+    score += 0.20 * recency
 
     has_cpi = bool(meta.get("company_rankings"))
     has_rich_sources = source_count >= 5
