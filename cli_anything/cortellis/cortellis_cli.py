@@ -2881,6 +2881,144 @@ def wiki_gaps_cmd(indication: str) -> None:
                 click.echo(f"COMPANY {slug} {rank} {cpi}")
 
 
+@wiki_group.command("ingest")
+@click.argument("file_path", type=click.Path(exists=True))
+@click.option("--indication", required=True, help="Indication slug (e.g. obesity)")
+@click.option("--source-file", default=None, help="Original filename for slug/frontmatter (use when file_path is a tmp path)")
+@click.option("--title", default=None, help="Override auto-detected title")
+def wiki_ingest_cmd(file_path: str, indication: str, source_file: str | None, title: str | None) -> None:
+    """Ingest a document (PDF/PPTX/CSV) into wiki/internal/ and link to indication.
+
+    \b
+    Output (stdout): JSON with slug, title, doc_type, entities, text_chars
+    Exit code non-zero on failure.
+
+    \b
+    Examples:
+      cortellis wiki ingest report.pdf --indication obesity
+      cortellis wiki ingest forecast.csv --indication masld
+    """
+    import subprocess as _sp
+    from pathlib import Path as _Path
+
+    script = _Path(__file__).resolve().parent / "skills/ingest-internal/recipes/ingest_internal.py"
+    cmd = [sys.executable, str(script), file_path, "--indication", indication]
+    if source_file:
+        cmd += ["--source-file", source_file]
+    if title:
+        cmd += ["--title", title]
+    proc = _sp.run(cmd, capture_output=True, text=True)
+    if proc.stdout:
+        click.echo(proc.stdout, nl=False)
+    if proc.returncode != 0:
+        click.echo(proc.stderr or "Ingest failed", err=True)
+        sys.exit(proc.returncode)
+
+
+@wiki_group.command("lint")
+@click.option("--fix", is_flag=True, default=False, help="Auto-fix issues where possible.")
+def wiki_lint_cmd(fix: bool) -> None:
+    """Run 7 health checks on the wiki: broken wikilinks, orphans, stale articles, and more."""
+    import subprocess as _sp
+    from pathlib import Path as _Path
+
+    script = _Path(__file__).resolve().parent / "skills/landscape/recipes/lint_wiki.py"
+    cmd = [sys.executable, str(script)]
+    if fix:
+        cmd.append("--fix")
+    proc = _sp.run(cmd, capture_output=True, text=True)
+    if proc.stdout:
+        click.echo(proc.stdout, nl=False)
+    if proc.returncode != 0:
+        click.echo(proc.stderr or "Wiki lint failed", err=True)
+        sys.exit(proc.returncode)
+
+
+@wiki_group.command("graph")
+def wiki_graph_cmd() -> None:
+    """Build knowledge graph (graph.json + GRAPH_REPORT.md) from compiled wiki articles."""
+    import subprocess as _sp
+    from pathlib import Path as _Path
+
+    script = _Path(__file__).resolve().parent / "skills/landscape/recipes/graphify_wiki.py"
+    proc = _sp.run([sys.executable, str(script)], capture_output=True, text=True)
+    if proc.stdout:
+        click.echo(proc.stdout, nl=False)
+    if proc.returncode != 0:
+        click.echo(proc.stderr or "Wiki graph failed", err=True)
+        sys.exit(proc.returncode)
+
+
+@wiki_group.command("opportunity")
+@click.argument("indication")
+def wiki_opportunity_cmd(indication: str) -> None:
+    """Mechanism x Phase heatmap + white-space analysis for an indication.
+
+    \b
+    Requires a prior `run-skill landscape <indication>` run (reads raw/<indication>/ CSVs).
+
+    \b
+    Examples:
+      cortellis wiki opportunity obesity
+      cortellis wiki opportunity masld
+    """
+    import subprocess as _sp
+    from pathlib import Path as _Path
+
+    script = _Path(__file__).resolve().parent / "skills/landscape/recipes/opportunity_matrix.py"
+    landscape_dir = str(_Path("raw") / indication)
+    if not _Path(landscape_dir).is_dir():
+        raise click.ClickException(
+            f"No landscape data for '{indication}'. Run `cortellis run-skill landscape {indication}` first."
+        )
+    proc = _sp.run([sys.executable, str(script), landscape_dir], capture_output=True, text=True)
+    if proc.stdout:
+        click.echo(proc.stdout, nl=False)
+    if proc.returncode != 0:
+        click.echo(proc.stderr or "Opportunity matrix failed", err=True)
+        sys.exit(proc.returncode)
+
+
+@wiki_group.command("signals")
+@click.option("--days", default=30, show_default=True, help="Look-back window in days.")
+def wiki_signals_cmd(days: int) -> None:
+    """Generate strategic intelligence report from compiled wiki and write to wiki/SIGNALS_REPORT.md."""
+    import subprocess as _sp
+    from pathlib import Path as _Path
+
+    script = _Path(__file__).resolve().parent / "skills/landscape/recipes/signals_report.py"
+    proc = _sp.run(
+        [sys.executable, str(script), "--days", str(days)],
+        capture_output=True,
+        text=True,
+    )
+    if proc.stdout:
+        click.echo(proc.stdout, nl=False)
+    if proc.returncode != 0:
+        click.echo(proc.stderr or "Signals report failed", err=True)
+        sys.exit(proc.returncode)
+
+
+@wiki_group.command("insights")
+@click.option("--days", default=30, show_default=True, help="Look-back window in days.")
+@click.option("--indication", default=None, help="Filter by indication slug.")
+def wiki_insights_cmd(days: int, indication: str | None) -> None:
+    """View accumulated session insights from the wiki, written to wiki/INSIGHTS_REPORT.md."""
+    import subprocess as _sp
+    from pathlib import Path as _Path
+
+    script = _Path(__file__).resolve().parent / "skills/landscape/recipes/insights_report.py"
+    cmd = [sys.executable, str(script), "--days", str(days)]
+    if indication:
+        cmd += ["--indication", indication]
+    proc = _sp.run(cmd, capture_output=True, text=True)
+    if proc.stdout:
+        click.echo(proc.stdout, nl=False)
+    if proc.returncode != 0:
+        click.echo(proc.stderr or "Insights report failed", err=True)
+        sys.exit(proc.returncode)
+
+
 # ---------------------------------------------------------------------------
 # web — browser-based chat UI
 # ---------------------------------------------------------------------------
