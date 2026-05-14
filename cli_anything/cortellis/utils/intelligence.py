@@ -390,6 +390,30 @@ def extract_signals(
                 "data": {"company": company},
             })
 
+    # Inject investigation signals written by curious-agent
+    inv_signals_file = os.path.join(w_dir, "insights", "investigation-signals.json")
+    if os.path.isfile(inv_signals_file):
+        try:
+            with open(inv_signals_file) as f:
+                inv_signals = json.load(f)
+            for s in inv_signals:
+                try:
+                    dt = datetime.fromisoformat(s.get("date", "") + "T00:00:00+00:00")
+                    if (now - dt).days > max_age_days:
+                        continue
+                except (ValueError, TypeError):
+                    pass
+                signals.append({
+                    "indication": s.get("name", s.get("slug", "Unknown")),
+                    "signal_type": "investigation_finding",
+                    "severity": s.get("severity", "medium"),
+                    "summary": s.get("summary", ""),
+                    "action": s.get("action", ""),
+                    "data": {"slug": s.get("slug"), "date": s.get("date")},
+                })
+        except Exception:
+            pass
+
     # Sort: high > medium > low
     severity_order = {"high": 0, "medium": 1, "low": 2}
     signals.sort(key=lambda s: severity_order.get(s["severity"], 9))
