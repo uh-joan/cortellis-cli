@@ -3019,6 +3019,56 @@ def wiki_insights_cmd(days: int, indication: str | None) -> None:
         sys.exit(proc.returncode)
 
 
+@wiki_group.command("update")
+@click.argument("slug")
+@click.argument("note")
+def wiki_update_cmd(slug: str, note: str) -> None:
+    """Append a dated note to an existing wiki article.
+
+    Searches all wiki subdirectories for <slug>.md and appends a
+    timestamped entry under a '## Curious Agent Notes' section.
+
+    \b
+    Examples:
+      cortellis wiki update ct-388 "Phase 3 deal comps: $1.1B-$2.7B range"
+      cortellis wiki update obesity "MASLD adjacency confirmed — semaglutide NASH approval"
+    """
+    from cli_anything.cortellis.utils.wiki import wiki_root, read_article, write_article, log_activity
+    from datetime import datetime, timezone
+
+    w_dir = wiki_root(".")
+    subdirs = ("indications", "companies", "drugs", "targets", "internal", "concepts", "connections")
+
+    article_path: str | None = None
+    for sub in subdirs:
+        candidate = os.path.join(w_dir, sub, f"{slug}.md")
+        if os.path.exists(candidate):
+            article_path = candidate
+            break
+
+    if not article_path:
+        click.echo(f"Article not found for slug '{slug}' in wiki subdirectories.", err=True)
+        sys.exit(1)
+
+    art = read_article(article_path)
+    if not art:
+        click.echo(f"Could not read article at {article_path}.", err=True)
+        sys.exit(1)
+
+    today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+    entry = f"\n\n### {today}\n\n{note.strip()}\n"
+    section_header = "## Curious Agent Notes"
+
+    if section_header in art["body"]:
+        body = art["body"].replace(section_header, f"{section_header}{entry}", 1)
+    else:
+        body = art["body"].rstrip() + f"\n\n{section_header}{entry}"
+
+    write_article(article_path, art["meta"], body)
+    log_activity(w_dir, "wiki-update", f"{slug}: {note[:80]}")
+    click.echo(f"Updated {article_path}")
+
+
 # ---------------------------------------------------------------------------
 # web — browser-based chat UI
 # ---------------------------------------------------------------------------
