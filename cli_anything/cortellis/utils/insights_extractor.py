@@ -346,19 +346,33 @@ def format_insight_markdown(insights: dict) -> str:
 
 
 def write_session_insight(insights: dict, wiki_dir: Optional[str] = None) -> str:
-    """Write insights to wiki/insights/sessions/<timestamp>-<slug>.md.
+    """Write landscape insights to wiki/insights/landscape/<timestamp>-<slug>.md.
 
-    Returns path written.
+    Returns path written (or existing path if duplicate within 60 s).
     """
     base = wiki_dir or os.getcwd()
     w_dir = wiki_root(base)
-    sessions_dir = os.path.join(w_dir, "insights", "sessions")
-    os.makedirs(sessions_dir, exist_ok=True)
+    landscape_dir = os.path.join(w_dir, "insights", "landscape")
+    os.makedirs(landscape_dir, exist_ok=True)
+
+    slug = insights.get("indication", "unknown")
+
+    # Dedup guard: skip if same indication was written in the last 60 seconds
+    existing = sorted(
+        [f for f in os.listdir(landscape_dir) if f.endswith(f"-{slug}.md")],
+        reverse=True,
+    )
+    if existing:
+        try:
+            last_ts = datetime.strptime(existing[0][:19], "%Y-%m-%d-%H%M%S").replace(tzinfo=timezone.utc)
+            if (datetime.now(timezone.utc) - last_ts).total_seconds() < 60:
+                return os.path.join(landscape_dir, existing[0])
+        except ValueError:
+            pass
 
     timestamp = datetime.now(timezone.utc).strftime("%Y-%m-%d-%H%M%S")
-    slug = insights.get("indication", "unknown")
     filename = f"{timestamp}-{slug}.md"
-    path = os.path.join(sessions_dir, filename)
+    path = os.path.join(landscape_dir, filename)
 
     meta = {
         "title": insights.get("title", ""),
@@ -379,24 +393,29 @@ def load_recent_insights(
     max_age_days: int = 30,
     indication: Optional[str] = None,
 ) -> list[dict]:
-    """Load recent insight articles from wiki/insights/sessions/.
+    """Load recent insight articles from wiki/insights/sessions/ and wiki/insights/landscape/.
 
     Returns list of {path, meta, body} sorted by timestamp descending.
+    Deduplicates by indication across both dirs — most recent wins.
     """
     w_dir = wiki_dir if os.path.isdir(os.path.join(wiki_dir, "insights")) else wiki_root(wiki_dir)
-    sessions_dir = os.path.join(w_dir, "insights", "sessions")
-    if not os.path.isdir(sessions_dir):
+
+    # Collect candidate files from both dirs, newest-first across both
+    candidate_files: list[str] = []
+    for subdir in ("sessions", "landscape"):
+        d = os.path.join(w_dir, "insights", subdir)
+        if os.path.isdir(d):
+            candidate_files.extend(os.path.join(d, f) for f in os.listdir(d) if f.endswith(".md"))
+    candidate_files.sort(key=os.path.basename, reverse=True)
+
+    if not candidate_files:
         return []
 
     now = datetime.now(timezone.utc)
     results = []
-
     seen_indications: set[str] = set()
 
-    for fname in sorted(os.listdir(sessions_dir), reverse=True):
-        if not fname.endswith(".md"):
-            continue
-        path = os.path.join(sessions_dir, fname)
+    for path in candidate_files:
         art = read_article(path)
         if not art:
             continue
@@ -417,8 +436,8 @@ def load_recent_insights(
             except (ValueError, TypeError):
                 pass
 
-        # Dedup: keep only most recent session per indication (files sorted newest-first)
-        ind_key = meta.get("indication", fname)
+        # Dedup: keep only most recent per indication across both dirs
+        ind_key = meta.get("indication", os.path.basename(path))
         if ind_key in seen_indications:
             continue
         seen_indications.add(ind_key)
