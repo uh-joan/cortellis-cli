@@ -1133,6 +1133,9 @@ def main():
             "top_company": prev_meta.get("top_company"),
         }
         meta["previous_snapshot"] = previous_snapshot
+        # Preserve changelog stamp so "wiki changelogs" doesn't re-flag after landscape refresh
+        if prev_meta.get("changelog_compiled_at"):
+            meta["changelog_compiled_at"] = prev_meta["changelog_compiled_at"]
 
         # Preserve any ## Commercial Intelligence block from the previous article
         prev_body = prev_article.get("body", "")
