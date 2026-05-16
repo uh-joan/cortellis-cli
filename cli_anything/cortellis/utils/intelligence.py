@@ -97,52 +97,64 @@ def scan_commercial_intel(wiki_dir: str) -> list[dict]:
 # Internal research library
 # ---------------------------------------------------------------------------
 
+def _internal_search_dirs(wiki_dir: str) -> list[str]:
+    """Return existing subdirs to search: internal/ (ingested PDFs/docs) + intelligence/ (curious-agent output)."""
+    return [
+        d for d in [
+            os.path.join(wiki_dir, "internal"),
+            os.path.join(wiki_dir, "intelligence"),
+        ]
+        if os.path.isdir(d)
+    ]
+
+
 def load_internal_docs(wiki_dir: str) -> list[dict]:
-    """Read all wiki/internal/ articles and return their metadata.
+    """Read all wiki/internal/ and wiki/intelligence/ articles and return their metadata.
 
     Returns list of dicts: {title, slug, source_file, source_format, ingested_at, entities}
     where entities is a list of slugs (indications, drugs, etc.) mentioned in the doc.
     Sorted by ingested_at descending.
     """
-    internal_dir = os.path.join(wiki_dir, "internal")
-    if not os.path.isdir(internal_dir):
+    dirs = _internal_search_dirs(wiki_dir)
+    if not dirs:
         return []
 
     docs = []
-    for fname in sorted(os.listdir(internal_dir)):
-        if not fname.endswith(".md"):
-            continue
-        path = os.path.join(internal_dir, fname)
-        art = read_article(path)
-        if not art:
-            continue
-        meta = art.get("meta", {})
-        source_file = meta.get("source_file", "")
-        ext = os.path.splitext(source_file)[1].lstrip(".").upper() if source_file else ""
-        entities = meta.get("entities", [])
-        if isinstance(entities, str):
-            entities = [e.strip() for e in entities.split(",") if e.strip()]
-        docs.append({
-            "title": meta.get("title", fname[:-3]),
-            "slug": meta.get("slug", fname[:-3]),
-            "source_file": source_file,
-            "source_format": ext,
-            "ingested_at": meta.get("ingested_at", ""),
-            "entities": entities,
-        })
+    for search_dir in dirs:
+        for fname in sorted(os.listdir(search_dir)):
+            if not fname.endswith(".md"):
+                continue
+            path = os.path.join(search_dir, fname)
+            art = read_article(path)
+            if not art:
+                continue
+            meta = art.get("meta", {})
+            source_file = meta.get("source_file", "")
+            ext = os.path.splitext(source_file)[1].lstrip(".").upper() if source_file else ""
+            entities = meta.get("entities", [])
+            if isinstance(entities, str):
+                entities = [e.strip() for e in entities.split(",") if e.strip()]
+            docs.append({
+                "title": meta.get("title", fname[:-3]),
+                "slug": meta.get("slug", fname[:-3]),
+                "source_file": source_file,
+                "source_format": ext,
+                "ingested_at": meta.get("ingested_at", ""),
+                "entities": entities,
+            })
 
     docs.sort(key=lambda d: d["ingested_at"], reverse=True)
     return docs
 
 
 def search_internal_docs(query: str, wiki_dir: str, max_results: int = 10) -> list[dict]:
-    """Full-text search across wiki/internal/ article bodies.
+    """Full-text search across wiki/internal/ and wiki/intelligence/ article bodies.
 
     Returns list of dicts: {title, slug, source_file, snippet, match_count}
     sorted by match_count descending.
     """
-    internal_dir = os.path.join(wiki_dir, "internal")
-    if not os.path.isdir(internal_dir):
+    dirs = _internal_search_dirs(wiki_dir)
+    if not dirs:
         return []
 
     terms = [t.lower() for t in query.split() if t]
@@ -150,44 +162,43 @@ def search_internal_docs(query: str, wiki_dir: str, max_results: int = 10) -> li
         return []
 
     results = []
-    for fname in sorted(os.listdir(internal_dir)):
-        if not fname.endswith(".md"):
-            continue
-        path = os.path.join(internal_dir, fname)
-        art = read_article(path)
-        if not art:
-            continue
+    for search_dir in dirs:
+        for fname in sorted(os.listdir(search_dir)):
+            if not fname.endswith(".md"):
+                continue
+            path = os.path.join(search_dir, fname)
+            art = read_article(path)
+            if not art:
+                continue
 
-        meta = art.get("meta", {})
-        body = art.get("body", "")
-        body_lower = body.lower()
+            meta = art.get("meta", {})
+            body = art.get("body", "")
+            body_lower = body.lower()
 
-        # Count total term matches
-        match_count = sum(body_lower.count(t) for t in terms)
-        if match_count == 0:
-            continue
+            match_count = sum(body_lower.count(t) for t in terms)
+            if match_count == 0:
+                continue
 
-        # Extract a snippet around the first match
-        first_pos = min(
-            (body_lower.find(t) for t in terms if body_lower.find(t) >= 0),
-            default=0,
-        )
-        start = max(0, first_pos - 80)
-        end = min(len(body), first_pos + 200)
-        snippet = body[start:end].replace("\n", " ").strip()
-        if start > 0:
-            snippet = "…" + snippet
-        if end < len(body):
-            snippet = snippet + "…"
+            first_pos = min(
+                (body_lower.find(t) for t in terms if body_lower.find(t) >= 0),
+                default=0,
+            )
+            start = max(0, first_pos - 80)
+            end = min(len(body), first_pos + 200)
+            snippet = body[start:end].replace("\n", " ").strip()
+            if start > 0:
+                snippet = "…" + snippet
+            if end < len(body):
+                snippet = snippet + "…"
 
-        results.append({
-            "title": meta.get("title", fname[:-3]),
-            "slug": meta.get("slug", fname[:-3]),
-            "source_file": meta.get("source_file", ""),
-            "ingested_at": meta.get("ingested_at", ""),
-            "snippet": snippet,
-            "match_count": match_count,
-        })
+            results.append({
+                "title": meta.get("title", fname[:-3]),
+                "slug": meta.get("slug", fname[:-3]),
+                "source_file": meta.get("source_file", ""),
+                "ingested_at": meta.get("ingested_at", ""),
+                "snippet": snippet,
+                "match_count": match_count,
+            })
 
     results.sort(key=lambda r: r["match_count"], reverse=True)
     return results[:max_results]
