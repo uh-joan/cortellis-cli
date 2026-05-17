@@ -278,7 +278,7 @@ def format_insight_markdown(insights: dict) -> str:
         for i, s in enumerate(scenarios, 1):
             parts.append(f"{i}. **{s['name']}** ({s['confidence']} confidence)")
             if s.get("summary"):
-                parts.append(f" — {s['summary'][:150]}")
+                parts.append(f" — {s['summary']}")
             parts.append("\n")
         parts.append("\n")
 
@@ -374,12 +374,18 @@ def write_session_insight(insights: dict, wiki_dir: Optional[str] = None) -> str
     filename = f"{timestamp}-{slug}.md"
     path = os.path.join(landscape_dir, filename)
 
+    abs_source = insights.get("source_dir", "")
+    try:
+        rel_source = os.path.relpath(abs_source, base) if abs_source else ""
+    except ValueError:
+        rel_source = abs_source
+
     meta = {
         "title": insights.get("title", ""),
         "type": "insight",
         "indication": slug,
         "timestamp": insights.get("timestamp", ""),
-        "source_dir": insights.get("source_dir", ""),
+        "source_dir": rel_source,
         "tags": insights.get("tags", []),
     }
 
