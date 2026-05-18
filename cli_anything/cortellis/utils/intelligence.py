@@ -797,7 +797,7 @@ def generate_signals_report(
         groups: dict[str, list[dict]] = {}
         ungrouped: list[dict] = []
         for doc in internal_docs:
-            primary = next((e for e in doc["entities"] if e in indication_slugs), None)
+            primary = next((e for e in doc["entities"] if isinstance(e, str) and e in indication_slugs), None)
             if primary:
                 groups.setdefault(primary, []).append(doc)
             else:
