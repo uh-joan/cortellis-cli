@@ -249,6 +249,8 @@ def scan_all(
         slug = meta.get("slug", "")
         if not slug or not atype:
             continue
+        if atype not in ("indication", "company", "drug", "target"):
+            continue
         if types and atype not in types:
             continue
         if meta.get("diff_skip"):

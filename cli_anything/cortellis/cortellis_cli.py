@@ -1909,11 +1909,11 @@ def _print_diff_table(results: list) -> None:
     from rich.table import Table
     from rich import box
 
-    console = Console()
+    console = Console(width=200)
     import re as _re
 
     t = Table(box=box.SIMPLE, show_header=True, header_style="bold cyan", expand=False)
-    t.add_column("Slug", min_width=20, max_width=30)
+    t.add_column("Slug", min_width=20, no_wrap=True)
     t.add_column("Age", justify="right", min_width=4)
     t.add_column("ΔDrugs", justify="right", min_width=7)
     t.add_column("Status", min_width=7)
