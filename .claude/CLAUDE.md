@@ -11,6 +11,7 @@ Coordinate specialized agents, tools, and skills so work is completed accurately
 - Prefer evidence over assumptions: verify outcomes before final claims.
 - Choose the lightest-weight path that preserves quality.
 - Consult official docs before implementing with SDKs/frameworks/APIs.
+- State assumptions explicitly before starting. Ask rather than guess. Push back when a simpler approach exists. Stop when confused — do not produce speculative output.
 </operating_principles>
 
 <delegation_rules>
@@ -33,8 +34,9 @@ Detailed agent catalog, tools, team pipeline, commit protocol, and full skills r
 </skills>
 
 <verification>
+Define success criteria before starting non-trivial work. Loop until verified — strong criteria enable independent looping without check-ins.
 Verify before claiming completion. Size appropriately: small→haiku, standard→sonnet, large/security→opus.
-If verification fails, keep iterating.
+If verification fails, keep iterating. Partial completion must be reported as partial, never rounded up to done.
 </verification>
 
 <execution_protocols>
@@ -114,6 +116,27 @@ Before running `landscape`, `pipeline`, `drug-profile`, `target-profile`, `drug-
 - If the task scope is unclear (one drug vs. full competitive landscape), ask.
 
 API calls and wiki writes are not free to undo. Clarify before launching a multi-step workflow.
+
+## Coding Rules
+
+**Pre-flight on non-trivial changes.** Before writing, answer these four questions:
+- Where does state live? (ownership, consistency, blast radius)
+- Where does feedback live? (observability, error surfacing)
+- What breaks if I delete this? (coupling, fragility)
+- When does timing matter? (async, ordering, race conditions)
+If any answer is unclear, ask before proceeding.
+
+**Read before you write.** Before adding or modifying code, read the exports, immediate callers, and shared utilities it touches. If unsure why existing code is structured a certain way, ask.
+
+**Surface conflicts, don't average them.** When two patterns contradict (formatting, error handling, naming), pick the more recent or more tested one and explain why. Flag the other for cleanup. Blending conflicting patterns hides both and fixes neither.
+
+**Match conventions even if you disagree.** Conformance over taste inside the codebase. If a convention seems harmful, surface it explicitly. Don't fork it silently.
+
+**Use the model only for judgment calls.** Claude for: classification, drafting, summarization, extraction. Not for: routing, retries, status-code handling, deterministic transforms. If code can answer, code answers.
+
+**Checkpoint after significant steps.** On multi-step tasks (landscape, wiki refresh, pipeline runs): summarize what was done, what's verified, what's left before continuing. Don't proceed from a state you can't describe.
+
+**Fail loud.** "Completed" is wrong if anything was skipped or failed silently. "Tests pass" is wrong if any were skipped. Surface uncertainty rather than hiding it. A partial result reported as done is a bug.
 
 ## Setup
 
