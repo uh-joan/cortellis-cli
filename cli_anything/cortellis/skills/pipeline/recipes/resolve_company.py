@@ -76,6 +76,10 @@ def names_match(query, candidate):
 
 
 def resolve(name):
+    # Strip trailing ", Inc" / ", Ltd" etc. that break unquoted Solr queries
+    import re as _re
+    query_name = _re.sub(r",\s*\w[\w.]*$", "", name).strip() or name
+
     # Strategy 0: NER — exact entity match (fastest, most accurate)
     d = run_cli("ner", "match", name)
     try:
@@ -118,7 +122,7 @@ def resolve(name):
             return best_pid, best_active, "ontology"
 
     # Strategy 2: broad company search
-    d = run_cli("companies", "search", "--query", f"companyNameDisplay:{name}", "--hits", "50")
+    d = run_cli("companies", "search", "--query", f"companyNameDisplay:{query_name}", "--hits", "50")
     try:
         comps = d["companyResultsOutput"]["SearchResults"]["Company"]
         pid, active = best_from_search(comps, query_name=name)
@@ -129,7 +133,7 @@ def resolve(name):
 
     # Strategy 3: suffix search
     for suffix in [" Inc", " Ltd", " SA", " plc", " Co", " AG", " Co Ltd"]:
-        d = run_cli("companies", "search", "--query", f'companyNameDisplay:"{name}{suffix}"', "--hits", "20")
+        d = run_cli("companies", "search", "--query", f'companyNameDisplay:"{query_name}{suffix}"', "--hits", "20")
         try:
             comps = d["companyResultsOutput"]["SearchResults"]["Company"]
             pid, active = best_from_search(comps, query_name=name)
@@ -139,7 +143,7 @@ def resolve(name):
             pass
 
     # Last resort: return best from strategy 2 even if <10
-    d = run_cli("companies", "search", "--query", f"companyNameDisplay:{name}", "--hits", "50")
+    d = run_cli("companies", "search", "--query", f"companyNameDisplay:{query_name}", "--hits", "50")
     try:
         comps = d["companyResultsOutput"]["SearchResults"]["Company"]
         pid, active = best_from_search(comps, query_name=name)
