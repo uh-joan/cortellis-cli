@@ -3923,7 +3923,8 @@ All skills and their workflows are included below in the system context."""
                 _lm_tool_calls = _lm_msg.get("tool_calls") or []
 
                 if not _lm_tool_calls:
-                    _lm_text = _lm_content.strip()
+                    import re as _re
+                    _lm_text = _re.sub(r"<think>[\s\S]*?</think>", "", _lm_content).strip()
                     break
 
                 _lm_messages.append({
