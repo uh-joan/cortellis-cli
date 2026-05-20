@@ -99,6 +99,7 @@ nodes:
                  fetch_discovery_ci, fetch_si_phase1, fetch_si_preclinical]
     trigger_rule: all_done
     allow_fail: true
+    when: "$resolve.output.company_id != ''"
     api_calls: true
     fs_exclusive: true
 

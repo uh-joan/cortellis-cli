@@ -168,3 +168,5 @@ if __name__ == "__main__":
     if pid:
         cache_set("companies", name, result)
     print(result)
+    if not pid:
+        sys.exit(1)
