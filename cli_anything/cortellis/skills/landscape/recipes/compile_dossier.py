@@ -95,23 +95,22 @@ def load_drugdesign_preclinical(landscape_dir):
 def load_drugdesign_mechanism_counts(landscape_dir):
     """Load bench compound counts keyed by drugs-endpoint mechanism name (lower-case).
 
-    Prefers the ID-based crosswalk (drugdesign_mechanism_crosswalk.json) built by
-    fetch_drugdesign_mechanism_counts.py, which maps mechanism names via the shared
-    Cortellis mechanism ID — exact, no string comparison.
-
-    Falls back to the raw name-based CSV lookup when the crosswalk is absent
-    (e.g. first run before crosswalk was generated).
+    Merges the raw name-based CSV with the ID-based crosswalk (when present).
+    Crosswalk entries take precedence — they use shared Cortellis mechanism IDs
+    for exact matching. Raw CSV fills in mechanisms the crosswalk didn't cover.
     """
+    # Base: raw name-based lookup
+    rows = read_csv_safe(os.path.join(landscape_dir, "drugdesign_mechanism_counts.csv"))
+    counts = {r["mechanism_name"].lower(): safe_int(r.get("compound_count", 0)) for r in rows if r.get("mechanism_name")}
+    # Overlay: ID-based crosswalk wins where it has coverage
     xwalk_path = os.path.join(landscape_dir, "drugdesign_mechanism_crosswalk.json")
     if os.path.exists(xwalk_path):
         try:
             with open(xwalk_path, encoding="utf-8") as f:
-                return json.load(f)  # already {mech_name_lower: count}
+                counts.update(json.load(f))
         except (json.JSONDecodeError, OSError):
             pass
-    # Fallback: raw name-based lookup
-    rows = read_csv_safe(os.path.join(landscape_dir, "drugdesign_mechanism_counts.csv"))
-    return {r["mechanism_name"].lower(): safe_int(r.get("compound_count", 0)) for r in rows if r.get("mechanism_name")}
+    return counts
 
 
 _ENRICHMENT_SOURCE_FILES = [
@@ -601,18 +600,23 @@ def compile_indication_article(landscape_dir, indication_name, slug, base_dir=No
         if white_space:
             body_parts.append(f"**White space / emerging mechanisms ({len(white_space)}):**\n\n")
             for r in white_space[:10]:
+                p1 = safe_int(r.get("phase1"))
+                disc = safe_int(r.get("discovery"))
+                early_str = f"P1: {p1}, disc: {disc}" if (p1 or disc) else "early-stage only"
                 body_parts.append(
-                    f"- {r.get('mechanism', '?')}: {r.get('total', '?')} drugs, "
-                    f"{r.get('companies', '?')} companies, "
-                    f"opportunity score {safe_float(r.get('opportunity_score')):.4f}\n"
+                    f"- {r.get('mechanism', '?')}: {r.get('total', '?')} drugs "
+                    f"({early_str}), {r.get('companies', '?')} companies\n"
                 )
             body_parts.append("\n")
 
         if crowded:
+            _active_by_mech = {m.get("mechanism", "").lower(): safe_int(m.get("active_count")) for m in mechanisms}
             body_parts.append(f"**Crowded mechanisms ({len(crowded)}):**\n\n")
             for r in crowded[:10]:
+                mname = r.get("mechanism", "?")
+                active = _active_by_mech.get(mname.lower()) or r.get("total", "?")
                 body_parts.append(
-                    f"- {r.get('mechanism', '?')}: {r.get('total', '?')} drugs, "
+                    f"- {mname}: {active} drugs, "
                     f"{r.get('companies', '?')} companies\n"
                 )
             body_parts.append("\n")
