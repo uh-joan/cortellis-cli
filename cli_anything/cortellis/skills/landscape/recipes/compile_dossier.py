@@ -51,11 +51,16 @@ PHASE_FILES = ["launched", "phase3", "phase2", "phase1", "discovery", "other"]
 
 
 def load_phase_counts(landscape_dir):
-    """Count drugs per phase from CSV files."""
+    """Count unique drug INNs per phase from CSV files."""
     counts = {}
     total = 0
     for phase in PHASE_FILES:
-        n = count_csv_rows(landscape_dir, f"{phase}.csv")
+        rows = read_csv_safe(os.path.join(landscape_dir, f"{phase}.csv"))
+        seen = {
+            normalize_drug_name(r.get("name") or r.get("drug_name") or r.get("drug") or "").strip().lower()
+            for r in rows
+        } - {""}
+        n = len(seen)
         counts[phase] = n
         total += n
     counts["total"] = total
@@ -454,7 +459,8 @@ def compile_indication_article(landscape_dir, indication_name, slug, base_dir=No
     _seen_drug_names: set[str] = set()
     flagship_drugs = []
     for _d in launched_rows[:10] + phase3_rows[:10]:
-        _dkey = (_d.get("drug_name") or _d.get("name") or _d.get("drug") or "").strip().lower()
+        _raw = _d.get("drug_name") or _d.get("name") or _d.get("drug") or ""
+        _dkey = normalize_drug_name(_raw).strip().lower()
         if _dkey and _dkey not in _seen_drug_names:
             _seen_drug_names.add(_dkey)
             flagship_drugs.append(_d)
