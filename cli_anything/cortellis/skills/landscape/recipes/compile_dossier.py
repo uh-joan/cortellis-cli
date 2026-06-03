@@ -177,9 +177,9 @@ def load_wiki_enrichments(landscape_dir, base_dir):
             "conflict_count": len(meta.get("conflicts", [])),
         }
 
-    # Companies: top 20 — look for pipeline articles (marked by 'pipeline' field)
+    # Companies: Tier A/B — look for pipeline articles (marked by 'pipeline' field)
     scores = load_strategic_scores(landscape_dir)
-    for r in scores[:20]:
+    for r in [r for r in scores if r.get("cpi_tier") in ("A", "B")]:
         cname = r.get("company", "")
         if not cname:
             continue
@@ -268,7 +268,7 @@ def compile_indication_article(landscape_dir, indication_name, slug, base_dir=No
 
     # Frontmatter
     now = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
-    company_slugs = [find_company_slug(r["company"], base_dir) for r in scores[:20] if r.get("company")]
+    company_slugs = [find_company_slug(r["company"], base_dir) for r in scores if r.get("company") and r.get("cpi_tier") in ("A", "B")]
 
     # Derive tags: preset + top 3 mechanism slugs + indication slug
     tags = [slugify(preset)] if preset else []
@@ -313,7 +313,7 @@ def compile_indication_article(landscape_dir, indication_name, slug, base_dir=No
         },
         "company_rankings": [
             {"company": r["company"], "cpi_score": safe_float(r.get("cpi_score")), "tier": r.get("cpi_tier", "")}
-            for r in scores[:20]
+            for r in scores if r.get("cpi_tier") in ("A", "B")
         ],
         "source_count": source_count,
     }
@@ -370,7 +370,7 @@ def compile_indication_article(landscape_dir, indication_name, slug, base_dir=No
             "| Rank | Company | Tier | CPI | Position | Pipeline | Phase Score | Mechs | Deals | Trials |\n"
             "|---|---|---|---|---|---|---|---|---|---|\n"
         )
-        for i, r in enumerate(scores[:30], 1):
+        for i, r in enumerate((r for r in scores if r.get("cpi_tier") in ("A", "B")), 1):
             company_link = wikilink(find_company_slug(r["company"], base_dir), r["company"])
             body_parts.append(
                 f"| {i} | {company_link}"
@@ -503,7 +503,8 @@ def compile_indication_article(landscape_dir, indication_name, slug, base_dir=No
             mech = drug.get("mechanism") or drug.get("moa") or drug.get("mechanism_of_action") or "-"
             comp = drug.get("company") or drug.get("company_name") or "-"
             drug_slug = slugify(normalize_drug_name(dname)) if dname != "-" else ""
-            drug_str = wikilink(drug_slug, dname) if dname != "-" else "-"
+            drug_display = normalize_drug_name(dname) if dname != "-" else "-"
+            drug_str = wikilink(drug_slug, drug_display) if dname != "-" else "-"
             comp_str = wikilink(find_company_slug(comp, base_dir), comp) if comp != "-" else "-"
             regions = _regions_by_drug.get(dname.strip().lower(), "")
             if has_drug_enrichment:
@@ -704,7 +705,7 @@ def compile_company_articles(landscape_dir, indication_name, indication_slug, ba
     now = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
     compiled_companies = []
 
-    for r in scores[:20]:  # Top 20 companies get articles
+    for r in scores:
         company_name = r.get("company", "")
         if not company_name:
             continue
