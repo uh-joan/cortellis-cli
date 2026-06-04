@@ -629,7 +629,7 @@ def compile_indication_article(landscape_dir, indication_name, slug, base_dir=No
             f"with active development intent, not yet appearing in the Cortellis drugs endpoint:*\n\n"
         )
         body_parts.append("| Program | Org | Mechanism | Added |\n|---|---|---|---|\n")
-        for p in dd_preclinical[:20]:
+        for p in dd_preclinical:
             body_parts.append(
                 f"| {p.get('name', '-')} | {p.get('org', '-')} "
                 f"| {p.get('mechanism', '-') or '-'} | {p.get('added_date', '-')} |\n"
