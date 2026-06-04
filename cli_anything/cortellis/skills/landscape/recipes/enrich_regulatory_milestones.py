@@ -9,6 +9,7 @@ Usage: python3 enrich_regulatory_milestones.py <landscape_dir> [indication_name]
 """
 
 import csv
+import json
 import os
 import sys
 import time
@@ -29,26 +30,69 @@ from cli_anything.cortellis.utils.data_helpers import read_csv_safe
 # Core functions
 # ---------------------------------------------------------------------------
 
-def get_top_drug_names(landscape_dir, max_drugs=20):
+def load_confirmed_drug_names(landscape_dir):
+    """Return set of drug names confirmed to have this indication's approval.
+
+    Reads approval_regions.json and returns names of drugs with at least one
+    country-level Launched/Registered row for the target indication. Returns
+    None if the file doesn't exist (caller should fall back to CSV).
+    """
+    path = os.path.join(landscape_dir, "approval_regions.json")
+    if not os.path.exists(path):
+        return None
+    try:
+        with open(path) as f:
+            data = json.load(f)
+        return {
+            a["drug_name"].lower()
+            for a in data.get("analyses", [])
+            if a.get("countries")
+        }
+    except Exception:
+        return None
+
+
+def _title_matches_indication(event, indication_name):
+    """Return True if the regulatory event title mentions the indication."""
+    title_lower = (event.get("title") or "").lower()
+    if indication_name and indication_name.lower() in title_lower:
+        return True
+    return False
+
+
+def get_top_drug_names(landscape_dir, confirmed_launched=None, max_drugs=20):
     """Read launched.csv and phase3.csv, return list of drug name strings.
 
+    If confirmed_launched is provided (set of lowercase drug names from
+    approval_regions.json), uses those as the launched drug list instead of
+    the raw CSV — this avoids off-indication drugs that Cortellis links to the
+    indication via IndicationsPrimary but have no actual approval for it.
     Prefers launched drugs first, then phase3. Caps at max_drugs.
     """
-    launched_rows = read_csv_safe(os.path.join(landscape_dir, "launched.csv"))
+    if confirmed_launched is not None:
+        # Use the API-verified names; preserve insertion order via list
+        launched_names = sorted(confirmed_launched)
+    else:
+        launched_rows = read_csv_safe(os.path.join(landscape_dir, "launched.csv"))
+        launched_names = []
+        seen: set = set()
+        for row in launched_rows:
+            name = (row.get("name") or row.get("drug_name") or row.get("drug") or "").strip()
+            if name and name.lower() not in seen:
+                seen.add(name.lower())
+                launched_names.append(name)
+
     phase3_rows = read_csv_safe(os.path.join(landscape_dir, "phase3.csv"))
-
-    names = []
-    seen = set()
-
-    for row in launched_rows + phase3_rows:
+    phase3_names = []
+    seen_lower = {n.lower() for n in launched_names}
+    for row in phase3_rows:
         name = (row.get("name") or row.get("drug_name") or row.get("drug") or "").strip()
-        if name and name not in seen:
-            seen.add(name)
-            names.append(name)
-        if len(names) >= max_drugs:
-            break
+        if name and name.lower() not in seen_lower:
+            seen_lower.add(name.lower())
+            phase3_names.append(name)
 
-    return names
+    names = launched_names + phase3_names
+    return names[:max_drugs]
 
 
 def search_regulatory_for_drug(drug_name, client, regions=None, max_hits=10):
@@ -312,7 +356,8 @@ def main():
 
     print(f"Fetching regulatory milestones for: {indication_name}")
 
-    drug_names = get_top_drug_names(landscape_dir, max_drugs=20)
+    confirmed_launched = load_confirmed_drug_names(landscape_dir)
+    drug_names = get_top_drug_names(landscape_dir, confirmed_launched=confirmed_launched)
     if not drug_names:
         if indication_name:
             print(f"[info] No drug CSVs found — using '{indication_name}' as single drug name.")
@@ -335,6 +380,21 @@ def main():
             all_events.extend(events)
         else:
             drugs_without_events += 1
+
+    # Filter 1: drop warning letters (compounding enforcement, not drug approvals)
+    # Filter 2: for phase3-only drugs (not in confirmed launched), require the
+    #           regulatory title to mention the indication — prevents off-indication
+    #           approval history (e.g. psoriasis drug appearing in obesity timeline)
+    confirmed_set = confirmed_launched if confirmed_launched is not None else set()
+    cleaned: list = []
+    for e in all_events:
+        if "warning letter" in e.get("doc_type", "").lower():
+            continue
+        if confirmed_launched is not None and e["drug_name"].lower() not in confirmed_set:
+            if not _title_matches_indication(e, indication_name):
+                continue
+        cleaned.append(e)
+    all_events = cleaned
 
     # Write CSV (header-only if no events)
     csv_path = os.path.join(landscape_dir, "regulatory_milestones.csv")

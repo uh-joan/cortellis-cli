@@ -32,6 +32,7 @@ from __future__ import annotations
 import csv
 import json
 import os
+import re
 import subprocess
 import sys
 from datetime import datetime, timezone
@@ -51,6 +52,25 @@ BATCH_SIZE = 20
 TIMEOUT_SEC = 60
 LAUNCHED_STATUSES = {"L", "R"}  # Launched, Registered (approved)
 MAJOR_WESTERN = {"US", "EU", "Japan", "JP"}
+
+# Drug name normalization — mirrors wiki.py normalize_drug_name()
+_DRUG_VARIANT_RE = re.compile(r"\s*\([^)]*\).*$")
+_DRUG_SALT_RE = re.compile(
+    r"\s+(?:propanediol|acetate|hydrochloride|hcl|sodium|potassium|maleate|"
+    r"tartrate|sulfate|sulphate|mesylate|tosylate|fumarate|phosphate|citrate|"
+    r"bromide|chloride|succinate|oxalate|gluconate|lactate|besylate|pamoate|"
+    r"monohydrate|dihydrate|trihydrate)$",
+    re.IGNORECASE,
+)
+_COMPANY_SUFFIX_RE = re.compile(r",\s+[A-Z][^,]+$")
+
+
+def _normalize_drug_name(name: str) -> str:
+    """Strip parenthetical variant, salt suffix, and company suffix from drug name."""
+    base = _DRUG_VARIANT_RE.sub("", name).strip().rstrip(",").strip()
+    base = _DRUG_SALT_RE.sub("", base).strip()
+    base = _COMPANY_SUFFIX_RE.sub("", base).strip()
+    return base or name
 
 
 def _ensure_list(x):
@@ -175,10 +195,22 @@ def _render_markdown(indication_name: str,
     us = sum(1 for a in analyses if a["has_us"])
     eu = sum(1 for a in analyses if a["has_eu"])
     jp = sum(1 for a in analyses if a["has_jp"])
-    china_only = sum(
-        1 for a in analyses
-        if a["countries"] and not a["has_major_western"] and set(a["countries"]) <= {"China"}
-    )
+    non_western = [
+        a for a in analyses if a["countries"] and not a["has_major_western"]
+    ]
+    nw_by_group: dict = {}
+    for a in non_western:
+        countries_set = set(a["countries"])
+        if countries_set <= {"China"}:
+            key = "China"
+        elif countries_set <= {"South Korea"}:
+            key = "South Korea"
+        else:
+            key = "Other"
+        nw_by_group[key] = nw_by_group.get(key, 0) + 1
+    nw_total = len(non_western)
+    nw_parts = [f"{k}: {v}" for k, v in sorted(nw_by_group.items())]
+    nw_str = f"{nw_total}" + (f" ({', '.join(nw_parts)})" if nw_parts else "")
 
     pct_western = f"{(with_us_eu_jp / total * 100):.0f}%" if total else "n/a"
 
@@ -197,7 +229,7 @@ def _render_markdown(indication_name: str,
         f"- **Unmatched (launched for other indications, linked via IndicationsPrimary only):** {unmatched}",
         f"- **With US or EU or JP approval for this indication:** **{with_us_eu_jp}** ({pct_western})",
         f"  - US: {us}  |  EU: {eu}  |  Japan: {jp}",
-        f"- **China-only approvals:** {china_only}",
+        f"- **Non-Western-only approvals:** {nw_str}",
         "",
     ]
 
@@ -231,7 +263,7 @@ def _render_markdown(indication_name: str,
         -x["country_count"],
         x["drug_name"].lower(),
     )):
-        name = (a["drug_name"] or "?")[:50]
+        name = _normalize_drug_name(a["drug_name"] or "?")
         if not a["countries"]:
             scope = "no-match"
             countries_str = "(no launched row for this indication)"
