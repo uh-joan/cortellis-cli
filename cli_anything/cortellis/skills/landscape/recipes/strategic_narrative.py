@@ -301,7 +301,7 @@ fading = [s.get("company", "?")[:30] for s in quadrants["Fading Giants"][:3]]
 if fading:
     print(f"5. **Watch for decline:** {', '.join(fading)} — strong pipeline but slowing activity")
 elif emerging:
-    emerg_names = [m.get("mechanism", "?")[:40] for m in emerging]
+    emerg_names = [m.get("mechanism", "?")[:60] for m in emerging]
     print(f"5. **Emerging opportunities:** {', '.join(emerg_names)}")
 
 print()
@@ -380,7 +380,7 @@ if top_company:
             print("| Company | Size | Overlap | Specialty Fit | Score |")
             print("|---------|------|---------|---------------|-------|")
             for company, overlap, fit, score, size in top_scored:
-                print(f"| {company[:40]} | {size} | {overlap} | {fit:.2f} | {score:.2f} |")
+                print(f"| {company[:60]} | {size} | {overlap} | {fit:.2f} | {score:.2f} |")
     print()
 
     if top_company_mechanisms:
@@ -420,10 +420,10 @@ else:
     enter_conf = "ABSTAIN"
 
 if white_space:
-    top_ws = white_space[0].get("mechanism", "?")[:40]
+    top_ws = white_space[0].get("mechanism", "?")[:60]
     enter_action = f"Explore entry via {top_ws} — white-space mechanism with no current leaders."
 elif emerging:
-    top_em = emerging[0].get("mechanism", "?")[:40]
+    top_em = emerging[0].get("mechanism", "?")[:60]
     enter_action = f"Evaluate {top_em} — emerging mechanism with growing activity."
 else:
     enter_action = None
@@ -511,7 +511,7 @@ if fading:
     top_fading = fading[0][:35]
     doubledown_action = f"Review {top_fading} portfolio position — declining momentum signals divestment or partnership opportunity."
 elif top_mech_share > 40:
-    doubledown_action = f"Cut exposure to {top_mech_name[:40]} ({top_mech_share:.0f}% share) — pivot to differentiated mechanisms."
+    doubledown_action = f"Cut exposure to {top_mech_name[:60]} ({top_mech_share:.0f}% share) — pivot to differentiated mechanisms."
 else:
     doubledown_action = None
 if doubledown_action:
@@ -528,7 +528,7 @@ for m in mechanisms[:10]:
 low_crowd = [m for m in mechanisms if safe_int(m.get("company_count", 0)) <= 3 and safe_int(m.get("active_count", 0)) >= 2][:3]
 if low_crowd:
     for m in low_crowd:
-        print(f"- {m.get('mechanism', '?')[:40]}: only {m.get('company_count', '?')} companies, {m.get('active_count', '?')} drugs — low competition")
+        print(f"- {m.get('mechanism', '?')[:60]}: only {m.get('company_count', '?')} companies, {m.get('active_count', '?')} drugs — low competition")
 # So what action closure for Differentiate
 # Confidence based on count of low-crowd mechanisms (≤3 companies, ≥2 drugs)
 _low_crowd_all = [m for m in mechanisms if safe_int(m.get("company_count", 0)) <= 3 and safe_int(m.get("active_count", 0)) >= 2]
@@ -543,7 +543,7 @@ else:
 
 if low_crowd:
     top_lc = low_crowd[0]
-    diff_mech = top_lc.get("mechanism", "?")[:40]
+    diff_mech = top_lc.get("mechanism", "?")[:60]
     diff_action = f"Invest in {diff_mech} — only {top_lc.get('company_count', '?')} competitors, {top_lc.get('active_count', '?')} drugs in field."
 else:
     diff_action = None

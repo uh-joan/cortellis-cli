@@ -393,38 +393,8 @@ def compile_indication_article(landscape_dir, indication_name, slug, base_dir=No
         tier_str = ", ".join(f"Tier {k}: {v}" for k, v in sorted(tiers.items()))
         body_parts.append(f"**Tier distribution:** {tier_str}\n\n")
 
-    # Key Companies — top 5 with narrative detail from narrate_context.json
-    narrate_ctx = read_json_safe(os.path.join(landscape_dir, "narrate_context.json"))
-    top_companies_ctx = narrate_ctx.get("top_companies", []) if isinstance(narrate_ctx, dict) else []
-    if top_companies_ctx:
-        body_parts.append("## Key Companies\n\n")
-        for c in top_companies_ctx[:5]:
-            cname = c.get("company", "")
-            if not cname:
-                continue
-            cslug = find_company_slug(cname, base_dir)
-            clink = wikilink(cslug, cname)
-            rank = c.get("rank", "")
-            position = c.get("position", "")
-            cpi = safe_float(c.get("cpi_score"))
-            pipeline = safe_int(c.get("pipeline_breadth"))
-            mech_div = safe_int(c.get("mechanism_diversity"))
-            deal_act = safe_int(c.get("deal_activity"))
-            trial_int = safe_int(c.get("trial_intensity"))
-            body_parts.append(f"### {rank}. {clink}\n\n")
-            attrs = []
-            if position:
-                attrs.append(f"**Position:** {position}")
-            attrs.append(f"**CPI:** {cpi:.1f}")
-            attrs.append(f"**Pipeline breadth:** {pipeline}")
-            attrs.append(f"**Mechanism diversity:** {mech_div}")
-            attrs.append(f"**Deal activity:** {deal_act}")
-            attrs.append(f"**Trial intensity:** {trial_int}")
-            co_enr = enrichments["companies"].get(cslug, {})
-            if co_enr.get("platform_breadth", 0) > 1:
-                attrs.append(f"**Platform:** {co_enr['platform_breadth']} indications")
-            body_parts.append(" · ".join(attrs) + "\n\n")
-    elif scores:
+    # Key Companies — top 5 from strategic_scores.csv (authoritative source)
+    if scores:
         body_parts.append("## Key Companies\n\n")
         for i, r in enumerate(scores[:5], 1):
             cname = r.get("company", "")

@@ -46,15 +46,18 @@ def get_top_company_names(landscape_dir, max_companies=10):
     return names
 
 
-def search_press_releases_for_company(company_name, client, max_hits=5):
-    """Search press releases for a company by name.
+def search_press_releases_for_company(company_name, client, max_hits=5, indication_name=None):
+    """Search press releases for a company, optionally filtered by indication.
 
+    Appends indication_name to the query so only indication-relevant results
+    are returned (e.g. "Eli Lilly AND obesity" instead of all Lilly PRs).
     Returns list of raw record dicts from the API response.
     Sleeps 2s after the API call.
     """
+    query = f'"{company_name}" AND {indication_name}' if indication_name else company_name
     records = []
     try:
-        result = press_releases.search(client, query=company_name, hits=max_hits)
+        result = press_releases.search(client, query=query, hits=max_hits)
         if result:
             if isinstance(result, dict):
                 # Primary path: pressReleaseResultsOutput.SearchResults.PressRelease
@@ -222,7 +225,7 @@ def main():
     companies_without_releases = 0
 
     for company_name in company_names:
-        records = search_press_releases_for_company(company_name, client)
+        records = search_press_releases_for_company(company_name, client, indication_name=indication_name)
         if records:
             companies_with_releases += 1
             for rec in records:
