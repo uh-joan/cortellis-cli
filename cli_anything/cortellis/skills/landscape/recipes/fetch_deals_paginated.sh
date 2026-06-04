@@ -1,5 +1,5 @@
 #!/bin/bash
-# Fetch deals with pagination (50/page, up to 200 deals).
+# Fetch deals with pagination (50/page), last 2 years only, up to 1000 deals.
 # Sorted by newest first.
 #
 # Usage: ./fetch_deals_paginated.sh "<search_args>" <output_csv> <pipeline_recipes_dir>
@@ -11,8 +11,9 @@
 SEARCH_ARGS="$1"
 OUTPUT="$2"
 PIPELINE_RECIPES="$3"
-MAX_PAGES=4
+MAX_PAGES=20
 HITS=50
+DATE_FROM=$(python3 -c "from datetime import date; d=date.today(); print(d.replace(year=d.year-2).isoformat())")
 
 # Write header
 echo "title,id,principal,partner,type,date" > "$OUTPUT"
@@ -27,7 +28,7 @@ while [ $OFFSET -lt $TOTAL ]; do
         sleep 1
     fi
 
-    RESULT=$(eval cortellis --json deals search $SEARCH_ARGS --hits $HITS --offset $OFFSET --sort-by '"-dealDateStart"' 2>/dev/null)
+    RESULT=$(eval cortellis --json deals search $SEARCH_ARGS --date-start "$DATE_FROM" --hits $HITS --offset $OFFSET --sort-by '"-dealDateStart"' 2>/dev/null)
 
     # Extract totalResults
     TOTAL=$(echo "$RESULT" | python3 -c "import json,sys; d=json.load(sys.stdin); print(d.get('dealResultsOutput',{}).get('@totalResults','0'))" 2>/dev/null)

@@ -80,7 +80,7 @@ if __name__ == "__main__":
 
     print("## Deal Analytics")
     print()
-    print(f"**{len(deals)} deals analyzed** (of {total_all_time} all-time) | **Period:** {oldest} to {newest}")
+    print(f"**{len(deals)} deals analyzed** (of {total_all_time} in period) | **Period:** {oldest} to {newest}")
     print()
 
     # Deal type breakdown
