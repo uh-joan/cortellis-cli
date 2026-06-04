@@ -34,8 +34,12 @@ def load_confirmed_drug_names(landscape_dir):
     """Return set of drug names confirmed to have this indication's approval.
 
     Reads approval_regions.json and returns names of drugs with at least one
-    country-level Launched/Registered row for the target indication. Returns
-    None if the file doesn't exist (caller should fall back to CSV).
+    country-level Launched/Registered row for the target indication AND a
+    major-Western approval (US/EU/JP). Non-Western-only drugs are excluded
+    because the US/EU regulatory databases hold no meaningful history for them
+    and free-text searches return unrelated noise (e.g. metformin → pramlintide).
+
+    Returns None if the file doesn't exist (caller should fall back to CSV).
     """
     path = os.path.join(landscape_dir, "approval_regions.json")
     if not os.path.exists(path):
@@ -46,7 +50,7 @@ def load_confirmed_drug_names(landscape_dir):
         return {
             a["drug_name"].lower()
             for a in data.get("analyses", [])
-            if a.get("countries")
+            if a.get("has_major_western")
         }
     except Exception:
         return None
