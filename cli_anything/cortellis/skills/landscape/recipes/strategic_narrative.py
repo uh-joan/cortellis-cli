@@ -283,21 +283,21 @@ elif top_mech_share > 15:
 else:
     print("2. **Diversified landscape:** No single mechanism exceeds 15% — fragmented competitive field")
 
-leader_names = [s.get("company", "?")[:30] for s in quadrants["Leaders"][:3]]
+leader_names = [s.get("company", "?")[:50] for s in quadrants["Leaders"][:3]]
 if leader_names:
     print(f"3. **Market leaders:** {', '.join(leader_names)}")
 
 rising_raw = quadrants["Rising Challengers"][:3]
 rising_tagged = []
 for s in rising_raw:
-    name = s.get("company", "?")[:30]
+    name = s.get("company", "?")[:50]
     if is_academic(name):
         name = f"{name} (academic — license candidate)"
     rising_tagged.append(name)
 if rising_tagged:
     print(f"4. **Rising challengers:** {', '.join(rising_tagged)} — low pipeline but high deal/trial momentum")
 
-fading = [s.get("company", "?")[:30] for s in quadrants["Fading Giants"][:3]]
+fading = [s.get("company", "?")[:50] for s in quadrants["Fading Giants"][:3]]
 if fading:
     print(f"5. **Watch for decline:** {', '.join(fading)} — strong pipeline but slowing activity")
 elif emerging:
@@ -314,7 +314,7 @@ print("|----------|-----------|-----------------|")
 for quadrant_name in ["Leaders", "Rising Challengers", "Fading Giants", "Under Pressure"]:
     companies = quadrants[quadrant_name]
     if companies:
-        names = ", ".join(s.get("company", "?")[:25] for s in companies[:4])
+        names = ", ".join(s.get("company", "?")[:45] for s in companies[:4])
         if len(companies) > 4:
             names += f" (+{len(companies)-4})"
         if quadrant_name == "Leaders":
@@ -398,13 +398,13 @@ print()
 # Enter/Expand
 print(f"**1. Enter or expand in this indication?** {preset_tag}")
 if crowded:
-    crowded_names = ", ".join(m.get("mechanism", "?")[:30] for m in crowded[:3])
+    crowded_names = ", ".join(m.get("mechanism", "?")[:50] for m in crowded[:3])
     print(f"- Avoid crowded mechanisms: {crowded_names}")
 if emerging:
-    emerg_names = ", ".join(m.get("mechanism", "?")[:30] for m in emerging[:3])
+    emerg_names = ", ".join(m.get("mechanism", "?")[:50] for m in emerging[:3])
     print(f"- Consider emerging mechanisms: {emerg_names}")
 if white_space:
-    ws_names = ", ".join(m.get("mechanism", "?")[:30] for m in white_space[:3])
+    ws_names = ", ".join(m.get("mechanism", "?")[:50] for m in white_space[:3])
     print(f"- White space opportunities: {ws_names}")
 # So what action closure for Enter/Expand
 # Confidence based on emerging+white-space data density
@@ -448,13 +448,13 @@ for s in rising_targets:
 if commercial_targets:
     print("*Acquisition targets (commercial entities):*")
     for s in commercial_targets[:3]:
-        name = s.get("company", "?")[:35]
+        name = s.get("company", "?")[:50]
         cpi = s["_cpi"]
         print(f"- {name} (CPI: {cpi:.1f}) — high momentum, potential acquisition target")
 if academic_targets:
     print("*License-in targets (academic/research):*")
     for s in academic_targets[:3]:
-        name = s.get("company", "?")[:35]
+        name = s.get("company", "?")[:50]
         cpi = s["_cpi"]
         print(f"- {name} (CPI: {cpi:.1f}) — license-in target")
 # So what action closure for Partner/Acquire
@@ -474,11 +474,11 @@ else:
     partner_conf = "ABSTAIN"
 
 if commercial_targets:
-    top_target = commercial_targets[0].get("company", "?")[:35]
+    top_target = commercial_targets[0].get("company", "?")[:50]
     top_cpi = commercial_targets[0]["_cpi"]
     partner_action = f"Initiate acquisition diligence on {top_target} (CPI: {top_cpi:.1f}) — top commercial momentum target."
 elif academic_targets:
-    top_target = academic_targets[0].get("company", "?")[:35]
+    top_target = academic_targets[0].get("company", "?")[:50]
     top_cpi = academic_targets[0]["_cpi"]
     partner_action = f"Engage {top_target} (CPI: {top_cpi:.1f}) for license-in — top academic pipeline candidate."
 else:
@@ -508,7 +508,7 @@ else:
     doubledown_conf = "ABSTAIN"
 
 if fading:
-    top_fading = fading[0][:35]
+    top_fading = fading[0][:50]
     doubledown_action = f"Review {top_fading} portfolio position — declining momentum signals divestment or partnership opportunity."
 elif top_mech_share > 40:
     doubledown_action = f"Cut exposure to {top_mech_name[:60]} ({top_mech_share:.0f}% share) — pivot to differentiated mechanisms."
