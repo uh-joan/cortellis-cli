@@ -51,6 +51,7 @@ from cli_anything.cortellis.core import (
     deals_intelligence as _deals_intelligence,
     drug_design as _drug_design,
     targets as _targets,
+    pendo as _pendo,
 )
 
 load_dotenv()
@@ -2047,6 +2048,211 @@ def _watch_log(base_dir: str, date_str: str, time_str: str, outcomes: list, dry_
         if not os.path.exists(log_path) or os.path.getsize(log_path) == 0:
             f.write(f"# Watch Log — {date_str}\n")
         f.writelines(lines)
+
+
+# ---------------------------------------------------------------------------
+# pendo — Cortellis usage analytics (who views what)
+# ---------------------------------------------------------------------------
+
+@cli.group()
+@click.pass_context
+def pendo(ctx: click.Context) -> None:
+    """Cortellis usage analytics from Pendo (page views, visitors)."""
+    ctx.ensure_object(dict)
+    ctx.obj["pendo_client"] = _pendo.PendoClient()
+
+
+@pendo.command("drug-views")
+@click.option("--days-ago", default=1, show_default=True,
+              help="How many days back to fetch (1 = yesterday).")
+@click.option("--limit", default=5000, show_default=True,
+              help="Maximum number of drug results to return.")
+@click.option("--hits", default=None, type=int,
+              help="Truncate output to top N drugs.")
+@click.pass_context
+def pendo_drug_views(ctx: click.Context, days_ago: int, limit: int, hits: int) -> None:
+    """Fetch daily drug page-view counts across all Cortellis drugs."""
+    client = ctx.obj["pendo_client"]
+    data = _pendo.drug_views(client, days_ago=days_ago, limit=limit)
+    results = data.get("results", [])
+    if hits:
+        results = results[:hits]
+    output = {
+        "date": data.get("startTime"),
+        "total_drugs": len(results),
+        "results": [
+            {"drug_id": r["parameters"]["parameter"], "views": r["numEvents"]}
+            for r in results
+        ],
+    }
+    print_output(ctx, output)
+
+
+@pendo.command("visitors")
+@click.argument("drug_id")
+@click.option("--days-ago", default=1, show_default=True,
+              help="How many days back to fetch (1 = yesterday).")
+@click.option("--limit", default=5000, show_default=True)
+@click.pass_context
+def pendo_visitors(ctx: click.Context, drug_id: str, days_ago: int, limit: int) -> None:
+    """Fetch visitor list for a specific drug ID on a given day."""
+    client = ctx.obj["pendo_client"]
+    data = _pendo.visitors(client, drug_id=drug_id, days_ago=days_ago, limit=limit)
+    results = data.get("results", [])
+    output = {
+        "drug_id": drug_id,
+        "unique_visitors": len(results),
+        "visitors": results,
+    }
+    print_output(ctx, output)
+
+
+@pendo.command("account-drug-views")
+@click.argument("drug_id")
+@click.option("--days-ago", default=1, show_default=True,
+              help="How many days back to fetch (1 = yesterday).")
+@click.option("--limit", default=5000, show_default=True)
+@click.pass_context
+def pendo_account_drug_views(ctx: click.Context, drug_id: str, days_ago: int, limit: int) -> None:
+    """Fetch per-account view counts for a specific drug ID on a given day."""
+    client = ctx.obj["pendo_client"]
+    data = _pendo.account_drug_views(client, drug_id=drug_id, days_ago=days_ago, limit=limit)
+    results = data.get("results", [])
+    output = {
+        "drug_id": drug_id,
+        "total_accounts": len(results),
+        "results": results,
+    }
+    print_output(ctx, output)
+
+
+@pendo.command("account-views")
+@click.option("--days-ago", default=1, show_default=True,
+              help="How many days back to fetch (1 = yesterday).")
+@click.option("--limit", default=5000, show_default=True,
+              help="Maximum number of account results to return.")
+@click.option("--hits", default=None, type=int,
+              help="Truncate output to top N accounts.")
+@click.pass_context
+def pendo_account_views(ctx: click.Context, days_ago: int, limit: int, hits: int) -> None:
+    """Fetch total drug page-view counts per account."""
+    client = ctx.obj["pendo_client"]
+    data = _pendo.account_views(client, days_ago=days_ago, limit=limit)
+    results = data.get("results", [])
+    if hits:
+        results = results[:hits]
+    output = {
+        "date": data.get("startTime"),
+        "total_accounts": len(results),
+        "results": results,
+    }
+    print_output(ctx, output)
+
+
+@pendo.command("drug-trend")
+@click.argument("drug_id")
+@click.option("--days", default=7, show_default=True,
+              help="Number of days of history to fetch.")
+@click.pass_context
+def pendo_drug_trend(ctx: click.Context, drug_id: str, days: int) -> None:
+    """Fetch daily view counts for a specific drug over N days."""
+    client = ctx.obj["pendo_client"]
+    trend = _pendo.drug_trend(client, drug_id=drug_id, days=days)
+    output = {
+        "drug_id": drug_id,
+        "days": days,
+        "trend": trend,
+    }
+    print_output(ctx, output)
+
+
+@pendo.command("account-drugs")
+@click.argument("account_id")
+@click.option("--days", default=7, show_default=True,
+              help="Number of days of history to fetch.")
+@click.option("--hits", default=None, type=int,
+              help="Truncate output to top N drugs.")
+@click.pass_context
+def pendo_account_drugs(ctx: click.Context, account_id: str, days: int, hits: int) -> None:
+    """Fetch top drugs viewed by a specific account over N days."""
+    client = ctx.obj["pendo_client"]
+    data = _pendo.account_drugs(client, account_id=account_id, days=days)
+    results = data.get("results", [])
+    if hits:
+        results = results[:hits]
+    output = {
+        "account_id": account_id,
+        "days": days,
+        "total_drugs": len(results),
+        "results": [
+            {"drug_id": r["parameters"]["parameter"], "views": r["numEvents"]}
+            for r in results
+        ],
+    }
+    print_output(ctx, output)
+
+
+@pendo.command("visitor-drugs")
+@click.argument("visitor_id")
+@click.option("--days", default=7, show_default=True,
+              help="Number of days of history to fetch.")
+@click.option("--hits", default=None, type=int,
+              help="Truncate output to top N drugs.")
+@click.pass_context
+def pendo_visitor_drugs(ctx: click.Context, visitor_id: str, days: int, hits: int) -> None:
+    """Fetch top drugs viewed by a specific visitor over N days."""
+    client = ctx.obj["pendo_client"]
+    data = _pendo.visitor_drugs(client, visitor_id=visitor_id, days=days)
+    results = data.get("results", [])
+    if hits:
+        results = results[:hits]
+    output = {
+        "visitor_id": visitor_id,
+        "days": days,
+        "total_drugs": len(results),
+        "results": [
+            {"drug_id": r["parameters"]["parameter"], "views": r["numEvents"]}
+            for r in results
+        ],
+    }
+    print_output(ctx, output)
+
+
+@pendo.command("account-drug-trend")
+@click.argument("drug_id")
+@click.option("--days", default=7, show_default=True,
+              help="Number of days of history to fetch.")
+@click.pass_context
+def pendo_account_drug_trend(ctx: click.Context, drug_id: str, days: int) -> None:
+    """Fetch per-account view breakdown for a drug over N days."""
+    client = ctx.obj["pendo_client"]
+    trend = _pendo.account_drug_trend(client, drug_id=drug_id, days=days)
+    output = {
+        "drug_id": drug_id,
+        "days": days,
+        "trend": trend,
+    }
+    print_output(ctx, output)
+
+
+@pendo.command("new-accounts")
+@click.option("--lookback", default=7, show_default=True,
+              help="Number of prior days to use as baseline.")
+@click.option("--hits", default=None, type=int,
+              help="Truncate output to top N accounts.")
+@click.pass_context
+def pendo_new_accounts(ctx: click.Context, lookback: int, hits: int) -> None:
+    """Find accounts active today that were not active in the prior N days."""
+    client = ctx.obj["pendo_client"]
+    results = _pendo.new_accounts(client, lookback=lookback)
+    if hits:
+        results = results[:hits]
+    output = {
+        "lookback_days": lookback,
+        "new_accounts": len(results),
+        "results": results,
+    }
+    print_output(ctx, output)
 
 
 # ---------------------------------------------------------------------------
