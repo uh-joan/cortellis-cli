@@ -164,6 +164,13 @@ python3 $RECIPES/enrich_biorxiv.py $DIR "$DRUG_NAME_RESOLVED"
 Searches bioRxiv and medRxiv via EuropePMC for preprints in the last 2 years (no auth required).
 Writes: `biorxiv.json`, `biorxiv_summary.md`. Especially useful for pipeline drugs with limited peer-reviewed literature.
 
+### Step 8i: Subscriber research engagement (external)
+```bash
+python3 $RECIPES/enrich_pendo.py $DIR "$DRUG_ID" "$DRUG_NAME_RESOLVED"
+```
+Fetches 7-day research attention: daily view trend, rank among all drugs, top organizations watching this drug. Compares current week vs prior week for momentum signal. Requires `PENDO_INTEGRATION_KEY` in `.env` — skips gracefully if not set.
+Writes: `pendo_attention.json` (raw, includes IDs), `pendo_summary.md` (wiki-safe: no IDs, no source attribution).
+
 ### Step 9: Drug Design (SI) enrichment (for early-stage drugs)
 If the drug is Phase 1 or Preclinical:
 ```bash
@@ -196,6 +203,8 @@ one-off anomalies. If unsure, skip.
 ## Learned Optimizations
 <!-- Auto-updated by post-run review. Confirmed across real runs: metformin, semaglutide, tirzepatide, cagrilintide, amycretin, celastrol. -->
 
+- **`pendo_attention.json` + `pendo_summary.md` empty when PENDO_INTEGRATION_KEY not set** — script exits cleanly with a skip message; no files written. Not a gap; expected in environments without the key configured.
+- **`pendo_summary.md` shows 0 views for very early-stage / research-only drugs** — drugs not yet attracting subscriber attention will have weekly_total=0 and rank at the tail of the list. Write the section but note "no activity recorded" rather than omitting entirely — absence of interest is itself signal.
 - **`cpic.json` sparse for most drugs** — only ~5% of drugs have CPIC pharmacogenomics data (metformin, warfarin, clopidogrel class). Skip Step 8h for biologics and peptides; only run for small molecules with known CYP/transporter interactions.
 - **`literature.json` consistently blank** — the Cortellis literature search endpoint returns empty for all 5 tested drugs despite real literature existing. Use `ct_trials.json` and `biorxiv.json` as primary publication evidence instead.
 - **`chembl.json` sparse for peptides/biologics** — returns empty for tirzepatide, amycretin, cagrilintide. Populated for small molecules (metformin) and some approved peptides (semaglutide). Worth running for small molecules; low yield for large molecules. For alphanumeric research codes (e.g. NBIP-1968, LY-XXXXXXX), ChEMBL returns HTTP 500 and writes no file at all — post-run reviewer will list these as "NOT RUN". Expected; not a gap. For very early Phase 1 small molecules (e.g. ENT-03), ChEMBL may find a CHEMBL ID but return 0 mechanism and 0 indication records — the entry exists but annotation is incomplete. Report the ChEMBL ID as confirmed; note mechanism/indication as not yet annotated.

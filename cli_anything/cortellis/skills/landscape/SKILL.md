@@ -471,6 +471,18 @@ python3 $RECIPES/enrich_historical_timeline.py $DIR --max-drugs 100 --months 24
 # Use when: "how has the pipeline evolved?", "show me trends", "historical view"
 ```
 
+### Step 8g: Enrich with subscriber research attention (optional)
+```bash
+python3 $RECIPES/enrich_pendo_landscape.py $DIR "<INDICATION_NAME>"
+# Reads all phase CSVs in $DIR to get the indication's drug IDs.
+# Fetches 7-day drug view totals (platform-wide), joins against indication drugs.
+# Fetches 7-day account view totals and new accounts (appeared this week vs prior 7d).
+# Writes pendo_landscape.json (raw, includes IDs), pendo_landscape.md (wiki-safe).
+# 23 API calls (7 drug-views + 7 drug-views-prior + 7 drug-account-views + 2 new-accounts), 4 concurrent batches.
+# Skips gracefully if PENDO_INTEGRATION_KEY is not set.
+# Use when: "what drugs in this indication are subscribers watching?", "which orgs are most active here?"
+```
+
 ### Step 9: Generate report <!-- model: opus -->
 ```bash
 python3 $RECIPES/landscape_report_generator.py $DIR "<INDICATION_NAME>" "<INDICATION_ID>" "<USER_INPUT>" | tee $DIR/report.md

@@ -656,6 +656,12 @@ def compile_indication_article(landscape_dir, indication_name, slug, base_dir=No
     if strategic_md:
         body_parts.append(_embed_md("## Strategic Briefing", strategic_md))
 
+    # Subscriber research attention (from enrich_pendo_landscape.py) — no IDs, no source attribution
+    pendo_landscape_md = read_md_safe(os.path.join(landscape_dir, "pendo_landscape.md"))
+    if pendo_landscape_md:
+        body_parts.append(pendo_landscape_md)
+        body_parts.append("\n")
+
     # Data Sources
     body_parts.append("## Data Sources\n\n")
     body_parts.append(f"- **Source directory:** `{landscape_dir}`\n")

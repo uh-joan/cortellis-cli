@@ -265,6 +265,18 @@ python3 $RECIPES/enrich_pipeline_external.py $DIR "<COMPANY_NAME>"
 ```
 Fetches Open Targets tractability + genetic constraint for top pipeline mechanisms. Searches bioRxiv/medRxiv for recent preprints. Writes `opentargets_pipeline.md` and `biorxiv_pipeline.md` to the pipeline dir (embedded by compile_pipeline.py).
 
+### Step 8b: Subscriber drug watchlist (optional)
+```bash
+python3 $RECIPES/enrich_pendo_pipeline.py $DIR "<COMPANY_NAME>"
+# Resolves company to Pendo account (1 call), caches in pendo_account_id.txt.
+# Fetches 7-day drug watchlist for that account (1 call).
+# Cross-references own pipeline CSVs to flag external vs own-pipeline drugs.
+# Resolves drug names from local phase CSVs in raw/ — no additional API calls.
+# Writes pendo_watchlist.json (raw, includes IDs), pendo_watchlist.md (wiki-safe).
+# 2 API calls total. Skips gracefully if key missing or company account not found.
+# Use when: "what is <company> researching?", "competitive intelligence", "watch list"
+```
+
 ### Compile pipeline to wiki (Step 8 — optional)
 ```bash
 python3 $RECIPES/compile_pipeline.py $DIR "<COMPANY_NAME>" --wiki-dir .
