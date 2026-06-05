@@ -221,7 +221,9 @@ def compile_pipeline_article(pipeline_dir, company_name, slug, base_dir=None):
         for deal in deals_rows:
             deal_type = deal.get("deal_type") or deal.get("type") or deal.get("activity_type") or "-"
             deal_date = deal.get("date") or deal.get("deal_date") or deal.get("year") or "-"
-            details = deal.get("description") or deal.get("drug_name") or deal.get("drug") or "-"
+            details_base = deal.get("description") or deal.get("title") or deal.get("drug_name") or deal.get("drug") or "-"
+            partner = deal.get("partner") or ""
+            details = f"{details_base} ({partner})" if partner and details_base != "-" else details_base
             body_parts.append(f"| {deal_type} | {deal_date} | {details} |\n")
         body_parts.append("\n")
 
