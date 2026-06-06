@@ -109,6 +109,12 @@ _ACQUIRED_RE = re.compile(
     r'(?:acquired\s+by|acquisition\s+by|acquisition\s+of\s+\w[\w\s]+\s+by)\s+([\w\s&,\.]+?)(?:\s+for\s+\$[\d\.,]+[BMbm]|\s+in\s+a\s+deal|\.|,)',
     re.IGNORECASE,
 )
+# Forward: "GSK agrees to acquire 35Pharma" — requires title-case acquirer to avoid prefix bleed
+_ACQUIRES_FWD_RE = re.compile(
+    r'\b([A-Z][a-zA-Z0-9&\.\-]*(?:\s+[A-Z&][a-zA-Z0-9&\.\-]*){0,4})'
+    r'\s+(?:agrees?\s+to\s+acquire|announced?\s+(?:the\s+)?acquisition\s+of'
+    r'|completes?\s+(?:(?:the|its)\s+)?acquisition\s+of|to\s+acquire)\s+\w',
+)
 _IPO_RE = re.compile(r'\bIPO\b|\binitial public offering\b', re.IGNORECASE)
 _MARKET_CAP_RE = re.compile(
     r'market\s+cap(?:italization)?\s+(?:of\s+)?(?:approximately\s+)?\$\s*([\d,]+(?:\.\d+)?)\s*([BMbm])',
@@ -164,12 +170,25 @@ def extract_facts(snippets: list[str], company_name: str) -> dict:
         facts["market_cap"] = _normalize_amount(m.group(1), m.group(2))
         break
 
-    # Acquisition
+    # Acquisition — reverse: "acquired by X" / forward: "X to acquire COMPANY"
     for m in _ACQUIRED_RE.finditer(combined):
         acquirer = m.group(1).strip().rstrip(".,")
         if len(acquirer) < 60:
             facts["acquired_by"] = acquirer
             break
+    if "acquired_by" not in facts:
+        for sent in re.split(r'(?<=[.!?])\s+', combined):
+            if name_word not in sent.lower():
+                continue
+            m = _ACQUIRES_FWD_RE.search(sent)
+            if m:
+                acquirer = m.group(1).strip().rstrip(".,")
+                if 2 < len(acquirer) < 60:
+                    facts["acquired_by"] = acquirer
+                    # Ticker found earlier likely belongs to acquirer — clear it
+                    facts.pop("ticker", None)
+                    facts.pop("exchange", None)
+                    break
 
     # IPO — only if company name is in the same sentence
     for sent in re.split(r'(?<=[.!?])\s+', combined):
