@@ -257,6 +257,12 @@ def compile_pipeline_article(pipeline_dir, company_name, slug, base_dir=None):
         body_parts.append(pendo_watchlist_md)
         body_parts.append("\n")
 
+    # Investment profile (from enrich_financials.py)
+    financials_md = read_md_safe(os.path.join(pipeline_dir, "financials_summary.md"))
+    if financials_md:
+        body_parts.append(financials_md)
+        body_parts.append("\n")
+
     # Data Sources
     body_parts.append("## Data Sources\n\n")
     body_parts.append(f"- **Pipeline directory:** `{pipeline_dir}`\n")
