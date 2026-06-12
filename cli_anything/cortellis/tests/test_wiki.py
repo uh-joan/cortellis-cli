@@ -10,6 +10,7 @@ import pytest
 
 from cli_anything.cortellis.utils.wiki import (
     slugify,
+    normalize_drug_name,
     wiki_root,
     article_path,
     read_article,
@@ -45,6 +46,48 @@ class TestSlugify:
 
     def test_unicode_apostrophe(self):
         assert slugify("Parkinson\u2019s") == "parkinsons"
+
+
+class TestNormalizeDrugName:
+    """Guards the resolver output contract.
+
+    Cortellis @name carries commas (originator suffix, formulation/indication
+    parentheticals, co-formulations). resolve_drug.py emits a comma-delimited
+    line that the harness parses positionally on commas, so the name field MUST
+    be comma-free or every later field (inn_slug, drug_phase) desyncs. See the
+    drug-profile resolver fix.
+    """
+
+    # Real @name strings observed from the Cortellis drugs API.
+    CORTELLIS_NAMES = [
+        "acetylleucine (cerebellar ataxia/Niemann-Pick/Tay-Sachs disease/GM2 gangliosidosis/ataxia telangiectasia), IntraBio",
+        "semaglutide (subcutaneous, diabetes/obesity/NASH), Novo Nordisk",
+        "semaglutide (transdermal patch system/ type 2 diabetes), Novo Nordisk/ Zosano Pharma",
+        "bimagrumab + tirzepatide co-formulation (sc), Eli Lilly",
+        "tirzepatide",
+    ]
+
+    def test_strips_originator_and_parenthetical(self):
+        assert normalize_drug_name(self.CORTELLIS_NAMES[0]) == "acetylleucine"
+        assert normalize_drug_name(self.CORTELLIS_NAMES[1]) == "semaglutide"
+
+    def test_output_is_always_comma_free(self):
+        # The invariant the resolver depends on: a comma in this field would
+        # shift the positional CSV parse and corrupt inn_slug.
+        for name in self.CORTELLIS_NAMES:
+            assert "," not in normalize_drug_name(name)
+
+    def test_resolver_line_splits_into_five_fields(self):
+        # Simulate resolve_drug.py building its output line; the harness reads
+        # field 4 as inn_slug and field 2 as drug_phase.
+        for name in self.CORTELLIS_NAMES:
+            drug_name = normalize_drug_name(name)
+            inn_slug = slugify(drug_name)
+            line = f"105543,{drug_name},Launched,14,{inn_slug}"
+            parts = line.split(",")
+            assert len(parts) == 5
+            assert parts[4] == inn_slug
+            assert parts[2] == "Launched"
 
 
 class TestWikiRoot:
