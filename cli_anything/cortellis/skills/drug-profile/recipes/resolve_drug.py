@@ -145,7 +145,17 @@ if __name__ == "__main__":
     if not drug_id:
         print(f"ERROR: could not resolve drug '{name}'", file=sys.stderr)
         sys.exit(1)
-    inn_slug = slugify(normalize_drug_name(drug_name))
+    # Cortellis @name is "drugname (formulation, indications), Originator" and can
+    # contain commas (originator suffix, formulation/indication parentheticals,
+    # co-formulations). The harness parses this line positionally on commas
+    # (drug_id,drug_name,phase,indication_count,inn_slug), so any comma inside
+    # drug_name desyncs every later field — inn_slug ends up capturing a count,
+    # drug_phase a fragment of the name, etc. normalize_drug_name() reduces @name
+    # to the bare INN (dropping the parenthetical and originator), which keeps the
+    # field comma-free, matches the curated cache format, and gives the enrichers
+    # a clean name to search.
+    drug_name = normalize_drug_name(drug_name)
+    inn_slug = slugify(drug_name)
     result = f"{drug_id},{drug_name},{phase},{indics},{inn_slug}"
     cache_set("drugs", name, result)
     print(result)
