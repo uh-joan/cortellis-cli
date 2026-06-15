@@ -21,6 +21,9 @@ raw/
 # Compiled wiki knowledge base — derived from raw/, user-specific
 wiki/
 
+# Generated analysis artifacts (BD signal reports, diligence memos) — user-specific
+reports/
+
 # Daily session logs — conversation transcripts, user-specific
 daily/
 flush.log
