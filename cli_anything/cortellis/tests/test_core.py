@@ -431,11 +431,22 @@ class TestDrugsViaQueryBuilder:
         assert q == "LINKED(developmentStatusPhaseId:L)"
 
     def test_drugs_search_builds_correct_params_company(self):
+        # A company NAME must use companiesPrimary (developmentStatusCompanyId is
+        # an ID field and silently matches no names).
         q = qb.build_drug_query(company="Pfizer", phase="Phase III")
         assert q is not None
-        assert "LINKED(" in q
-        assert "developmentStatusCompanyId:Pfizer" in q
+        assert "companiesPrimary:Pfizer" in q
+        assert "developmentStatusCompanyId" not in q
         assert 'developmentStatusPhaseId:"Phase III"' in q
+
+    def test_drugs_search_company_numeric_id_uses_dev_status(self):
+        # A numeric company ID keeps the LINKED development-status field (the
+        # pipeline skill resolves a company to its ID and passes it here).
+        q = qb.build_drug_query(company="18614", phase="Phase III")
+        assert q is not None
+        assert "LINKED(" in q
+        assert "developmentStatusCompanyId:18614" in q
+        assert "companiesPrimary" not in q
 
     def test_drugs_get_with_category_query_string(self):
         # Category is passed as a path/param in the CLI — just verify

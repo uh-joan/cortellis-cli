@@ -138,7 +138,14 @@ def build_drug_query(
     if phase:
         linked_parts.append(text(f"{prefix}PhaseId", phase))
     if company:
-        linked_parts.append(text(f"{prefix}CompanyId", company))
+        # Numeric company IDs match the LINKED development-status field (the
+        # pipeline skill resolves a company to its ID and passes it here). A
+        # company NAME must use companiesPrimary instead — developmentStatusCompanyId
+        # is an ID field, so a name silently matched nothing.
+        if str(company).isdigit():
+            linked_parts.append(text(f"{prefix}CompanyId", company))
+        else:
+            parts.append(text("companiesPrimary", company))
     if country:
         linked_parts.append(text(f"{prefix}CountryId", country))
     if status_date:
