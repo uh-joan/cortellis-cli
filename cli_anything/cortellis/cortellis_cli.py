@@ -66,8 +66,10 @@ load_dotenv()
 @click.option("--debug", is_flag=True, default=False,
               help="Show API commands being executed in chat mode.")
 @click.option("--engine", default="claude",
-              type=click.Choice(["claude", "codex", "pi", "lmstudio"], case_sensitive=False),
-              help="AI engine for chat mode: 'claude' (Claude Code), 'codex' (OpenAI Codex), 'pi' (Pi coding agent), or 'lmstudio' (local LM Studio server).")
+              type=click.Choice(["claude", "codex", "pi", "lmstudio", "copilot"], case_sensitive=False),
+              help="AI engine for chat mode: 'claude' (Claude Code), 'codex' (OpenAI Codex), "
+                   "'pi' (Pi coding agent), 'lmstudio' (local LM Studio server), "
+                   "or 'copilot' (GitHub Copilot CLI).")
 @click.option("--no-flush", "no_flush", is_flag=True, default=False,
               help="Skip session memory flush on exit (useful for testing).")
 @click.option("--query", "-q", default=None,
@@ -1737,7 +1739,37 @@ def setup_cmd() -> None:
         click.echo("    npm install -g @mariozechner/pi-coding-agent")
         click.echo("    pi /log  (configure a provider)")
 
-    if not claude_bin and not codex_bin and not pi_bin:
+    copilot_bin = shutil.which("copilot")
+    if copilot_bin:
+        click.echo("  GitHub Copilot CLI found!")
+        # Headless auth resolves from COPILOT_GITHUB_TOKEN / GH_TOKEN / GITHUB_TOKEN,
+        # else falls back to an authenticated `gh`. Classic ghp_ PATs are NOT supported.
+        if any(os.environ.get(v) for v in ("COPILOT_GITHUB_TOKEN", "GH_TOKEN", "GITHUB_TOKEN")):
+            click.echo("  Token found in environment — 'cortellis --engine copilot' is ready.")
+        else:
+            gh_bin = shutil.which("gh")
+            gh_ok = False
+            if gh_bin:
+                try:
+                    gh_check = _sp.run([gh_bin, "auth", "status"],
+                                       capture_output=True, text=True, timeout=10)
+                    gh_ok = gh_check.returncode == 0
+                except Exception:
+                    gh_ok = False
+            if gh_ok:
+                click.echo("  Authenticated via gh — 'cortellis --engine copilot' is ready.")
+            else:
+                click.echo("  Not authenticated yet. Either run:")
+                click.echo("    gh auth login")
+                click.echo("  or set COPILOT_GITHUB_TOKEN to a fine-grained PAT with the")
+                click.echo("  'Copilot Requests' permission (classic ghp_ PATs are not supported).")
+    else:
+        click.echo("  GitHub Copilot CLI not found.")
+        click.echo("  To enable AI chat mode with Copilot, install it:")
+        click.echo("    npm install -g @github/copilot")
+        click.echo("    gh auth login  (or set COPILOT_GITHUB_TOKEN)")
+
+    if not claude_bin and not codex_bin and not pi_bin and not copilot_bin:
         click.echo("  (Optional — all other commands work without an AI engine)")
     click.echo()
 
@@ -1801,6 +1833,7 @@ def setup_cmd() -> None:
     click.echo("  Quick start:")
     click.echo("    cortellis                            # AI chat (Claude Code)")
     click.echo("    cortellis --engine codex             # AI chat (OpenAI Codex)")
+    click.echo("    cortellis --engine copilot           # AI chat (GitHub Copilot)")
     click.echo("    cortellis web                        # browser UI at localhost:7337")
     click.echo()
     click.echo("  Run 'cortellis --help' to see all 21 command groups.")
@@ -3200,6 +3233,17 @@ def chat_cmd(debug, engine="claude", no_flush=False, query=None) -> None:
             click.echo(_BANNER)
             click.echo(f"  Cortellis AI Chat — powered by LM Studio ({_lmstudio_model or 'auto'})")
             click.echo("  Ask questions naturally. Type 'exit' or Ctrl-D to quit.\n")
+    elif engine == "copilot":
+        ai_bin = shutil.which("copilot")
+        if not ai_bin:
+            click.echo("Error: 'copilot' CLI not found. Install GitHub Copilot CLI:")
+            click.echo("  npm install -g @github/copilot")
+            click.echo("  Then authenticate: gh auth login  (or set COPILOT_GITHUB_TOKEN)")
+            raise SystemExit(1)
+        if not _one_shot:
+            click.echo(_BANNER)
+            click.echo("  Cortellis AI Chat — powered by GitHub Copilot")
+            click.echo("  Ask questions naturally. Type 'exit' or Ctrl-D to quit.\n")
     else:
         ai_bin = shutil.which("claude")
         if not ai_bin:
@@ -3593,6 +3637,31 @@ All skills and their workflows are included below in the system context."""
                 cmd.append("-c")
         elif engine == "lmstudio":
             cmd = []  # no subprocess — HTTP tool loop runs below
+        elif engine == "copilot":
+            _has_session_memory = bool(daily_log_section or insights_section)
+            _memory_rule = (
+                "MEMORY RULE: Sections labeled 'What Happened in Previous Sessions' "
+                "are your ONLY source of truth about past conversations. "
+                "When asked what was discussed, report ONLY what appears in those sections — "
+                "nothing more. Do NOT add context, code changes, PR numbers, test results, "
+                "or anything else from your training data. If it is not in the memory sections, "
+                "it did not happen as far as you are concerned."
+                if _has_session_memory else
+                "MEMORY RULE: No session memory is available for this workspace. "
+                "If asked what was discussed previously, say exactly: "
+                "'I have no memory of previous sessions in this workspace.' "
+                "Do not fabricate any session history from training data."
+            )
+            full_message = f"{_memory_rule}\n\n{effective_prompt}\n\n---\n\n{routed_question}"
+            # GitHub Copilot CLI: no --append-system-prompt, so context is prepended to
+            # the -p message (like codex/pi). -s gives clean text on stdout (no session
+            # metadata). --no-ask-user prevents the agent from blocking on questions in
+            # one-shot mode. --allow-all-tools enables headless shell execution; rm and
+            # git push are denied as a safety net. Copilot has no session-resume flag,
+            # so multi-turn memory relies on the injected history_block (like the others).
+            cmd = [ai_bin, "-p", full_message, "-s", "--no-ask-user",
+                   "--allow-all-tools",
+                   "--deny-tool=shell(rm)", "--deny-tool=shell(git push)"]
         else:
             cmd = [ai_bin, "--print", "-p", routed_question,
                    "--append-system-prompt", effective_prompt,
@@ -3639,7 +3708,7 @@ All skills and their workflows are included below in the system context."""
         first_output = True
         if engine != "lmstudio":
             popen_kwargs = dict(stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
-            if engine in ("codex", "pi"):
+            if engine in ("codex", "pi", "copilot"):
                 # Prevent blocking on stdin
                 popen_kwargs["stdin"] = subprocess.DEVNULL
             proc = subprocess.Popen(cmd, **popen_kwargs)
@@ -3698,6 +3767,63 @@ All skills and their workflows are included below in the system context."""
                     _entry = (
                         f"\n\n---\n\n"
                         f"### [Codex] Turn ({_now.strftime('%H:%M:%S')} UTC)\n\n"
+                        f"**Q:** {routed_question[:300]}\n\n"
+                        f"**A:** {text[:500]}{'...' if len(text) > 500 else ''}\n"
+                    )
+                    if not os.path.exists(_log_path):
+                        with open(_log_path, "w", encoding="utf-8") as _lf:
+                            _lf.write(f"# Daily Log — {_now.strftime('%Y-%m-%d')}\n")
+                    with open(_log_path, "a", encoding="utf-8") as _lf:
+                        _lf.write(_entry)
+                except Exception as _e:
+                    sys.stderr.write(f"  Warning: could not write session log: {_e}\n")
+        elif engine == "copilot":
+            # Copilot CLI -s prints clean text on stdout (no JSON/stream mode). Accumulate
+            # all stdout as the answer; while waiting, surface command-ish lines in the
+            # spinner via translate_command (no structured tool events available).
+            _cop_lines = []
+            for _line in iter(proc.stdout.readline, b""):
+                _decoded = _line.decode("utf-8", errors="replace").rstrip("\n")
+                _cop_lines.append(_decoded)
+                _stripped = _decoded.strip()
+                if not _stripped:
+                    continue
+                if not debug:
+                    new_status = translate_command(_stripped)
+                    if new_status:
+                        if spinner_state[1]:
+                            elapsed = int(time.time() - t_start)
+                            _ln = f"  {spinner_state[0]}  ({elapsed}s)"
+                            sys.stdout.write(f"\r{_ln:<80s}\n")
+                            sys.stdout.flush()
+                            spinner_state[1] = False
+                        spinner_state[0] = new_status
+            stop_spinner.set()
+            spinner_thread.join()
+            elapsed = int(time.time() - t_start)
+            if spinner_state[1]:
+                sys.stdout.write(f"\r  Answered in {elapsed}s" + " " * 40 + "\n\n")
+            else:
+                sys.stdout.write(f"  Answered in {elapsed}s\n\n")
+            sys.stdout.flush()
+            text = "\n".join(_cop_lines).strip()
+            if not text:
+                text = "[No response from Copilot]"
+            sys.stdout.write(text)
+            if not text.endswith("\n"):
+                sys.stdout.write("\n")
+            sys.stdout.flush()
+
+            if not no_flush:
+                try:
+                    from datetime import datetime as _dt2, timezone as _tz2
+                    _now = _dt2.now(_tz2.utc)
+                    _daily_dir = os.path.join(os.getcwd(), "daily")
+                    os.makedirs(_daily_dir, exist_ok=True)
+                    _log_path = os.path.join(_daily_dir, f"{_now.strftime('%Y-%m-%d')}.md")
+                    _entry = (
+                        f"\n\n---\n\n"
+                        f"### [Copilot] Turn ({_now.strftime('%H:%M:%S')} UTC)\n\n"
                         f"**Q:** {routed_question[:300]}\n\n"
                         f"**A:** {text[:500]}{'...' if len(text) > 500 else ''}\n"
                     )
