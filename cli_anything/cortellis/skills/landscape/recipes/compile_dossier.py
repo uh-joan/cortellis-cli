@@ -89,11 +89,16 @@ PHASE_FILES = ["launched", "phase3", "phase2", "phase1", "discovery", "other"]
 
 
 def load_phase_counts(landscape_dir):
-    """Count drugs per phase from CSV files."""
+    """Count unique drug INNs per phase from CSV files."""
     counts = {}
     total = 0
     for phase in PHASE_FILES:
-        n = count_csv_rows(landscape_dir, f"{phase}.csv")
+        rows = read_csv_safe(os.path.join(landscape_dir, f"{phase}.csv"))
+        seen = {
+            normalize_drug_name(r.get("name") or r.get("drug_name") or r.get("drug") or "").strip().lower()
+            for r in rows
+        } - {""}
+        n = len(seen)
         counts[phase] = n
         total += n
     counts["total"] = total
@@ -128,23 +133,22 @@ def load_drugdesign_preclinical(landscape_dir):
 def load_drugdesign_mechanism_counts(landscape_dir):
     """Load bench compound counts keyed by drugs-endpoint mechanism name (lower-case).
 
-    Prefers the ID-based crosswalk (drugdesign_mechanism_crosswalk.json) built by
-    fetch_drugdesign_mechanism_counts.py, which maps mechanism names via the shared
-    Cortellis mechanism ID — exact, no string comparison.
-
-    Falls back to the raw name-based CSV lookup when the crosswalk is absent
-    (e.g. first run before crosswalk was generated).
+    Merges the raw name-based CSV with the ID-based crosswalk (when present).
+    Crosswalk entries take precedence — they use shared Cortellis mechanism IDs
+    for exact matching. Raw CSV fills in mechanisms the crosswalk didn't cover.
     """
+    # Base: raw name-based lookup
+    rows = read_csv_safe(os.path.join(landscape_dir, "drugdesign_mechanism_counts.csv"))
+    counts = {r["mechanism_name"].lower(): safe_int(r.get("compound_count", 0)) for r in rows if r.get("mechanism_name")}
+    # Overlay: ID-based crosswalk wins where it has coverage
     xwalk_path = os.path.join(landscape_dir, "drugdesign_mechanism_crosswalk.json")
     if os.path.exists(xwalk_path):
         try:
             with open(xwalk_path, encoding="utf-8") as f:
-                return json.load(f)  # already {mech_name_lower: count}
+                counts.update(json.load(f))
         except (json.JSONDecodeError, OSError):
             pass
-    # Fallback: raw name-based lookup
-    rows = read_csv_safe(os.path.join(landscape_dir, "drugdesign_mechanism_counts.csv"))
-    return {r["mechanism_name"].lower(): safe_int(r.get("compound_count", 0)) for r in rows if r.get("mechanism_name")}
+    return counts
 
 
 _ENRICHMENT_SOURCE_FILES = [
@@ -210,9 +214,9 @@ def load_wiki_enrichments(landscape_dir, base_dir):
             "conflict_count": len(meta.get("conflicts", [])),
         }
 
-    # Companies: top 20 — look for pipeline articles (marked by 'pipeline' field)
+    # Companies: Tier A/B — look for pipeline articles (marked by 'pipeline' field)
     scores = load_strategic_scores(landscape_dir)
-    for r in scores[:20]:
+    for r in [r for r in scores if r.get("cpi_tier") in ("A", "B")]:
         cname = r.get("company", "")
         if not cname:
             continue
@@ -309,7 +313,7 @@ def compile_indication_article(landscape_dir, indication_name, slug, base_dir=No
 
     # Frontmatter
     now = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
-    company_slugs = [find_company_slug(r["company"], base_dir) for r in scores[:20] if r.get("company")]
+    company_slugs = [find_company_slug(r["company"], base_dir) for r in scores if r.get("company") and r.get("cpi_tier") in ("A", "B")]
 
     # Derive tags: preset + top 3 mechanism slugs + indication slug
     tags = [slugify(preset)] if preset else []
@@ -355,7 +359,7 @@ def compile_indication_article(landscape_dir, indication_name, slug, base_dir=No
         },
         "company_rankings": [
             {"company": r["company"], "cpi_score": safe_float(r.get("cpi_score")), "tier": r.get("cpi_tier", "")}
-            for r in scores[:20]
+            for r in scores if r.get("cpi_tier") in ("A", "B")
         ],
         "source_count": source_count,
     }
@@ -412,7 +416,7 @@ def compile_indication_article(landscape_dir, indication_name, slug, base_dir=No
             "| Rank | Company | Tier | CPI | Position | Pipeline | Phase Score | Mechs | Deals | Trials |\n"
             "|---|---|---|---|---|---|---|---|---|---|\n"
         )
-        for i, r in enumerate(scores[:30], 1):
+        for i, r in enumerate((r for r in scores if r.get("cpi_tier") in ("A", "B")), 1):
             company_link = wikilink(find_company_slug(r["company"], base_dir), r["company"])
             body_parts.append(
                 f"| {i} | {company_link}"
@@ -436,38 +440,8 @@ def compile_indication_article(landscape_dir, indication_name, slug, base_dir=No
         tier_str = ", ".join(f"Tier {k}: {v}" for k, v in sorted(tiers.items()))
         body_parts.append(f"**Tier distribution:** {tier_str}\n\n")
 
-    # Key Companies — top 5 with narrative detail from narrate_context.json
-    narrate_ctx = read_json_safe(os.path.join(landscape_dir, "narrate_context.json"))
-    top_companies_ctx = narrate_ctx.get("top_companies", []) if isinstance(narrate_ctx, dict) else []
-    if top_companies_ctx:
-        body_parts.append("## Key Companies\n\n")
-        for c in top_companies_ctx[:5]:
-            cname = c.get("company", "")
-            if not cname:
-                continue
-            cslug = find_company_slug(cname, base_dir)
-            clink = wikilink(cslug, cname)
-            rank = c.get("rank", "")
-            position = c.get("position", "")
-            cpi = safe_float(c.get("cpi_score"))
-            pipeline = safe_int(c.get("pipeline_breadth"))
-            mech_div = safe_int(c.get("mechanism_diversity"))
-            deal_act = safe_int(c.get("deal_activity"))
-            trial_int = safe_int(c.get("trial_intensity"))
-            body_parts.append(f"### {rank}. {clink}\n\n")
-            attrs = []
-            if position:
-                attrs.append(f"**Position:** {position}")
-            attrs.append(f"**CPI:** {cpi:.1f}")
-            attrs.append(f"**Pipeline breadth:** {pipeline}")
-            attrs.append(f"**Mechanism diversity:** {mech_div}")
-            attrs.append(f"**Deal activity:** {deal_act}")
-            attrs.append(f"**Trial intensity:** {trial_int}")
-            co_enr = enrichments["companies"].get(cslug, {})
-            if co_enr.get("platform_breadth", 0) > 1:
-                attrs.append(f"**Platform:** {co_enr['platform_breadth']} indications")
-            body_parts.append(" · ".join(attrs) + "\n\n")
-    elif scores:
+    # Key Companies — top 5 from strategic_scores.csv (authoritative source)
+    if scores:
         body_parts.append("## Key Companies\n\n")
         for i, r in enumerate(scores[:5], 1):
             cname = r.get("company", "")
@@ -501,7 +475,8 @@ def compile_indication_article(landscape_dir, indication_name, slug, base_dir=No
     _seen_drug_names: set[str] = set()
     flagship_drugs = []
     for _d in launched_rows[:10] + phase3_rows[:10]:
-        _dkey = (_d.get("drug_name") or _d.get("name") or _d.get("drug") or "").strip().lower()
+        _raw = _d.get("drug_name") or _d.get("name") or _d.get("drug") or ""
+        _dkey = normalize_drug_name(_raw).strip().lower()
         if _dkey and _dkey not in _seen_drug_names:
             _seen_drug_names.add(_dkey)
             flagship_drugs.append(_d)
@@ -544,7 +519,8 @@ def compile_indication_article(landscape_dir, indication_name, slug, base_dir=No
             mech = drug.get("mechanism") or drug.get("moa") or drug.get("mechanism_of_action") or "-"
             comp = drug.get("company") or drug.get("company_name") or "-"
             drug_slug = slugify(normalize_drug_name(dname)) if dname != "-" else ""
-            drug_str = wikilink(drug_slug, dname) if dname != "-" else "-"
+            drug_display = normalize_drug_name(dname) if dname != "-" else "-"
+            drug_str = wikilink(drug_slug, drug_display) if dname != "-" else "-"
             comp_str = wikilink(find_company_slug(comp, base_dir), comp) if comp != "-" else "-"
             regions = _regions_by_drug.get(dname.strip().lower(), "")
             if has_drug_enrichment:
@@ -647,18 +623,23 @@ def compile_indication_article(landscape_dir, indication_name, slug, base_dir=No
         if white_space:
             body_parts.append(f"**White space / emerging mechanisms ({len(white_space)}):**\n\n")
             for r in white_space[:10]:
+                p1 = safe_int(r.get("phase1"))
+                disc = safe_int(r.get("discovery"))
+                early_str = f"P1: {p1}, disc: {disc}" if (p1 or disc) else "early-stage only"
                 body_parts.append(
-                    f"- {r.get('mechanism', '?')}: {r.get('total', '?')} drugs, "
-                    f"{r.get('companies', '?')} companies, "
-                    f"opportunity score {safe_float(r.get('opportunity_score')):.4f}\n"
+                    f"- {r.get('mechanism', '?')}: {r.get('total', '?')} drugs "
+                    f"({early_str}), {r.get('companies', '?')} companies\n"
                 )
             body_parts.append("\n")
 
         if crowded:
+            _active_by_mech = {m.get("mechanism", "").lower(): safe_int(m.get("active_count")) for m in mechanisms}
             body_parts.append(f"**Crowded mechanisms ({len(crowded)}):**\n\n")
             for r in crowded[:10]:
+                mname = r.get("mechanism", "?")
+                active = _active_by_mech.get(mname.lower()) or r.get("total", "?")
                 body_parts.append(
-                    f"- {r.get('mechanism', '?')}: {r.get('total', '?')} drugs, "
+                    f"- {mname}: {active} drugs, "
                     f"{r.get('companies', '?')} companies\n"
                 )
             body_parts.append("\n")
@@ -671,7 +652,7 @@ def compile_indication_article(landscape_dir, indication_name, slug, base_dir=No
             f"with active development intent, not yet appearing in the Cortellis drugs endpoint:*\n\n"
         )
         body_parts.append("| Program | Org | Mechanism | Added |\n|---|---|---|---|\n")
-        for p in dd_preclinical[:20]:
+        for p in dd_preclinical:
             body_parts.append(
                 f"| {p.get('name', '-')} | {p.get('org', '-')} "
                 f"| {p.get('mechanism', '-') or '-'} | {p.get('added_date', '-')} |\n"
@@ -728,6 +709,12 @@ def compile_indication_article(landscape_dir, indication_name, slug, base_dir=No
     if strategic_md:
         body_parts.append(_embed_md("## Strategic Briefing", strategic_md))
 
+    # Subscriber research attention (from enrich_pendo_landscape.py) — no IDs, no source attribution
+    pendo_landscape_md = read_md_safe(os.path.join(landscape_dir, "pendo_landscape.md"))
+    if pendo_landscape_md:
+        body_parts.append(pendo_landscape_md)
+        body_parts.append("\n")
+
     # Data Sources
     body_parts.append("## Data Sources\n\n")
     body_parts.append(f"- **Source directory:** `{landscape_dir}`\n")
@@ -751,7 +738,7 @@ def compile_company_articles(landscape_dir, indication_name, indication_slug, ba
     now = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
     compiled_companies = []
 
-    for r in scores[:20]:  # Top 20 companies get articles
+    for r in scores:
         company_name = r.get("company", "")
         if not company_name:
             continue
@@ -762,11 +749,17 @@ def compile_company_articles(landscape_dir, indication_name, indication_slug, ba
         try:
             from cli_anything.cortellis.skills.pipeline.recipes.resolve_company import (
                 resolve as _rc_resolve, get_name as _rc_get_name,
+                names_match as _rc_names_match,
             )
             _pid, _, _method = _rc_resolve(company_name)
             if _pid and _method != "best-effort":
                 _cname = _rc_get_name(_pid)
-                if _cname:
+                # Only adopt the canonical name when it actually matches the
+                # display name. The resolver's broad/best-effort strategies can
+                # return the highest-active company among loose search hits with
+                # no name guard (e.g. "Beta Bio" → "LamKap Bio beta AG"), which
+                # would silently merge unrelated companies. Reject those.
+                if _cname and _rc_names_match(company_name, _cname):
                     company_name = _cname
         except Exception:
             pass  # fall back to display name

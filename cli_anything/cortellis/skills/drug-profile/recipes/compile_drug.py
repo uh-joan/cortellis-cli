@@ -747,6 +747,12 @@ def compile_drug_article(drug_dir, drug_name, slug, base_dir=None):
         body_parts.append(biorxiv_md)
         body_parts.append("\n")
 
+    # Subscriber research attention (from enrich_pendo.py) — no IDs, no source attribution
+    pendo_md = read_md_safe(os.path.join(drug_dir, "pendo_summary.md"))
+    if pendo_md:
+        body_parts.append(pendo_md)
+        body_parts.append("\n")
+
     # Data Sources
     body_parts.append("## Data Sources\n\n")
     body_parts.append(f"- **Source directory:** `{drug_dir}`\n")

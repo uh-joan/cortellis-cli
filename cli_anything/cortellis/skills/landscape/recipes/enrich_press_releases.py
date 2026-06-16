@@ -46,19 +46,26 @@ def get_top_company_names(landscape_dir, max_companies=10):
     return names
 
 
-def search_press_releases_for_company(company_name, client, max_hits=5):
-    """Search press releases for a company by name.
+def search_press_releases_for_company(company_name, client, max_hits=5, indication_name=None):
+    """Search press releases for a company, optionally filtered by indication.
 
+    Appends indication_name to the query so only indication-relevant results
+    are returned (e.g. "Eli Lilly AND obesity" instead of all Lilly PRs).
     Returns list of raw record dicts from the API response.
     Sleeps 2s after the API call.
     """
+    query = f'"{company_name}" AND {indication_name}' if indication_name else company_name
     records = []
     try:
-        result = press_releases.search(client, query=company_name, hits=max_hits)
+        result = press_releases.search(client, query=query, hits=max_hits)
         if result:
             if isinstance(result, dict):
+                # Primary path: pressReleaseResultsOutput.SearchResults.PressRelease
                 hits = (
-                    result.get("pressReleaseList", {}).get("pressRelease", [])
+                    result.get("pressReleaseResultsOutput", {})
+                           .get("SearchResults", {})
+                           .get("PressRelease")
+                    or result.get("pressReleaseList", {}).get("pressRelease", [])
                     or result.get("hits", [])
                     or result.get("results", [])
                     or []
@@ -68,8 +75,9 @@ def search_press_releases_for_company(company_name, client, max_hits=5):
             else:
                 hits = []
 
-            if not isinstance(hits, list):
-                hits = [hits] if hits else []
+            # API returns a dict (not list) when there is exactly one result
+            if isinstance(hits, dict):
+                hits = [hits]
 
             records = [h for h in hits if isinstance(h, dict)]
     except Exception as exc:
@@ -89,21 +97,25 @@ def extract_press_release(record):
         return {}
 
     title = str(
-        record.get("title") or record.get("headline") or record.get("name") or ""
+        record.get("@title") or record.get("title") or record.get("headline") or record.get("name") or ""
     ).strip()
 
     date = str(
-        record.get("date") or record.get("publishDate") or
+        record.get("PublicationDate") or record.get("date") or record.get("publishDate") or
         record.get("pubDate") or record.get("releaseDate") or ""
     ).strip()
-    # Trim to YYYY-MM if longer
-    if len(date) > 7 and "-" in date:
+    # Trim to YYYY-MM-DD (API returns ISO: "2025-12-18T00:00:00Z")
+    if len(date) > 10:
+        date = date[:10]
+    elif len(date) > 7 and "-" in date:
         date = date[:7]
 
+    import re as _re
     summary_raw = str(
-        record.get("summary") or record.get("snippet") or
+        record.get("Teaser") or record.get("summary") or record.get("snippet") or
         record.get("abstract") or record.get("body") or ""
     ).strip()
+    summary_raw = _re.sub(r"<[^>]+>", "", summary_raw).strip()  # strip HTML tags
     summary = summary_raw[:200] + ("..." if len(summary_raw) > 200 else "")
 
     return {
@@ -213,7 +225,7 @@ def main():
     companies_without_releases = 0
 
     for company_name in company_names:
-        records = search_press_releases_for_company(company_name, client)
+        records = search_press_releases_for_company(company_name, client, indication_name=indication_name)
         if records:
             companies_with_releases += 1
             for rec in records:

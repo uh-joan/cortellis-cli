@@ -15,14 +15,14 @@ deals = sr.get("Deal", [])
 if isinstance(deals, dict): deals = [deals]
 
 writer = csv.writer(sys.stdout)
-writer.writerow(["title", "id", "principal", "partner", "type", "date"])
+writer.writerow(["description", "id", "principal", "partner", "type", "date"])
 
 for d in deals:
-    title = d.get("Title", "")[:100]
+    description = d.get("Title", "")[:120]
     did = d.get("@id", "")
     principal = d.get("CompanyPrincipal", "")
     partner = d.get("CompanyPartner", "")
     dtype = d.get("Type", "")
     date = d.get("StartDate", d.get("MostRecentEventDate", ""))
     if isinstance(date, str): date = date[:10]
-    writer.writerow([title, did, principal, partner, dtype, date])
+    writer.writerow([description, did, principal, partner, dtype, date])

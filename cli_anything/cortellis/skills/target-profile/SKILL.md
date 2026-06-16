@@ -160,13 +160,15 @@ optional enrichment step that returned empty for this target class), update the
 optimization if it would generalize to future runs — not for one-off anomalies.
 
 ## Learned Optimizations
-<!-- Auto-updated by post-run review. Confirmed across real runs: glp-1-receptor, glucagon-like-peptide-1-receptor, gastric-inhibitory-polypeptide-receptor, fibroblast-growth-factor-21, glp-1. -->
+<!-- Auto-updated by post-run review. Confirmed across real runs: glp-1-receptor, glucagon-like-peptide-1-receptor, gastric-inhibitory-polypeptide-receptor, fibroblast-growth-factor-21, glp-1, gdf-8. -->
 
 - **`patents.json` + `references.json` empty for receptor/ligand targets** — the targets patents and references APIs return empty for all tested GPCR/ligand targets (GLP-1 receptor, GIP receptor, FGF-21, GLP-1). Likely subscription-gated or sparsely populated. Fetch but expect empty; do not surface as a gap in the report.
 - **`briefings.json` empty for most targets** — disease briefings returns empty for 4/5 tested targets. Only worth running if the target has a well-known disease briefing (e.g. specific disease targets, not receptor classes). Treat as best-effort.
 - **`literature.json` sparse for receptor targets** — returns empty for 3/4 tested targets via the targets references API. Use `opentargets.json` and `chembl_target.json` as primary evidence for target-disease and binding data instead.
 - **`pharmacology.json` sparse (161B) for some targets** — drug-design pharmacology endpoint returns minimal data for targets without substantial SI coverage. Expected for GPCR/receptor classes; not a gap.
 - **`interactions.json` sparse (176B) for some targets** — amylin receptor and similar peptide hormone receptors have few documented protein-protein interactions. Expected; do not flag as a gap.
+- **`cpic_gene.json` empty for non-PK targets** — CPIC pharmacogenomics data is only relevant for pharmacokinetic genes (CYP2D6, CYP2C9, VKORC1, etc.). Returns empty for secreted ligands and growth factors (confirmed: GDF8/myostatin). Fetch but expect empty; skip section silently.
+- **`drugs_pipeline.json` sparse when action name is "agonist" for inhibitory targets** — the action name resolver may return an agonist action (e.g. "GDF-8 agonist") for targets whose pipeline is dominated by antagonists/inhibitors. The agonist query returns near-empty results (~77b). Consider this expected for secreted inhibitory cytokines and growth factors where therapeutic interest is suppression, not activation.
 
 ## Execution Rules
 

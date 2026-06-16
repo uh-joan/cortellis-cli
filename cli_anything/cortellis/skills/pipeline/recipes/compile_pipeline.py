@@ -221,7 +221,9 @@ def compile_pipeline_article(pipeline_dir, company_name, slug, base_dir=None):
         for deal in deals_rows:
             deal_type = deal.get("deal_type") or deal.get("type") or deal.get("activity_type") or "-"
             deal_date = deal.get("date") or deal.get("deal_date") or deal.get("year") or "-"
-            details = deal.get("description") or deal.get("drug_name") or deal.get("drug") or "-"
+            details_base = deal.get("description") or deal.get("title") or deal.get("drug_name") or deal.get("drug") or "-"
+            partner = deal.get("partner") or ""
+            details = f"{details_base} ({partner})" if partner and details_base != "-" else details_base
             body_parts.append(f"| {deal_type} | {deal_date} | {details} |\n")
         body_parts.append("\n")
 
@@ -247,6 +249,18 @@ def compile_pipeline_article(pipeline_dir, company_name, slug, base_dir=None):
     biorxiv_pipeline_md = read_md_safe(os.path.join(pipeline_dir, "biorxiv_pipeline.md"))
     if biorxiv_pipeline_md:
         body_parts.append(biorxiv_pipeline_md)
+        body_parts.append("\n")
+
+    # Subscriber drug watchlist (from enrich_pendo_pipeline.py) — no IDs, no source attribution
+    pendo_watchlist_md = read_md_safe(os.path.join(pipeline_dir, "pendo_watchlist.md"))
+    if pendo_watchlist_md:
+        body_parts.append(pendo_watchlist_md)
+        body_parts.append("\n")
+
+    # Investment profile (from enrich_financials.py)
+    financials_md = read_md_safe(os.path.join(pipeline_dir, "financials_summary.md"))
+    if financials_md:
+        body_parts.append(financials_md)
         body_parts.append("\n")
 
     # Data Sources

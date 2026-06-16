@@ -164,6 +164,13 @@ python3 $RECIPES/enrich_biorxiv.py $DIR "$DRUG_NAME_RESOLVED"
 Searches bioRxiv and medRxiv via EuropePMC for preprints in the last 2 years (no auth required).
 Writes: `biorxiv.json`, `biorxiv_summary.md`. Especially useful for pipeline drugs with limited peer-reviewed literature.
 
+### Step 8i: Subscriber research engagement (external)
+```bash
+python3 $RECIPES/enrich_pendo.py $DIR "$DRUG_ID" "$DRUG_NAME_RESOLVED"
+```
+Fetches 7-day research attention: daily view trend, rank among all drugs, top organizations watching this drug. Compares current week vs prior week for momentum signal. Requires `PENDO_INTEGRATION_KEY` in `.env` — skips gracefully if not set.
+Writes: `pendo_attention.json` (raw, includes IDs), `pendo_summary.md` (wiki-safe: no IDs, no source attribution).
+
 ### Step 9: Drug Design (SI) enrichment (for early-stage drugs)
 If the drug is Phase 1 or Preclinical:
 ```bash
@@ -194,11 +201,13 @@ optimization if it would generalize to future runs of similar inputs — not for
 one-off anomalies. If unsure, skip.
 
 ## Learned Optimizations
-<!-- Auto-updated by post-run review. Confirmed across real runs: metformin, semaglutide, tirzepatide, cagrilintide, amycretin. -->
+<!-- Auto-updated by post-run review. Confirmed across real runs: metformin, semaglutide, tirzepatide, cagrilintide, amycretin, celastrol. -->
 
+- **`pendo_attention.json` + `pendo_summary.md` empty when PENDO_INTEGRATION_KEY not set** — script exits cleanly with a skip message; no files written. Not a gap; expected in environments without the key configured.
+- **`pendo_summary.md` shows 0 views for very early-stage / research-only drugs** — drugs not yet attracting subscriber attention will have weekly_total=0 and rank at the tail of the list. Write the section but note "no activity recorded" rather than omitting entirely — absence of interest is itself signal.
 - **`cpic.json` sparse for most drugs** — only ~5% of drugs have CPIC pharmacogenomics data (metformin, warfarin, clopidogrel class). Skip Step 8h for biologics and peptides; only run for small molecules with known CYP/transporter interactions.
 - **`literature.json` consistently blank** — the Cortellis literature search endpoint returns empty for all 5 tested drugs despite real literature existing. Use `ct_trials.json` and `biorxiv.json` as primary publication evidence instead.
-- **`chembl.json` sparse for peptides/biologics** — returns empty for tirzepatide, amycretin, cagrilintide. Populated for small molecules (metformin) and some approved peptides (semaglutide). Worth running for small molecules; low yield for large molecules.
+- **`chembl.json` sparse for peptides/biologics** — returns empty for tirzepatide, amycretin, cagrilintide. Populated for small molecules (metformin) and some approved peptides (semaglutide). Worth running for small molecules; low yield for large molecules. For alphanumeric research codes (e.g. NBIP-1968, LY-XXXXXXX), ChEMBL returns HTTP 500 and writes no file at all — post-run reviewer will list these as "NOT RUN". Expected; not a gap. For very early Phase 1 small molecules (e.g. ENT-03), ChEMBL may find a CHEMBL ID but return 0 mechanism and 0 indication records — the entry exists but annotation is incomplete. Report the ChEMBL ID as confirmed; note mechanism/indication as not yet annotated.
 - **`ema_referrals.json` + `ema_shortages.json` + `fda_shortages.json` blank for most drugs** — regulatory edge cases with very low base rate. Fetch but expect empty; do not flag as errors.
 - **`literature_summary.csv` + `recent_publications.md` sparse when `literature.json` is blank** — these are derived output files; 55B/121B is expected when the literature endpoint returns no results. Not a data gap.
 - **`cpic_summary.md` sparse (90B) when `cpic.json` is sparse** — derived summary; 90B is expected when CPIC returns minimal data. Not a gap.
@@ -211,6 +220,10 @@ one-off anomalies. If unsure, skip.
 - **`biorxiv_summary.md` sparse (73B) when `biorxiv.json` is sparse** — derived output; expected when bioRxiv search returns minimal preprints. Same pattern as `literature_summary.csv`.
 - **FDA enrichment returns empty for combination drugs stored as INN names** — `naltrexone-bupropion`, `phentermine-topiramate` and similar combo INNs fail FDA API matching because the FDA uses brand names (Contrave, Qsymia). `fda_approvals.json`, `fda_labels.json`, `fda_recalls.json` all empty. Use brand name in `enrich_fda_approval.py` call if available.
 - **`fda_summary.md` sparse (147–198B) for some launched drugs** — even approved drugs can produce minimal fda_summary when FDA records are limited (older approvals). Not a gap; supplement with `fda_approvals.json` directly.
+- **`ct_trials.json` can return false-match trials for short/common drug names** — ClinicalTrials.gov full-text search may match unrelated drugs with overlapping text (e.g. "celastrol" search returned a telitacicept/lupus trial). Always cross-check NCT ID title and sponsor against the target drug before including in the report; discard trials where the intervention is a different drug.
+- **`biorxiv.json` returns false matches for short alphanumeric drug codes** — EuropePMC full-text search on codes like "ZX-2021" matches papers containing those characters in unrelated contexts (e.g. year references, gene names). All 4 results for ZX-2021 were false matches (CEP55 cancer, CST DNA repair, mpox). Always verify abstract/title relevance before including preprints; discard any result where the drug name does not appear as the study intervention.
+- **`drug_design_search.json` + `drug_design_pharmacology.json` empty for alphanumeric research codes** — Drug Design SI endpoint returned 0 hits for "ly-4086940" (both search-drugs and pharmacology). The Drug Design database does not index drugs by Lilly-style alphanumeric codes (LY-XXXXXXX) or similar early research codes. Step 9 will return empty for any drug that has not yet been assigned an INN or is only known by its research code. Not a data gap; expected for very early Phase 1 compounds.
+- **`pharmacology.json` sparse (0 hits) for GIP/GLP-1 peptide agonists even when `drug_design.json` is populated** — brenipatide (INN assigned, drug_design.json = 11,825b) returned 0 pharmacology records. The Drug Design pharmacology endpoint has low coverage for incretin-class peptides regardless of INN status. Expect 0 hits for GIP/GLP-1 receptor agonists; `drug_design.json` (search-drugs) remains worth running for structural/filter metadata.
 
 ## Execution Rules
 
