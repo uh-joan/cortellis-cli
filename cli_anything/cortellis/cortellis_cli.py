@@ -17,6 +17,7 @@ from dotenv import load_dotenv
 
 from cli_anything.cortellis import __version__
 from cli_anything.cortellis.core.client import CortellisClient
+from cli_anything.cortellis.core.pagination import fetch_all
 from cli_anything.cortellis.utils.output import print_output
 
 _BANNER = """
@@ -131,30 +132,35 @@ def drugs(ctx: click.Context) -> None:
 @click.option("--phase-highest", is_flag=True, default=False,
               help="Use phaseHighest field instead of LINKED phase (matches drugs where this IS the highest phase).")
 @click.option("--return-filter-count", is_flag=True, default=False, help="Return filter counts in the response.")
+@click.option("--all", "fetch_all_pages", is_flag=True, default=False,
+              help="Paginate past the 500-record server cap and return the full result set.")
 @click.pass_context
 def drugs_search(ctx, query, company, indication, action, phase, technology,
                  drug_name, country, offset, hits, sort_by, historic, status_date,
-                 phase_terminated, phase_highest, return_filter_count):
+                 phase_terminated, phase_highest, return_filter_count, fetch_all_pages):
     """Search the drug database."""
-    data = _drugs.search(
-        _client(ctx),
-        query=query,
-        company=company,
-        indication=indication,
-        action=action,
-        phase=phase,
-        technology=technology,
-        drug_name=drug_name,
-        country=country,
-        offset=offset,
-        hits=hits,
-        sort_by=sort_by,
-        historic=historic,
-        status_date=status_date,
-        phase_terminated=phase_terminated,
-        phase_highest=phase_highest,
-        return_filter_count=return_filter_count if return_filter_count else None,
-    )
+    def _page(o, h):
+        return _drugs.search(
+            _client(ctx),
+            query=query,
+            company=company,
+            indication=indication,
+            action=action,
+            phase=phase,
+            technology=technology,
+            drug_name=drug_name,
+            country=country,
+            offset=o,
+            hits=h,
+            sort_by=sort_by,
+            historic=historic,
+            status_date=status_date,
+            phase_terminated=phase_terminated,
+            phase_highest=phase_highest,
+            return_filter_count=return_filter_count if return_filter_count else None,
+        )
+
+    data = fetch_all(_page) if fetch_all_pages else _page(offset, hits)
     print_output(ctx, data)
 
 
@@ -324,25 +330,30 @@ def companies(ctx: click.Context) -> None:
 @click.option("--offset", default=0, show_default=True)
 @click.option("--hits", default=10, show_default=True)
 @click.option("--sort-by", default=None)
+@click.option("--all", "fetch_all_pages", is_flag=True, default=False,
+              help="Paginate past the 500-record server cap and return the full result set.")
 @click.pass_context
 def companies_search(ctx, query, name, country, size, deals_count, indications,
-                     actions, technologies, status, offset, hits, sort_by):
+                     actions, technologies, status, offset, hits, sort_by, fetch_all_pages):
     """Search companies."""
-    data = _companies.search(
-        _client(ctx),
-        query=query,
-        name=name,
-        country=country,
-        size=size,
-        deals_count=deals_count,
-        indications=indications,
-        actions=actions,
-        technologies=technologies,
-        status=status,
-        offset=offset,
-        hits=hits,
-        sort_by=sort_by,
-    )
+    def _page(o, h):
+        return _companies.search(
+            _client(ctx),
+            query=query,
+            name=name,
+            country=country,
+            size=size,
+            deals_count=deals_count,
+            indications=indications,
+            actions=actions,
+            technologies=technologies,
+            status=status,
+            offset=o,
+            hits=h,
+            sort_by=sort_by,
+        )
+
+    data = fetch_all(_page) if fetch_all_pages else _page(offset, hits)
     print_output(ctx, data)
 
 
@@ -371,6 +382,51 @@ def companies_sources(ctx, company_id):
     """Get source documents for a company."""
     data = _companies.sources(_client(ctx), company_id)
     print_output(ctx, data)
+
+
+@companies.command("mechanisms")
+@click.argument("company_id")
+@click.pass_context
+def companies_mechanisms(ctx, company_id):
+    """Derive a company's FULL mechanism footprint from its drug pipeline.
+
+    The companies endpoint only returns the top ~10 Actions/Indications/
+    Technologies as a facet summary, so it silently omits most of a large
+    company's mechanisms. This aggregates the complete set by walking every
+    drug record for the company (paginated past the 500 cap).
+    """
+    client = _client(ctx)
+    data = fetch_all(lambda o, h: _drugs.search(client, company=company_id, offset=o, hits=h))
+    drugs_list = (
+        data.get("drugResultsOutput", {}).get("SearchResults", {}).get("Drug", [])
+    )
+    if isinstance(drugs_list, dict):
+        drugs_list = [drugs_list]
+
+    def _values(container, *keys):
+        for key in keys:
+            block = container.get(key)
+            if isinstance(block, dict):
+                inner = next(iter(block.values()), [])
+                yield from (inner if isinstance(inner, list) else [inner])
+
+    action_counts: dict[str, int] = {}
+    indications: set[str] = set()
+    technologies: set[str] = set()
+    for drug in drugs_list:
+        for action in _values(drug, "ActionsPrimary", "ActionsSecondary"):
+            action_counts[action] = action_counts.get(action, 0) + 1
+        indications.update(_values(drug, "Indications", "IndicationsSecondary"))
+        technologies.update(_values(drug, "Technologies"))
+
+    print_output(ctx, {
+        "company_id": company_id,
+        "derived_from_drug_records": len(drugs_list),
+        "actions": sorted(action_counts),
+        "action_counts": dict(sorted(action_counts.items(), key=lambda kv: (-kv[1], kv[0]))),
+        "indications": sorted(indications),
+        "technologies": sorted(technologies),
+    })
 
 
 # ---------------------------------------------------------------------------
@@ -415,6 +471,8 @@ def deals(ctx: click.Context) -> None:
 @click.option("--min-value-paid-to-partner", default=None)
 @click.option("--total-paid-amount", default=None)
 @click.option("--disclosure-status", default=None)
+@click.option("--all", "fetch_all_pages", is_flag=True, default=False,
+              help="Paginate past the 500-record server cap and return the full result set.")
 @click.pass_context
 def deals_search(ctx, query, drug, indication, deal_type, status, principal,
                  partner, action, date_start, date_end, offset, hits, sort_by,
@@ -423,42 +481,45 @@ def deals_search(ctx, query, drug, indication, deal_type, status, principal,
                  principal_hq, territories_included, territories_excluded,
                  date_most_recent, max_value_paid_to_partner,
                  total_projected_current_amount, min_value_paid_to_partner,
-                 total_paid_amount, disclosure_status):
+                 total_paid_amount, disclosure_status, fetch_all_pages):
     """Search deals."""
-    data = _deals.search(
-        _client(ctx),
-        query=query,
-        drug=drug,
-        indication=indication,
-        deal_type=deal_type,
-        status=status,
-        principal=principal,
-        partner=partner,
-        action=action,
-        date_start=date_start,
-        date_end=date_end,
-        offset=offset,
-        hits=hits,
-        sort_by=sort_by,
-        indication_partner_company=indication_partner_company,
-        phase_start=phase_start,
-        phase_now=phase_now,
-        deal_status=deal_status,
-        summary=summary,
-        title_summary=title_summary,
-        technology=technology,
-        title=title,
-        actions_primary=actions_primary,
-        principal_hq=principal_hq,
-        territories_included=territories_included,
-        territories_excluded=territories_excluded,
-        date_most_recent=date_most_recent,
-        max_value_paid_to_partner=max_value_paid_to_partner,
-        total_projected_current_amount=total_projected_current_amount,
-        min_value_paid_to_partner=min_value_paid_to_partner,
-        total_paid_amount=total_paid_amount,
-        disclosure_status=disclosure_status,
-    )
+    def _page(o, h):
+        return _deals.search(
+            _client(ctx),
+            query=query,
+            drug=drug,
+            indication=indication,
+            deal_type=deal_type,
+            status=status,
+            principal=principal,
+            partner=partner,
+            action=action,
+            date_start=date_start,
+            date_end=date_end,
+            offset=o,
+            hits=h,
+            sort_by=sort_by,
+            indication_partner_company=indication_partner_company,
+            phase_start=phase_start,
+            phase_now=phase_now,
+            deal_status=deal_status,
+            summary=summary,
+            title_summary=title_summary,
+            technology=technology,
+            title=title,
+            actions_primary=actions_primary,
+            principal_hq=principal_hq,
+            territories_included=territories_included,
+            territories_excluded=territories_excluded,
+            date_most_recent=date_most_recent,
+            max_value_paid_to_partner=max_value_paid_to_partner,
+            total_projected_current_amount=total_projected_current_amount,
+            min_value_paid_to_partner=min_value_paid_to_partner,
+            total_paid_amount=total_paid_amount,
+            disclosure_status=disclosure_status,
+        )
+
+    data = fetch_all(_page) if fetch_all_pages else _page(offset, hits)
     print_output(ctx, data)
 
 
