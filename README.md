@@ -133,12 +133,13 @@ Chat with your compiled wiki, run queries, and explore the knowledge graph — n
 
 ## See It In Action
 
-Start the CLI with Claude Code (default), OpenAI Codex, or Pi:
+Start the CLI with Claude Code (default), OpenAI Codex, Pi, or GitHub Copilot:
 
 ```bash
 cortellis                        # Claude Code (default)
 cortellis --engine codex         # OpenAI Codex
 cortellis --engine pi            # Pi coding agent
+cortellis --engine copilot       # GitHub Copilot CLI
 ```
 
 The SessionStart hook injects compiled wiki context — the AI already knows your landscapes, signals, and previous insights.
@@ -201,4 +202,5 @@ Accumulated session insights — key findings, scenarios, implications from past
   - **[Claude Code](https://docs.anthropic.com/en/docs/claude-code)** — `npm install -g @anthropic-ai/claude-code` + `claude login`
   - **[OpenAI Codex](https://github.com/openai/codex)** — `npm install -g @openai/codex` + `codex login --device-auth` (ChatGPT Plus/Pro subscription)
   - **[Pi](https://github.com/badlogic/pi-mono)** — `npm install -g @mariozechner/pi-coding-agent` + `pi /log` (configure any LLM provider)
+  - **[GitHub Copilot CLI](https://docs.github.com/copilot/concepts/agents/about-copilot-cli)** — `npm install -g @github/copilot` + `gh auth login` (or set `COPILOT_GITHUB_TOKEN` to a fine-grained PAT with the *Copilot Requests* permission; classic `ghp_` PATs are not supported). Requires an active Copilot subscription.
 - **[Obsidian](https://obsidian.md)** *(optional)* — for wiki graph view and visual navigation

@@ -299,6 +299,61 @@ def stream_chat_turn(conv_id: str, question: str, workspace_path: str, engine: s
             db.add_message(conv_id, "assistant", text)
         return
 
+    elif engine == "copilot":
+        ai_bin = shutil.which("copilot")
+        if not ai_bin:
+            yield f"data: {json.dumps({'type': 'error', 'text': 'copilot CLI not found. Install: npm install -g @github/copilot'})}\n\n"
+            return
+
+        full_message = f"{effective_prompt}\n\n{routed_question}"
+
+        # Copilot CLI has no --append-system-prompt or structured output: prepend the
+        # context to the -p message and capture clean stdout via -s. --no-ask-user keeps
+        # one-shot turns from blocking; --allow-all-tools enables headless shell calls.
+        cmd = [
+            ai_bin, "-p", full_message, "-s", "--no-ask-user",
+            "--allow-all-tools",
+            "--deny-tool=shell(rm)", "--deny-tool=shell(git push)",
+        ]
+
+        try:
+            proc = subprocess.Popen(
+                cmd,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.STDOUT,
+                stdin=subprocess.DEVNULL,
+                cwd=workspace_path,
+            )
+        except Exception as e:
+            yield f"data: {json.dumps({'type': 'error', 'text': str(e)})}\n\n"
+            return
+
+        lines = []
+        timer = threading.Timer(_MAX_CHAT_SECONDS, proc.kill)
+        timer.start()
+        try:
+            for line in iter(proc.stdout.readline, b""):
+                decoded = line.decode("utf-8", errors="replace").rstrip("\n")
+                lines.append(decoded)
+                stripped = decoded.strip()
+                if not stripped:
+                    continue
+                status = translate_command(stripped)
+                if status:
+                    yield f"data: {json.dumps({'type': 'tool_call', 'status': status, 'command': stripped})}\n\n"
+        finally:
+            timer.cancel()
+
+        proc.wait()
+
+        text = "\n".join(lines).strip()
+        yield f"data: {json.dumps({'type': 'result', 'text': text})}\n\n"
+        yield f"data: {json.dumps({'type': 'done'})}\n\n"
+
+        if text:
+            db.add_message(conv_id, "assistant", text)
+        return
+
     else:
         # Claude branch (default)
         ai_bin = shutil.which("claude")
