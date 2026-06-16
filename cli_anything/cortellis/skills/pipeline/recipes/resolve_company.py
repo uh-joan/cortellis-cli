@@ -47,6 +47,8 @@ def get_name(cid):
 def best_from_search(comps, query_name=""):
     if isinstance(comps, dict):
         comps = [comps]
+    if not comps:
+        return "", 0
     if query_name:
         nq = normalize(query_name)
         # Exact normalized match: return immediately
@@ -58,6 +60,10 @@ def best_from_search(comps, query_name=""):
         if matches:
             best = max(matches, key=lambda c: int(c.get("Drugs", {}).get("@activeDevelopment", "0")))
             return best["@id"], int(best.get("Drugs", {}).get("@activeDevelopment", "0"))
+        # No name match — do NOT fall through to the highest-active company among
+        # all hits. That would merge distinct entities (e.g. "Beta Bio" →
+        # "LamKap Bio beta AG"). Signal "no confident match" instead.
+        return "", 0
     best = max(comps, key=lambda c: int(c.get("Drugs", {}).get("@activeDevelopment", "0")))
     return best["@id"], int(best.get("Drugs", {}).get("@activeDevelopment", "0"))
 
@@ -110,7 +116,7 @@ def resolve(name):
 
     parents = [
         n for n in nodes
-        if n.get("@depth") == "1" and names_match(name, n.get("@name", ""))
+        if isinstance(n, dict) and n.get("@depth") == "1" and names_match(name, n.get("@name", ""))
     ]
     if parents:
         best_pid, best_active = "", 0
