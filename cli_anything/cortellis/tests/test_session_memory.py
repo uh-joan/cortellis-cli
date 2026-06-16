@@ -31,6 +31,20 @@ def make_csv(path: str, rows=None):
             writer.writerow(row)
 
 
+def make_landscape_marker(dir_path):
+    """Write the freshness.json landscape marker that get_raw_dirs requires.
+
+    get_raw_dirs only treats a top-level raw/<slug>/ dir as an indication
+    landscape when it carries one of these markers (freshness.json with a
+    landscape_dir key, narrate_context.json, or audit_trail.json) — this is
+    how it distinguishes indication dirs from company pipeline dirs that share
+    the same CSV layout. Bare-CSV fixtures are otherwise filtered out.
+    """
+    import json as _json
+    with open(os.path.join(str(dir_path), "freshness.json"), "w") as f:
+        _json.dump({"landscape_dir": str(dir_path), "staleness_level": "ok"}, f)
+
+
 def make_landscape_dir(dir_path):
     """Create a minimal landscape directory that compile_dossier will accept."""
     os.makedirs(dir_path, exist_ok=True)
@@ -78,6 +92,7 @@ class TestGetRawDirs:
         obesity_dir = tmp_path / "raw" / "obesity"
         obesity_dir.mkdir(parents=True)
         make_csv(str(obesity_dir / "strategic_scores.csv"))
+        make_landscape_marker(obesity_dir)
 
         # Create raw/empty/ without any .csv
         empty_dir = tmp_path / "raw" / "empty"
@@ -100,6 +115,7 @@ class TestGetRawDirs:
             d.mkdir(parents=True)
             if name != "beta":
                 make_csv(str(d / "data.csv"))
+                make_landscape_marker(d)
 
         result = get_raw_dirs(str(tmp_path))
         names = {os.path.basename(p) for p in result}
@@ -148,6 +164,7 @@ class TestGetStaleIndications:
         obesity_dir = tmp_path / "raw" / "obesity"
         obesity_dir.mkdir(parents=True)
         make_csv(str(obesity_dir / "strategic_scores.csv"))
+        make_landscape_marker(obesity_dir)
 
         result = get_stale_indications(str(tmp_path))
         assert len(result) == 1
@@ -161,6 +178,7 @@ class TestGetStaleIndications:
         obesity_dir = tmp_path / "raw" / "obesity"
         obesity_dir.mkdir(parents=True)
         make_csv(str(obesity_dir / "strategic_scores.csv"))
+        make_landscape_marker(obesity_dir)
 
         # Marker compiled one hour in the future relative to now
         future_iso = (
@@ -175,6 +193,9 @@ class TestGetStaleIndications:
         # raw/obesity/ exists, marker written before the raw files were modified
         obesity_dir = tmp_path / "raw" / "obesity"
         obesity_dir.mkdir(parents=True)
+        # Landscape marker first so it isn't the newest file — the CSV below
+        # must remain the newest to drive the staleness comparison.
+        make_landscape_marker(obesity_dir)
 
         # Write marker with an old timestamp
         past_iso = "2020-01-01T00:00:00Z"
@@ -195,6 +216,7 @@ class TestGetStaleIndications:
             d = tmp_path / "raw" / slug
             d.mkdir(parents=True)
             make_csv(str(d / "strategic_scores.csv"))
+            make_landscape_marker(d)
 
         # diabetes has a future marker
         future_iso = (
@@ -232,6 +254,7 @@ class TestFlushSessionMemory:
         obesity_dir = tmp_path / "raw" / "obesity"
         obesity_dir.mkdir(parents=True)
         make_csv(str(obesity_dir / "strategic_scores.csv"))
+        make_landscape_marker(obesity_dir)
 
         future_iso = (
             datetime.now(timezone.utc) + timedelta(hours=1)
