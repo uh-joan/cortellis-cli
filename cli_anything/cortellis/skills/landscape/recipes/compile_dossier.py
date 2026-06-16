@@ -696,11 +696,17 @@ def compile_company_articles(landscape_dir, indication_name, indication_slug, ba
         try:
             from cli_anything.cortellis.skills.pipeline.recipes.resolve_company import (
                 resolve as _rc_resolve, get_name as _rc_get_name,
+                names_match as _rc_names_match,
             )
             _pid, _, _ = _rc_resolve(company_name)
             if _pid:
                 _cname = _rc_get_name(_pid)
-                if _cname:
+                # Only adopt the canonical name when it actually matches the
+                # display name. The resolver's broad/best-effort strategies can
+                # return the highest-active company among loose search hits with
+                # no name guard (e.g. "Beta Bio" → "LamKap Bio beta AG"), which
+                # would silently merge unrelated companies. Reject those.
+                if _cname and _rc_names_match(company_name, _cname):
                     company_name = _cname
         except Exception:
             pass  # fall back to display name
