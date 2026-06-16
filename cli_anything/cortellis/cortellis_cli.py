@@ -1833,6 +1833,8 @@ def setup_cmd() -> None:
     click.echo("  Quick start:")
     click.echo("    cortellis                            # AI chat (Claude Code)")
     click.echo("    cortellis --engine codex             # AI chat (OpenAI Codex)")
+    click.echo("    cortellis --engine pi                # AI chat (Pi coding agent)")
+    click.echo("    cortellis --engine lmstudio          # AI chat (local LM Studio)")
     click.echo("    cortellis --engine copilot           # AI chat (GitHub Copilot)")
     click.echo("    cortellis web                        # browser UI at localhost:7337")
     click.echo()

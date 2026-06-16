@@ -77,7 +77,7 @@ Drugs, companies, deals, trials, regulatory, targets, drug design, ontology, ana
 
 ### 2. Skills — Multi-Step Analysis Workflows
 
-Slash commands that orchestrate full analytical pipelines — works with [Claude Code](https://docs.anthropic.com/en/docs/claude-code), [OpenAI Codex](https://github.com/openai/codex), or [Pi](https://github.com/badlogic/pi-mono):
+Slash commands that orchestrate full analytical pipelines — works with [Claude Code](https://docs.anthropic.com/en/docs/claude-code), [OpenAI Codex](https://github.com/openai/codex), [Pi](https://github.com/badlogic/pi-mono), a local [LM Studio](https://lmstudio.ai) server, or the [GitHub Copilot CLI](https://docs.github.com/copilot/concepts/agents/about-copilot-cli):
 
 | Command | What it does |
 |---------|-------------|
@@ -133,12 +133,13 @@ Chat with your compiled wiki, run queries, and explore the knowledge graph — n
 
 ## See It In Action
 
-Start the CLI with Claude Code (default), OpenAI Codex, Pi, or GitHub Copilot:
+Start the CLI with Claude Code (default), OpenAI Codex, Pi, LM Studio, or GitHub Copilot:
 
 ```bash
 cortellis                        # Claude Code (default)
 cortellis --engine codex         # OpenAI Codex
 cortellis --engine pi            # Pi coding agent
+cortellis --engine lmstudio      # local LM Studio server
 cortellis --engine copilot       # GitHub Copilot CLI
 ```
 
@@ -202,5 +203,6 @@ Accumulated session insights — key findings, scenarios, implications from past
   - **[Claude Code](https://docs.anthropic.com/en/docs/claude-code)** — `npm install -g @anthropic-ai/claude-code` + `claude login`
   - **[OpenAI Codex](https://github.com/openai/codex)** — `npm install -g @openai/codex` + `codex login --device-auth` (ChatGPT Plus/Pro subscription)
   - **[Pi](https://github.com/badlogic/pi-mono)** — `npm install -g @mariozechner/pi-coding-agent` + `pi /log` (configure any LLM provider)
+  - **[LM Studio](https://lmstudio.ai)** — run a local model server, then point at it with `LMSTUDIO_URL` (default `http://127.0.0.1:1234`) and optional `LMSTUDIO_MODEL`. Fully local, no API key.
   - **[GitHub Copilot CLI](https://docs.github.com/copilot/concepts/agents/about-copilot-cli)** — `npm install -g @github/copilot` + `gh auth login` (or set `COPILOT_GITHUB_TOKEN` to a fine-grained PAT with the *Copilot Requests* permission; classic `ghp_` PATs are not supported). Requires an active Copilot subscription.
 - **[Obsidian](https://obsidian.md)** *(optional)* — for wiki graph view and visual navigation
