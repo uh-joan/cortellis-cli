@@ -74,11 +74,13 @@ def bar_chart(data, title, max_width=40, char="█"):
 
 
 def drug_table(rows, phase_name):
-    """Generate markdown table from CSV rows."""
+    """Generate markdown table from CSV rows.
+
+    Every row is rendered; fetch_phase.sh paginates past the 50-hit API page so
+    the CSV is already complete. No truncation flag — the list is exhaustive.
+    """
     count = len(rows)
-    truncated = count >= 50
-    warning = " ⚠️ TRUNCATED (50 limit)" if truncated else ""
-    lines = [f"## {phase_name} ({count}){warning}", ""]
+    lines = [f"## {phase_name} ({count})", ""]
     lines.append("| Drug | Indication | Mechanism |")
     lines.append("|------|-----------|-----------|")
     for row in rows:
@@ -172,8 +174,7 @@ print()
 print("| Phase | Count |")
 print("|-------|-------|")
 for phase, count in phase_data:
-    flag = " ⚠️" if count >= 50 else ""
-    print(f"| {phase} | {count}{flag} |")
+    print(f"| {phase} | {count} |")
 total = sum(c for _, c in phase_data)
 print(f"| **Total** | **{total}** |")
 print()
