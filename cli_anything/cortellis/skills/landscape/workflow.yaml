@@ -318,3 +318,6 @@ nodes:
     model: opus
     review_gate: true
     fs_exclusive: true
+    # Largest indications (~870 drugs) need headroom over the 600s default;
+    # the company-slug index cache should keep this well under, but allow margin.
+    timeout: 1200
