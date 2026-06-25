@@ -31,6 +31,33 @@ def read_csv(filename):
         return list(csv.DictReader(f))
 
 
+def read_csv_merged(merged_filename, *component_filenames):
+    """Read a pre-merged CSV, or fall back to merging its components on the fly.
+
+    The harness produces <phase>_merged.csv via a merge node, but if that node
+    was skipped or filenames drift, fall back to merging the raw CI/SI component
+    files in-memory — deduplicating by name (first file wins), matching
+    merge_dedup.py — so phase counts never silently read as 0.
+    """
+    rows = read_csv(merged_filename)
+    if rows:
+        return rows
+    merged, seen = [], set()
+    for fname in component_filenames:
+        for row in read_csv(fname):
+            key = (row.get("name") or "").lower().split(",")[0].strip()
+            if key and key not in seen:
+                seen.add(key)
+                merged.append(row)
+    if merged:
+        print(
+            f"WARN: {merged_filename} missing — merged {len(merged)} rows from "
+            f"{', '.join(component_filenames)} as fallback",
+            file=sys.stderr,
+        )
+    return merged
+
+
 def bar_chart(data, title, max_width=40, char="█"):
     """Generate ASCII bar chart from list of (label, value) tuples."""
     if not data:
@@ -103,8 +130,8 @@ def trials_summary(rows):
 launched = read_csv("launched.csv")
 phase3 = read_csv("phase3.csv")
 phase2 = read_csv("phase2.csv")
-phase1 = read_csv("phase1_merged.csv")
-preclinical = read_csv("preclinical_merged.csv")
+phase1 = read_csv_merged("phase1_merged.csv", "phase1_ci.csv", "phase1_si.csv")
+preclinical = read_csv_merged("preclinical_merged.csv", "discovery_ci.csv", "preclinical_si.csv")
 deals = read_csv("deals.csv")
 trials = read_csv("trials.csv")
 

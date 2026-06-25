@@ -103,6 +103,23 @@ nodes:
     api_calls: true
     fs_exclusive: true
 
+  # ── Step 3b: Merge CI + SI phases into the files the report expects ───────
+  # Phase 1 = CI Phase 1 (C1) + SI Phase I; Preclinical = CI Discovery (DR) +
+  # SI Preclinical. Mirrors the manual merge in SKILL.md so the deterministic
+  # harness produces phase1_merged.csv / preclinical_merged.csv — without this
+  # node report_generator.py reads missing files and reports Phase 1 = 0.
+
+  - id: merge_phases
+    bash: |
+      DIR=raw/pipeline/$resolve.output.company_name
+      R=cli_anything/cortellis/skills/pipeline/recipes
+      python3 $R/merge_dedup.py $DIR/phase1_ci.csv $DIR/phase1_si.csv > $DIR/phase1_merged.csv
+      python3 $R/merge_dedup.py $DIR/discovery_ci.csv $DIR/preclinical_si.csv > $DIR/preclinical_merged.csv
+    depends_on: [catch_missing]
+    trigger_rule: all_done
+    allow_fail: true
+    fs_exclusive: true
+
   # ── Report (opus — synthesis) ─────────────────────────────────────────────
 
   - id: report
@@ -112,7 +129,7 @@ nodes:
         $resolve.output.company_canonical \
         $resolve.output.company_id \
         $resolve.output.active_drugs
-    depends_on: [catch_missing]
+    depends_on: [merge_phases]
     trigger_rule: all_done
     model: opus
 
