@@ -225,6 +225,42 @@ def find_indication_slug_for_disease(disease: str, base_dir: Optional[str] = Non
     return candidate_slug
 
 
+# Per-process cache of parsed company articles, keyed by (dir, mtime). Without
+# it, find_company_slug re-read and re-parsed every company article on each call;
+# compiling a large indication (~870 drugs × ~1,070 companies) meant ~900K file
+# parses and blew past the harness 600s node timeout. The dir mtime in the key
+# invalidates the cache when company articles are added or removed.
+_company_index_cache: dict = {}
+
+
+def _company_index(companies_dir: str) -> list[tuple]:
+    """Return [(slug, normalized_names, title_words)] for every company article.
+
+    Built once per (dir, mtime) so repeated lookups during a compile reuse the
+    parse instead of re-reading the whole companies/ directory each call.
+    """
+    key = (companies_dir, os.path.getmtime(companies_dir))
+    cached = _company_index_cache.get(key)
+    if cached is not None:
+        return cached
+    index = []
+    for fname in os.listdir(companies_dir):
+        if not fname.endswith(".md"):
+            continue
+        existing = read_article(os.path.join(companies_dir, fname))
+        if not existing:
+            continue
+        meta = existing.get("meta", {}) or {}
+        existing_title = meta.get("title", "")
+        all_names = [existing_title] + (meta.get("aliases") or [])
+        norm_names = [normalize_company_name(n).lower() for n in all_names]
+        title_words = normalize_company_name(existing_title).lower().split()
+        index.append((fname[:-3], norm_names, title_words))
+    _company_index_cache.clear()  # only retain the current directory state
+    _company_index_cache[key] = index
+    return index
+
+
 def find_company_slug(company_name: str, base_dir: Optional[str] = None) -> str:
     """Return the canonical wiki slug for a company, reusing existing articles.
 
@@ -244,30 +280,18 @@ def find_company_slug(company_name: str, base_dir: Optional[str] = None) -> str:
     normalized_name = normalize_company_name(company_name).lower()
     normalized_words = normalized_name.split()
 
-    for fname in os.listdir(companies_dir):
-        if not fname.endswith(".md"):
-            continue
-        existing_slug = fname[:-3]
+    for existing_slug, norm_names, title_words in _company_index(companies_dir):
         # Skip if this is exactly the computed slug — we scan for BETTER matches
         if existing_slug == slug:
             continue
-        fpath = os.path.join(companies_dir, fname)
-        existing = read_article(fpath)
-        if not existing:
-            continue
-        meta = existing.get("meta", {}) or {}
-        existing_title = meta.get("title", "")
-        all_names = [existing_title] + (meta.get("aliases") or [])
 
         # Exact match on any alias/title after normalization
-        for name in all_names:
-            if normalize_company_name(name).lower() == normalized_name:
-                return existing_slug
+        if normalized_name in norm_names:
+            return existing_slug
 
         # Word-prefix match: existing title is a leading-word prefix of incoming name
         # e.g. "Regeneron" matches "Regeneron Pharmaceuticals Inc"
-        ex_words = normalize_company_name(existing_title).lower().split()
-        if ex_words and len(ex_words) >= 1 and normalized_words[:len(ex_words)] == ex_words:
+        if title_words and normalized_words[:len(title_words)] == title_words:
             return existing_slug
 
     return slug
